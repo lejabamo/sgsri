@@ -72,6 +72,7 @@ import ActivoDetailCard from '../../components/activos/ActivoDetailCard';
 import DocumentManager from '../../components/common/DocumentManager';
 import type { DocumentoAdjunto, AccionPlan } from '../../services/documentos';
 import { documentosService } from '../../services/documentos';
+import PredictiveSuggestionPanel from '../../components/predictive/PredictiveSuggestionPanel';
 import '../../styles/design-system.css';
 
 interface WizardData {
@@ -1395,6 +1396,42 @@ const RiskAssessmentWizard: React.FC = () => {
                 </Grid>
               </CardContent>
             </Card>
+
+            {/* Panel de Sugerencias Predictivas */}
+            {wizardData.selectedActivo && (
+              <Card className="card" sx={{ mt: 3 }}>
+                <CardContent sx={{ p: 4 }}>
+                  <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', mb: 3 }}>
+                    Sugerencias Predictivas basadas en ISO 27002/27005
+                  </Typography>
+                  <PredictiveSuggestionPanel
+                    assetType={wizardData.selectedActivo.tipo || 'servidor'}
+                    context={`Activo: ${wizardData.selectedActivo.nombre || wizardData.selectedActivo.Nombre || 'Sin nombre'}`}
+                    onSuggestionSelect={(suggestion) => {
+                      console.log('Sugerencia seleccionada:', suggestion);
+                      // Aquí puedes manejar la selección de sugerencias
+                      if (suggestion.type === 'threat') {
+                        setWizardData({
+                          ...wizardData,
+                          newRiesgo: {
+                            ...wizardData.newRiesgo,
+                            amenaza: suggestion.data.nombre
+                          }
+                        });
+                      } else if (suggestion.type === 'vulnerability') {
+                        setWizardData({
+                          ...wizardData,
+                          newRiesgo: {
+                            ...wizardData.newRiesgo,
+                            vulnerabilidad: suggestion.data.nombre
+                          }
+                        });
+                      }
+                    }}
+                  />
+                </CardContent>
+              </Card>
+            )}
           </Box>
         );
 

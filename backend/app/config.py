@@ -29,3 +29,7 @@ class Config:
             'autocommit': True
         }
     }
+    
+    # Configuración para archivos
+    UPLOAD_FOLDER = os.path.join(basedir, 'uploads')
+    MAX_CONTENT_LENGTH = 10 * 1024 * 1024  # 10MB máximo

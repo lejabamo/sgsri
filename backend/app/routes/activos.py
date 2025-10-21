@@ -30,6 +30,49 @@ def get_activos():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@activos_bp.route('/stats', methods=['GET'])
+def get_activos_stats():
+    """Estadísticas normalizadas para KPIs de gestión de activos.
+
+    - en_produccion: estado_activo ∈ {'En produccion','En producción','Producción','Productivo'} (case/tilde insensitive)
+    - alta_criticidad: nivel_criticidad_negocio ∈ {'Crítico','Critico','Muy Alto','Alto'} (case/tilde insensitive)
+    - requieren_backup: requiere_backup = True
+    """
+    try:
+        total = Activo.query.count()
+
+        # Normalización simple en SQL con LOWER/REPLACE para acentos comunes
+        en_produccion = db.session.execute(
+            """
+            SELECT COUNT(*) FROM activos a
+            WHERE LOWER(REPLACE(a.estado_activo, 'ó', 'o')) IN (
+              'en produccion','produccion','productivo'
+            )
+            """
+        ).scalar() or 0
+
+        alta_criticidad = db.session.execute(
+            """
+            SELECT COUNT(*) FROM activos a
+            WHERE LOWER(REPLACE(a.nivel_criticidad_negocio, 'í', 'i')) IN (
+              'critico','muy alto','alto'
+            )
+            """
+        ).scalar() or 0
+
+        requieren_backup = db.session.execute(
+            "SELECT COUNT(*) FROM activos a WHERE a.requiere_backup = 1"
+        ).scalar() or 0
+
+        return jsonify({
+            'total': int(total),
+            'en_produccion': int(en_produccion),
+            'alta_criticidad': int(alta_criticidad),
+            'requieren_backup': int(requieren_backup)
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @activos_bp.route('/<int:activo_id>', methods=['GET'])
 @consultant_required
 def get_activo(activo_id):

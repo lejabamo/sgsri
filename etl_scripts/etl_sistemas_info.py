@@ -40,9 +40,22 @@ SGSI_DB_PASSWORD = os.environ.get('SGSI_MYSQL_PASSWORD')
 SGSI_DB_NAME = os.environ.get('SGSI_MYSQL_DB')
 SGSI_DB_PORT = os.environ.get('SGSI_MYSQL_PORT', '3306')
 
-# Leer CSV
+# Leer CSV con detección simple de separador
 try:
-    df = pd.read_csv(CSV_PATH, encoding='latin1')
+    if not os.path.exists(CSV_PATH):
+        logging.error(f"Archivo CSV no encontrado: {CSV_PATH}")
+        exit(1)
+
+    # Intenta coma y punto y coma
+    try:
+        df = pd.read_csv(CSV_PATH, encoding='latin1')
+    except Exception:
+        df = pd.read_csv(CSV_PATH, encoding='latin1', sep=';')
+
+    # Si solo hay 1 columna y contiene separadores, reintentar con ';'
+    if df.shape[1] == 1 and (';' in str(df.iloc[0, 0])):
+        df = pd.read_csv(CSV_PATH, encoding='latin1', sep=';')
+
     df.columns = df.columns.str.strip()  # Limpia espacios en los encabezados
     logging.info(f"Columnas leídas del CSV: {df.columns.tolist()}")
 except Exception as e:
@@ -79,30 +92,51 @@ else:
 cursor.execute(f"DESCRIBE {TABLE_NAME}")
 db_columns = [row[0] for row in cursor.fetchall()]
 
-# Filtrar solo columnas que existen en la tabla
+# Filtrar solo columnas que existen en la tabla (después de posibles ALTER)
 valid_mappings = {k: v for k, v in EXCEL_TO_DB.items() if v in db_columns}
+
+if not valid_mappings:
+    logging.error(
+        "No hay mapeos válidos entre el CSV y la tabla. "
+        "Verifica que las columnas de destino existan o que el usuario tenga permisos para ALTER TABLE."
+    )
+    cursor.close()
+    conn.close()
+    exit(1)
 
 # Preparar datos para inserción
 insert_rows = []
 for _, row in df.iterrows():
-    insert_row = {db_col: row[excel_col] for excel_col, db_col in valid_mappings.items()}
-    insert_rows.append(insert_row)
+    insert_row = {}
+    for excel_col, db_col in valid_mappings.items():
+        value = row.get(excel_col)
+        if pd.isna(value):
+            value = None
+        insert_row[db_col] = value
+    if insert_row:
+        insert_rows.append(insert_row)
 
 logging.info(f"Filas leídas del Excel: {len(insert_rows)}")
+
+if not insert_rows:
+    logging.error("No hay filas válidas para insertar. Abortando para evitar filas vacías.")
+    cursor.close()
+    conn.close()
+    exit(1)
 
 # Insertar datos
 inserted_count = 0
 for row in insert_rows:
-    cols = ', '.join(row.keys())
-    placeholders = ', '.join(['%s'] * len(row))
-    sql = f"INSERT INTO {TABLE_NAME} ({cols}) VALUES ({placeholders})"
     try:
+        cols = ', '.join(row.keys())
+        placeholders = ', '.join(['%s'] * len(row))
+        sql = f"INSERT INTO {TABLE_NAME} ({cols}) VALUES ({placeholders})"
         cursor.execute(sql, list(row.values()))
-        conn.commit()
         inserted_count += 1
-        logging.info(f"Insertado: {row}")
     except Exception as e:
         logging.error(f"Error insertando {row}: {e}")
+
+conn.commit()
 
 logging.info(f"Filas insertadas correctamente: {inserted_count}")
 

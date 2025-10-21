@@ -5,7 +5,8 @@ Rutas de autenticación y autorización
 from flask import Blueprint, request, jsonify, current_app
 from .. import db
 from .models import UsuarioAuth, Rol, SesionUsuario
-from ..models import UsuarioSistema
+from .. import models as models_module
+UsuarioSistema = models_module.UsuarioSistema
 from datetime import datetime, timedelta
 import re
 

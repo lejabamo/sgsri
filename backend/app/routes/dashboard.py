@@ -1,44 +1,199 @@
 from flask import Blueprint, request, jsonify
 from ..models import db, Activo, Riesgo, Incidente, UsuarioSistema, RiesgoActivo
-from sqlalchemy import func
+from sqlalchemy import func, text
 from datetime import datetime, timedelta
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
 @dashboard_bp.route('/stats', methods=['GET'])
 def get_stats():
-    """Obtener estadísticas para el dashboard"""
+    """Obtener estadísticas para el dashboard
+
+    - Todos los valores provienen de la base de datos
+    - "tendencia" se calcula como el % de variación mes a mes de
+      riesgos creados: (ultimo_mes - mes_anterior) / max(1, mes_anterior) * 100
+    """
     try:
         # Contadores básicos
-        total_activos = Activo.query.count()
+        total_activos_base = Activo.query.count()
         total_usuarios = UsuarioSistema.query.count()
         total_riesgos = Riesgo.query.count()
-        
-        # Usuarios activos (asumiendo que tienen estado)
+
+        # Usuarios activos
         usuarios_activos = UsuarioSistema.query.filter(
             UsuarioSistema.estado_usuario == 'Activo'
         ).count()
-        
-        # Activos por tipo
-        activos_por_tipo = db.session.query(
-            Activo.Tipo_Activo, 
+
+        # Activos por tipo (tabla principal)
+        activos_por_tipo_rows = db.session.query(
+            Activo.Tipo_Activo,
             func.count(Activo.ID_Activo)
         ).group_by(Activo.Tipo_Activo).all()
-        
-        # Riesgos por estado
-        riesgos_por_estado = db.session.query(
-            Riesgo.Estado_Riesgo_General, 
-            func.count(Riesgo.ID_Riesgo)
-        ).group_by(Riesgo.Estado_Riesgo_General).all()
-        
+        activos_por_tipo = {k if k is not None else 'Sin Tipo': v for k, v in activos_por_tipo_rows}
+
+        # Incluir conteo de Sistemas de Información desde tabla de detalles, si existe
+        detalles_count = 0
+        try:
+            detalles_count = db.session.execute(
+                text("SELECT COUNT(*) AS c FROM activos_detalles_sistemas_informacion")
+            ).scalar() or 0
+            if detalles_count > 0:
+                label_sistemas = 'Sistemas de Información'
+                activos_por_tipo[label_sistemas] = activos_por_tipo.get(label_sistemas, 0) + detalles_count
+        except Exception:
+            # Si la tabla no existe o no hay permisos, ignorar silenciosamente
+            pass
+
+        # Total de activos mostrado debe incluir hardware + sistemas de información
+        total_activos = total_activos_base + detalles_count
+
+        # Riesgos por nivel (si hay evaluaciones) o por estado (si no hay evaluaciones)
+        try:
+            # Intentar obtener riesgos por nivel desde evaluaciones
+            riesgos_por_nivel_rows = db.session.query(
+                db.text('nr.Nombre as nivel'),
+                func.count(db.text('r.ID_Riesgo'))
+            ).select_from(
+                db.text('riesgos r')
+            ).join(
+                db.text('evaluacion_riesgo_activo era'), 
+                db.text('r.ID_Riesgo = era.ID_Riesgo')
+            ).join(
+                db.text('nivelesriesgo nr'), 
+                db.text('era.id_nivel_riesgo_residual_calculado = nr.ID_NivelRiesgo')
+            ).group_by(
+                db.text('nr.Nombre')
+            ).all()
+            
+            if riesgos_por_nivel_rows:
+                # Hay evaluaciones, usar niveles
+                riesgos_por_estado = {k if k is not None else 'Sin Nivel': v for k, v in riesgos_por_nivel_rows}
+            else:
+                # No hay evaluaciones, usar estados
+                riesgos_por_estado_rows = db.session.query(
+                    Riesgo.Estado_Riesgo_General,
+                    func.count(Riesgo.ID_Riesgo)
+                ).group_by(Riesgo.Estado_Riesgo_General).all()
+                riesgos_por_estado = {k if k is not None else 'Sin Estado': v for k, v in riesgos_por_estado_rows}
+        except Exception:
+            # Fallback a estados si hay error en la consulta de niveles
+            riesgos_por_estado_rows = db.session.query(
+                Riesgo.Estado_Riesgo_General,
+                func.count(Riesgo.ID_Riesgo)
+            ).group_by(Riesgo.Estado_Riesgo_General).all()
+            riesgos_por_estado = {k if k is not None else 'Sin Estado': v for k, v in riesgos_por_estado_rows}
+
+        # Tendencia real basada en creación de riesgos (últimos 30 días vs 30 días previos)
+        hoy = datetime.utcnow()
+        hace_30 = hoy - timedelta(days=30)
+        hace_60 = hoy - timedelta(days=60)
+
+        riesgos_ultimo_mes = Riesgo.query.filter(
+            Riesgo.fecha_creacion_registro >= hace_30
+        ).count()
+        riesgos_mes_anterior = Riesgo.query.filter(
+            Riesgo.fecha_creacion_registro >= hace_60,
+            Riesgo.fecha_creacion_registro < hace_30
+        ).count()
+
+        # Variación porcentual segura
+        base = riesgos_mes_anterior if riesgos_mes_anterior > 0 else (riesgos_ultimo_mes if riesgos_ultimo_mes > 0 else 1)
+        tendencia = round(((riesgos_ultimo_mes - riesgos_mes_anterior) / base) * 100)
+
         return jsonify({
             'total_activos': total_activos,
             'usuarios_activos': usuarios_activos,
             'riesgos_identificados': total_riesgos,
-            'tendencia': 5,  # Mock value
-            'activos_por_tipo': dict(activos_por_tipo),
-            'riesgos_por_estado': dict(riesgos_por_estado)
+            'tendencia': tendencia,
+            'activos_por_tipo': activos_por_tipo,
+            'riesgos_por_estado': riesgos_por_estado
         }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@dashboard_bp.route('/historial', methods=['GET'])
+def get_historial():
+    """Devolver series mensuales (últimos 12 meses) y acumuladas de activos y riesgos.
+
+    Respuesta:
+    {
+      "activos": { "total": int, "monthly": [{"month": "YYYY-MM", "count": int, "cumulative": int}] },
+      "riesgos": { "total": int, "monthly": [{...}] }
+    }
+    """
+    try:
+        hoy = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        meses = []
+        for i in range(11, -1, -1):
+            inicio_mes = (hoy - timedelta(days=30 * i)).replace(day=1)
+            # calcular fin de mes aproximando con +32 días y llevando a día 1 - 1 segundo
+            inicio_mes_siguiente = (inicio_mes + timedelta(days=32)).replace(day=1)
+            fin_mes = inicio_mes_siguiente
+            meses.append((inicio_mes, fin_mes))
+
+        # Series para activos
+        activos_series = []
+        acumulado_activos = 0
+        for inicio, fin in meses:
+            count_mes = Activo.query.filter(Activo.fecha_creacion_registro >= inicio, Activo.fecha_creacion_registro < fin).count()
+            acumulado_activos += count_mes
+            activos_series.append({
+                'month': f"{inicio.year}-{str(inicio.month).zfill(2)}",
+                'count': count_mes,
+                'cumulative': acumulado_activos
+            })
+
+        # Series para riesgos
+        riesgos_series = []
+        acumulado_riesgos = 0
+        for inicio, fin in meses:
+            count_mes = Riesgo.query.filter(Riesgo.fecha_creacion_registro >= inicio, Riesgo.fecha_creacion_registro < fin).count()
+            acumulado_riesgos += count_mes
+            riesgos_series.append({
+                'month': f"{inicio.year}-{str(inicio.month).zfill(2)}",
+                'count': count_mes,
+                'cumulative': acumulado_riesgos
+            })
+
+        return jsonify({
+            'activos': {
+                'total': Activo.query.count(),
+                'monthly': activos_series
+            },
+            'riesgos': {
+                'total': Riesgo.query.count(),
+                'monthly': riesgos_series
+            }
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@dashboard_bp.route('/sistemas-info/resumen', methods=['GET'])
+def get_sistemas_info_resumen():
+    """Resumen de sistemas de información agrupado por criticidad o secretaria.
+
+    Parámetros:
+      - by: 'criticidad' (default) | 'secretaria'
+    """
+    try:
+        by = request.args.get('by', 'criticidad')
+        if by not in ('criticidad', 'secretaria'):
+            return jsonify({'error': 'Parametro by inválido'}), 400
+
+        if by == 'criticidad':
+            sql = (
+                "SELECT COALESCE(NivelCriticidad, 'Sin dato') AS clave, COUNT(*) AS total "
+                "FROM activos_detalles_sistemas_informacion GROUP BY COALESCE(NivelCriticidad, 'Sin dato')"
+            )
+        else:
+            sql = (
+                "SELECT COALESCE(SecretariaSistemaInformacion, 'Sin dato') AS clave, COUNT(*) AS total "
+                "FROM activos_detalles_sistemas_informacion GROUP BY COALESCE(SecretariaSistemaInformacion, 'Sin dato')"
+            )
+
+        rows = db.session.execute(sql).fetchall()
+        data = {row[0]: int(row[1]) for row in rows}
+        return jsonify({'by': by, 'data': data}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

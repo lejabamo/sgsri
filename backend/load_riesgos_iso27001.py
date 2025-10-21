@@ -196,3 +196,14 @@ def load_riesgos_iso27001():
 
 if __name__ == "__main__":
     load_riesgos_iso27001()
+
+
+
+
+
+
+
+
+
+
+

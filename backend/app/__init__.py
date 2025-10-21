@@ -37,6 +37,7 @@ def create_app():
     with app.app_context():
         from . import models
         from .auth import models as auth_models
+        from .modelos.documentos import DocumentoAdjunto
 
     # Importar y registrar blueprints aquí
     # Autenticación (sin prefijo para endpoints básicos)
@@ -61,6 +62,12 @@ def create_app():
 
     from .routes.vulnerabilidades import vulnerabilidades_bp
     app.register_blueprint(vulnerabilidades_bp, url_prefix='/api/vulnerabilidades')
+
+    from .routes.evaluacion_riesgos import evaluacion_riesgos_bp
+    app.register_blueprint(evaluacion_riesgos_bp, url_prefix='/api/evaluacion-riesgos')
+
+    from .routes.documentos import documentos_bp
+    app.register_blueprint(documentos_bp)
 
     # Ruta de prueba para verificar que el servidor está funcionando
     @app.route('/api/health', methods=['GET'])

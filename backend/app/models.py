@@ -165,4 +165,63 @@ class Incidente(db.Model):
             'fecha_resolucion': self.fecha_resolucion.isoformat() if self.fecha_resolucion else None,
             'responsable': self.responsable,
             'acciones_correctivas': self.acciones_correctivas
-        } 
+        }
+
+# Nuevos modelos para el sistema de evaluación de riesgos
+class niveles_probabilidad(db.Model):
+    __tablename__ = 'niveles_probabilidad'
+    ID_NivelProbabilidad = db.Column(db.Integer, primary_key=True)
+    Nombre = db.Column(db.String(50), nullable=False)
+    Valor = db.Column(db.Integer, nullable=False)
+    Descripcion = db.Column(db.Text)
+    Color_Representacion = db.Column(db.String(50))
+    fecha_creacion_registro = db.Column(db.DateTime, default=datetime.utcnow)
+
+class niveles_impacto(db.Model):
+    __tablename__ = 'niveles_impacto'
+    ID_NivelImpacto = db.Column(db.Integer, primary_key=True)
+    Nombre = db.Column(db.String(50), nullable=False)
+    Valor = db.Column(db.Integer, nullable=False)
+    Descripcion = db.Column(db.Text)
+    Color_Representacion = db.Column(db.String(50))
+    fecha_creacion_registro = db.Column(db.DateTime, default=datetime.utcnow)
+
+class controles_seguridad(db.Model):
+    __tablename__ = 'controles_seguridad'
+    ID_Control = db.Column(db.Integer, primary_key=True)
+    Nombre = db.Column(db.String(100), nullable=False)
+    Descripcion = db.Column(db.Text)
+    Categoria = db.Column(db.String(50))
+    Tipo = db.Column(db.String(50))
+    Eficacia_Esperada = db.Column(db.String(20))
+    fecha_creacion_registro = db.Column(db.DateTime, default=datetime.utcnow)
+
+class nivelesriesgo(db.Model):
+    __tablename__ = 'nivelesriesgo'
+    ID_NivelRiesgo = db.Column(db.Integer, primary_key=True)
+    Nombre = db.Column(db.String(50), nullable=False)
+    Valor_Min = db.Column(db.Integer)
+    Valor_Max = db.Column(db.Integer)
+    Color_Representacion = db.Column(db.String(50))
+    Acciones_Sugeridas = db.Column(db.Text)
+    Descripcion = db.Column(db.Text)
+
+class evaluacion_riesgo_activo(db.Model):
+    __tablename__ = 'evaluacion_riesgo_activo'
+    id_evaluacion_riesgo_activo = db.Column(db.Integer, primary_key=True)
+    ID_Riesgo = db.Column(db.Integer, db.ForeignKey('riesgos.ID_Riesgo'), nullable=False)
+    ID_Activo = db.Column(db.Integer, db.ForeignKey('activos.ID_Activo'), nullable=False)
+    id_nivel_probabilidad_inherente = db.Column(db.Integer, db.ForeignKey('niveles_probabilidad.ID_NivelProbabilidad'))
+    id_nivel_impacto_inherente = db.Column(db.Integer, db.ForeignKey('niveles_impacto.ID_NivelImpacto'))
+    id_nivel_riesgo_inherente_calculado = db.Column(db.Integer, db.ForeignKey('nivelesriesgo.ID_NivelRiesgo'))
+    justificacion_evaluacion_inherente = db.Column(db.Text)
+    fecha_evaluacion_inherente = db.Column(db.Date)
+    id_evaluador_inherente = db.Column(db.Integer, db.ForeignKey('usuarios_sistema.id_usuario'))
+    id_nivel_probabilidad_residual = db.Column(db.Integer, db.ForeignKey('niveles_probabilidad.ID_NivelProbabilidad'))
+    id_nivel_impacto_residual = db.Column(db.Integer, db.ForeignKey('niveles_impacto.ID_NivelImpacto'))
+    id_nivel_riesgo_residual_calculado = db.Column(db.Integer, db.ForeignKey('nivelesriesgo.ID_NivelRiesgo'))
+    justificacion_evaluacion_residual = db.Column(db.Text)
+    fecha_evaluacion_residual = db.Column(db.Date)
+    id_evaluador_residual = db.Column(db.Integer, db.ForeignKey('usuarios_sistema.id_usuario'))
+    fecha_creacion_registro = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_ultima_actualizacion = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

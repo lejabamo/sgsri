@@ -253,3 +253,14 @@ def load_vulnerabilidades():
 
 if __name__ == "__main__":
     load_vulnerabilidades()
+
+
+
+
+
+
+
+
+
+
+
