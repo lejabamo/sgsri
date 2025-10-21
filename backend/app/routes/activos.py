@@ -1,11 +1,13 @@
 from flask import Blueprint, request, jsonify
 from ..models import db, Activo, UsuarioSistema
+from ..auth.decorators import require_auth, operator_required, consultant_required
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
 
 activos_bp = Blueprint('activos', __name__)
 
 @activos_bp.route('/', methods=['GET'])
+# @consultant_required  # Temporalmente deshabilitado para desarrollo
 def get_activos():
     """Obtener todos los activos con filtros opcionales"""
     try:
@@ -29,6 +31,7 @@ def get_activos():
         return jsonify({'error': str(e)}), 500
 
 @activos_bp.route('/<int:activo_id>', methods=['GET'])
+@consultant_required
 def get_activo(activo_id):
     """Obtener un activo específico por ID"""
     try:
@@ -38,6 +41,7 @@ def get_activo(activo_id):
         return jsonify({'error': str(e)}), 500
 
 @activos_bp.route('/', methods=['POST'])
+@operator_required
 def create_activo():
     """Crear un nuevo activo"""
     try:

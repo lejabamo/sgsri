@@ -5,6 +5,43 @@ from datetime import datetime, timedelta
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
+@dashboard_bp.route('/stats', methods=['GET'])
+def get_stats():
+    """Obtener estadísticas para el dashboard"""
+    try:
+        # Contadores básicos
+        total_activos = Activo.query.count()
+        total_usuarios = UsuarioSistema.query.count()
+        total_riesgos = Riesgo.query.count()
+        
+        # Usuarios activos (asumiendo que tienen estado)
+        usuarios_activos = UsuarioSistema.query.filter(
+            UsuarioSistema.estado_usuario == 'Activo'
+        ).count()
+        
+        # Activos por tipo
+        activos_por_tipo = db.session.query(
+            Activo.Tipo_Activo, 
+            func.count(Activo.ID_Activo)
+        ).group_by(Activo.Tipo_Activo).all()
+        
+        # Riesgos por estado
+        riesgos_por_estado = db.session.query(
+            Riesgo.Estado_Riesgo_General, 
+            func.count(Riesgo.ID_Riesgo)
+        ).group_by(Riesgo.Estado_Riesgo_General).all()
+        
+        return jsonify({
+            'total_activos': total_activos,
+            'usuarios_activos': usuarios_activos,
+            'riesgos_identificados': total_riesgos,
+            'tendencia': 5,  # Mock value
+            'activos_por_tipo': dict(activos_por_tipo),
+            'riesgos_por_estado': dict(riesgos_por_estado)
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @dashboard_bp.route('/resumen', methods=['GET'])
 def get_resumen_general():
     """Obtener resumen general del sistema"""
@@ -39,11 +76,11 @@ def get_resumen_general():
             func.count(Incidente.id_incidente)
         ).group_by(Incidente.severidad).all()
         
-        # Riesgos por nivel
-        riesgos_por_nivel = db.session.query(
-            Riesgo.nivel_riesgo, 
-            func.count(Riesgo.id_riesgo)
-        ).group_by(Riesgo.nivel_riesgo).all()
+        # Riesgos por estado
+        riesgos_por_estado = db.session.query(
+            Riesgo.Estado_Riesgo_General, 
+            func.count(Riesgo.ID_Riesgo)
+        ).group_by(Riesgo.Estado_Riesgo_General).all()
         
         return jsonify({
             'contadores_generales': {
@@ -56,7 +93,7 @@ def get_resumen_general():
             'activos_por_criticidad': dict(activos_por_criticidad),
             'incidentes_por_estado': dict(incidentes_por_estado),
             'incidentes_por_severidad': dict(incidentes_por_severidad),
-            'riesgos_por_nivel': dict(riesgos_por_nivel)
+            'riesgos_por_estado': dict(riesgos_por_estado)
         }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -77,7 +114,7 @@ def get_actividad_reciente():
         
         # Últimos usuarios creados
         ultimos_usuarios = UsuarioSistema.query.order_by(
-            UsuarioSistema.fecha_creacion.desc()
+            UsuarioSistema.fecha_creacion_registro.desc()
         ).limit(5).all()
         
         return jsonify({
@@ -85,10 +122,10 @@ def get_actividad_reciente():
             'ultimos_incidentes': [incidente.to_dict() for incidente in ultimos_incidentes],
             'ultimos_usuarios': [{
                 'id_usuario': u.id_usuario,
-                'nombre': u.nombre,
-                'email': u.email,
-                'departamento': u.departamento,
-                'fecha_creacion': u.fecha_creacion.isoformat() if u.fecha_creacion else None
+                'nombre_completo': u.nombre_completo,
+                'email_institucional': u.email_institucional,
+                'puesto_organizacion': u.puesto_organizacion,
+                'fecha_creacion_registro': u.fecha_creacion_registro.isoformat() if u.fecha_creacion_registro else None
             } for u in ultimos_usuarios]
         }), 200
     except Exception as e:
@@ -104,7 +141,7 @@ def get_riesgos_altos():
         ).join(
             RiesgoActivo, Activo.ID_Activo == RiesgoActivo.ID_Activo
         ).join(
-            Riesgo, RiesgoActivo.id_riesgo == Riesgo.id_riesgo
+            Riesgo, RiesgoActivo.id_riesgo == Riesgo.ID_Riesgo
         ).filter(
             RiesgoActivo.nivel_riesgo_calculado == 'Alto'
         ).all()
@@ -193,12 +230,12 @@ def get_tendencias():
         
         # Usuarios creados en diferentes períodos
         usuarios_ultimo_mes = UsuarioSistema.query.filter(
-            UsuarioSistema.fecha_creacion >= hace_30_dias
+            UsuarioSistema.fecha_creacion_registro >= hace_30_dias
         ).count()
         
         usuarios_mes_anterior = UsuarioSistema.query.filter(
-            UsuarioSistema.fecha_creacion >= hace_60_dias,
-            UsuarioSistema.fecha_creacion < hace_30_dias
+            UsuarioSistema.fecha_creacion_registro >= hace_60_dias,
+            UsuarioSistema.fecha_creacion_registro < hace_30_dias
         ).count()
         
         return jsonify({

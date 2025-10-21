@@ -5,11 +5,16 @@ from datetime import datetime
 class UsuarioSistema(db.Model):
     __tablename__ = 'usuarios_sistema'
     id_usuario = db.Column(db.Integer, primary_key=True)
-    nombre = db.Column(db.String(255), nullable=False)
-    email = db.Column(db.String(255), unique=True, nullable=False)
-    departamento = db.Column(db.String(100))
-    rol = db.Column(db.String(50))
-    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+    nombre_completo = db.Column(db.String(255), nullable=False)
+    email_institucional = db.Column(db.String(255), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255))
+    puesto_organizacion = db.Column(db.String(255))
+    estado_usuario = db.Column(db.String(50))
+    fecha_creacion_registro = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_ultima_actualizacion = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    fecha_ultimo_login = db.Column(db.DateTime)
+    intentos_fallidos_login = db.Column(db.Integer, default=0)
+    requiere_cambio_password = db.Column(db.Boolean, default=False)
     
     # Relaciones
     activos_propietario = db.relationship('Activo', foreign_keys='Activo.ID_Propietario', backref='propietario')
@@ -77,34 +82,44 @@ class Activo(db.Model):
 
 class Riesgo(db.Model):
     __tablename__ = 'riesgos'
-    id_riesgo = db.Column(db.Integer, primary_key=True)
-    nombre_riesgo = db.Column(db.String(255), nullable=False)
-    descripcion = db.Column(db.Text)
+    ID_Riesgo = db.Column(db.Integer, primary_key=True)
+    Nombre = db.Column(db.String(255), nullable=False)
+    Descripcion = db.Column(db.Text)
+    ID_Amenaza_General = db.Column(db.Integer)
+    ID_Vulnerabilidad_General = db.Column(db.Integer)
+    ID_Proceso_Principal_Afectado = db.Column(db.Integer)
     tipo_riesgo = db.Column(db.String(100))
-    nivel_riesgo = db.Column(db.String(50))
-    estado = db.Column(db.String(50))
-    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
-    fecha_actualizacion = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    Efectos_Materializacion = db.Column(db.Text)
+    Fecha_Identificacion = db.Column(db.Date)
+    Estado_Riesgo_General = db.Column(db.String(50))
+    ID_Propietario_Riesgo_General = db.Column(db.Integer)
+    fecha_creacion_registro = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_ultima_actualizacion = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relaciones
     activos = db.relationship('RiesgoActivo', backref='riesgo', lazy='dynamic')
     
     def to_dict(self):
         return {
-            'id_riesgo': self.id_riesgo,
-            'nombre_riesgo': self.nombre_riesgo,
-            'descripcion': self.descripcion,
+            'ID_Riesgo': self.ID_Riesgo,
+            'Nombre': self.Nombre,
+            'Descripcion': self.Descripcion,
+            'ID_Amenaza_General': self.ID_Amenaza_General,
+            'ID_Vulnerabilidad_General': self.ID_Vulnerabilidad_General,
+            'ID_Proceso_Principal_Afectado': self.ID_Proceso_Principal_Afectado,
             'tipo_riesgo': self.tipo_riesgo,
-            'nivel_riesgo': self.nivel_riesgo,
-            'estado': self.estado,
-            'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None,
-            'fecha_actualizacion': self.fecha_actualizacion.isoformat() if self.fecha_actualizacion else None
+            'Efectos_Materializacion': self.Efectos_Materializacion,
+            'Fecha_Identificacion': self.Fecha_Identificacion.isoformat() if self.Fecha_Identificacion else None,
+            'Estado_Riesgo_General': self.Estado_Riesgo_General,
+            'ID_Propietario_Riesgo_General': self.ID_Propietario_Riesgo_General,
+            'fecha_creacion_registro': self.fecha_creacion_registro.isoformat() if self.fecha_creacion_registro else None,
+            'fecha_ultima_actualizacion': self.fecha_ultima_actualizacion.isoformat() if self.fecha_ultima_actualizacion else None
         }
 
 class RiesgoActivo(db.Model):
     __tablename__ = 'riesgo_activo'
     id = db.Column(db.Integer, primary_key=True)
-    id_riesgo = db.Column(db.Integer, db.ForeignKey('riesgos.id_riesgo'), nullable=False)
+    id_riesgo = db.Column(db.Integer, db.ForeignKey('riesgos.ID_Riesgo'), nullable=False)
     ID_Activo = db.Column(db.Integer, db.ForeignKey('activos.ID_Activo'), nullable=False)
     probabilidad = db.Column(db.Integer)  # 1-5 escala
     impacto = db.Column(db.Integer)  # 1-5 escala

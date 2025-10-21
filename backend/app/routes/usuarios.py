@@ -10,24 +10,24 @@ def get_usuarios():
     """Obtener todos los usuarios con filtros opcionales"""
     try:
         # Parámetros de filtrado
-        departamento = request.args.get('departamento')
-        rol = request.args.get('rol')
+        puesto = request.args.get('puesto')
+        estado = request.args.get('estado')
         
         query = UsuarioSistema.query
         
-        if departamento:
-            query = query.filter(UsuarioSistema.departamento == departamento)
-        if rol:
-            query = query.filter(UsuarioSistema.rol == rol)
+        if puesto:
+            query = query.filter(UsuarioSistema.puesto_organizacion == puesto)
+        if estado:
+            query = query.filter(UsuarioSistema.estado_usuario == estado)
         
         usuarios = query.all()
         return jsonify([{
             'id_usuario': u.id_usuario,
-            'nombre': u.nombre,
-            'email': u.email,
-            'departamento': u.departamento,
-            'rol': u.rol,
-            'fecha_creacion': u.fecha_creacion.isoformat() if u.fecha_creacion else None
+            'nombre_completo': u.nombre_completo,
+            'email_institucional': u.email_institucional,
+            'puesto_organizacion': u.puesto_organizacion,
+            'estado_usuario': u.estado_usuario,
+            'fecha_creacion_registro': u.fecha_creacion_registro.isoformat() if u.fecha_creacion_registro else None
         } for u in usuarios]), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -39,11 +39,11 @@ def get_usuario(usuario_id):
         usuario = UsuarioSistema.query.get_or_404(usuario_id)
         return jsonify({
             'id_usuario': usuario.id_usuario,
-            'nombre': usuario.nombre,
-            'email': usuario.email,
-            'departamento': usuario.departamento,
-            'rol': usuario.rol,
-            'fecha_creacion': usuario.fecha_creacion.isoformat() if usuario.fecha_creacion else None
+            'nombre_completo': usuario.nombre_completo,
+            'email_institucional': usuario.email_institucional,
+            'puesto_organizacion': usuario.puesto_organizacion,
+            'estado_usuario': usuario.estado_usuario,
+            'fecha_creacion_registro': usuario.fecha_creacion_registro.isoformat() if usuario.fecha_creacion_registro else None
         }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -57,21 +57,21 @@ def create_usuario():
             return jsonify({'error': 'No se proporcionaron datos'}), 400
         
         # Validaciones básicas
-        if not data.get('nombre'):
-            return jsonify({'error': 'El nombre del usuario es obligatorio'}), 400
-        if not data.get('email'):
-            return jsonify({'error': 'El email del usuario es obligatorio'}), 400
+        if not data.get('nombre_completo'):
+            return jsonify({'error': 'El nombre completo del usuario es obligatorio'}), 400
+        if not data.get('email_institucional'):
+            return jsonify({'error': 'El email institucional del usuario es obligatorio'}), 400
         
         # Verificar si el email ya existe
-        usuario_existente = UsuarioSistema.query.filter_by(email=data['email']).first()
+        usuario_existente = UsuarioSistema.query.filter_by(email_institucional=data['email_institucional']).first()
         if usuario_existente:
-            return jsonify({'error': 'Ya existe un usuario con ese email'}), 400
+            return jsonify({'error': 'Ya existe un usuario con ese email institucional'}), 400
         
         usuario = UsuarioSistema(
-            nombre=data.get('nombre'),
-            email=data.get('email'),
-            departamento=data.get('departamento'),
-            rol=data.get('rol')
+            nombre_completo=data.get('nombre_completo'),
+            email_institucional=data.get('email_institucional'),
+            puesto_organizacion=data.get('puesto_organizacion'),
+            estado_usuario=data.get('estado_usuario', 'Activo')
         )
         
         db.session.add(usuario)
@@ -79,11 +79,11 @@ def create_usuario():
         
         return jsonify({
             'id_usuario': usuario.id_usuario,
-            'nombre': usuario.nombre,
-            'email': usuario.email,
-            'departamento': usuario.departamento,
-            'rol': usuario.rol,
-            'fecha_creacion': usuario.fecha_creacion.isoformat() if usuario.fecha_creacion else None
+            'nombre_completo': usuario.nombre_completo,
+            'email_institucional': usuario.email_institucional,
+            'puesto_organizacion': usuario.puesto_organizacion,
+            'estado_usuario': usuario.estado_usuario,
+            'fecha_creacion_registro': usuario.fecha_creacion_registro.isoformat() if usuario.fecha_creacion_registro else None
         }), 201
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -159,21 +159,21 @@ def delete_usuario(usuario_id):
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-@usuarios_bp.route('/departamentos', methods=['GET'])
-def get_departamentos():
-    """Obtener todos los departamentos únicos"""
+@usuarios_bp.route('/puestos', methods=['GET'])
+def get_puestos():
+    """Obtener todos los puestos únicos"""
     try:
-        departamentos = db.session.query(UsuarioSistema.departamento).distinct().all()
-        return jsonify([dept[0] for dept in departamentos if dept[0]]), 200
+        puestos = db.session.query(UsuarioSistema.puesto_organizacion).distinct().all()
+        return jsonify([puesto[0] for puesto in puestos if puesto[0]]), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@usuarios_bp.route('/roles', methods=['GET'])
-def get_roles():
-    """Obtener todos los roles únicos"""
+@usuarios_bp.route('/estados', methods=['GET'])
+def get_estados():
+    """Obtener todos los estados únicos"""
     try:
-        roles = db.session.query(UsuarioSistema.rol).distinct().all()
-        return jsonify([rol[0] for rol in roles if rol[0]]), 200
+        estados = db.session.query(UsuarioSistema.estado_usuario).distinct().all()
+        return jsonify([estado[0] for estado in estados if estado[0]]), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

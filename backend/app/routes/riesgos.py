@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from ..models import db, Riesgo, RiesgoActivo, Activo
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import func
 from datetime import datetime
 
 riesgos_bp = Blueprint('riesgos', __name__)
@@ -11,17 +12,14 @@ def get_riesgos():
     try:
         # Parámetros de filtrado
         tipo_riesgo = request.args.get('tipo_riesgo')
-        nivel_riesgo = request.args.get('nivel_riesgo')
         estado = request.args.get('estado')
         
         query = Riesgo.query
         
         if tipo_riesgo:
             query = query.filter(Riesgo.tipo_riesgo == tipo_riesgo)
-        if nivel_riesgo:
-            query = query.filter(Riesgo.nivel_riesgo == nivel_riesgo)
         if estado:
-            query = query.filter(Riesgo.estado == estado)
+            query = query.filter(Riesgo.Estado_Riesgo_General == estado)
         
         riesgos = query.all()
         return jsonify([riesgo.to_dict() for riesgo in riesgos]), 200
@@ -32,7 +30,7 @@ def get_riesgos():
 def get_riesgo(riesgo_id):
     """Obtener un riesgo específico por ID"""
     try:
-        riesgo = Riesgo.query.get_or_404(riesgo_id)
+        riesgo = Riesgo.query.filter_by(ID_Riesgo=riesgo_id).first_or_404()
         return jsonify(riesgo.to_dict()), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -46,15 +44,14 @@ def create_riesgo():
             return jsonify({'error': 'No se proporcionaron datos'}), 400
         
         # Validaciones básicas
-        if not data.get('nombre_riesgo'):
+        if not data.get('Nombre'):
             return jsonify({'error': 'El nombre del riesgo es obligatorio'}), 400
         
         riesgo = Riesgo(
-            nombre_riesgo=data.get('nombre_riesgo'),
-            descripcion=data.get('descripcion'),
+            Nombre=data.get('Nombre'),
+            Descripcion=data.get('Descripcion'),
             tipo_riesgo=data.get('tipo_riesgo'),
-            nivel_riesgo=data.get('nivel_riesgo'),
-            estado=data.get('estado', 'Activo')
+            Estado_Riesgo_General=data.get('Estado_Riesgo_General', 'Identificado')
         )
         
         db.session.add(riesgo)
@@ -123,12 +120,12 @@ def get_tipos_riesgo():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@riesgos_bp.route('/niveles', methods=['GET'])
-def get_niveles_riesgo():
-    """Obtener todos los niveles de riesgo únicos"""
+@riesgos_bp.route('/estados', methods=['GET'])
+def get_estados_riesgo():
+    """Obtener todos los estados de riesgo únicos"""
     try:
-        niveles = db.session.query(Riesgo.nivel_riesgo).distinct().all()
-        return jsonify([nivel[0] for nivel in niveles if nivel[0]]), 200
+        estados = db.session.query(Riesgo.Estado_Riesgo_General).distinct().all()
+        return jsonify([estado[0] for estado in estados if estado[0]]), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -291,4 +288,96 @@ def desasociar_riesgo_activo(riesgo_id, activo_id):
         return jsonify({'error': f'Error de base de datos: {str(e)}'}), 500
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500 
+        return jsonify({'error': str(e)}), 500
+
+@riesgos_bp.route('/matriz-riesgo', methods=['GET'])
+def get_matriz_riesgo():
+    """Obtener datos para la matriz de riesgos"""
+    try:
+        # Obtener todos los riesgos
+        riesgos = Riesgo.query.all()
+        
+        # Configuración de la matriz
+        probabilidades = ['Frecuente', 'Ocasional', 'Posible', 'Improbable']
+        impactos = ['Insignificante', 'Menor', 'Moderado', 'Mayor', 'Catastrófico']
+        
+        # Mapeo de niveles de riesgo
+        def calcular_nivel_riesgo(probabilidad, impacto):
+            prob_values = {'Improbable': 1, 'Posible': 2, 'Ocasional': 3, 'Frecuente': 4}
+            impacto_values = {'Insignificante': 1, 'Menor': 2, 'Moderado': 3, 'Mayor': 4, 'Catastrófico': 5}
+            
+            score = prob_values.get(probabilidad, 1) * impacto_values.get(impacto, 1)
+            
+            if score <= 6:
+                return 'BAJO'
+            elif score <= 11:
+                return 'MEDIO'
+            else:
+                return 'ALTO'
+        
+        # Procesar riesgos y agrupar por celda de matriz
+        cells = []
+        for prob in probabilidades:
+            for impacto in impactos:
+                # Filtrar riesgos por probabilidad e impacto
+                riesgos_celda = [
+                    r for r in riesgos 
+                    if r.Probabilidad_Riesgo == prob and r.Impacto_Riesgo == impacto
+                ]
+                
+                if riesgos_celda:
+                    nivel = calcular_nivel_riesgo(prob, impacto)
+                    risks_data = []
+                    
+                    for riesgo in riesgos_celda:
+                        # Obtener información del activo asociado
+                        activo = Activo.query.filter_by(ID_Activo=riesgo.ID_Activo).first()
+                        
+                        risks_data.append({
+                            'id': riesgo.ID_Riesgo,
+                            'nombre': riesgo.Nombre,
+                            'nivel': nivel,
+                            'propietario': activo.Propietario_Activo if activo else 'No asignado',
+                            'fecha': riesgo.Fecha_Identificacion.strftime('%Y-%m-%d') if riesgo.Fecha_Identificacion else '',
+                            'activo': activo.Nombre_Activo if activo else 'Activo no encontrado',
+                            'proceso': activo.Proceso_Negocio if activo else 'No especificado'
+                        })
+                    
+                    cells.append({
+                        'probabilidad_key': prob,
+                        'impacto_key': impacto,
+                        'count': len(riesgos_celda),
+                        'risks': risks_data
+                    })
+        
+        # Calcular salud institucional
+        total_riesgos = len(riesgos)
+        if total_riesgos > 0:
+            riesgos_bajos = sum(1 for r in riesgos if calcular_nivel_riesgo(r.Probabilidad_Riesgo, r.Impacto_Riesgo) == 'BAJO')
+            riesgos_medios = sum(1 for r in riesgos if calcular_nivel_riesgo(r.Probabilidad_Riesgo, r.Impacto_Riesgo) == 'MEDIO')
+            riesgos_altos = sum(1 for r in riesgos if calcular_nivel_riesgo(r.Probabilidad_Riesgo, r.Impacto_Riesgo) == 'ALTO')
+            
+            # Calcular score de salud (0-100, donde 100 es mejor)
+            score = max(0, 100 - (riesgos_altos * 30 + riesgos_medios * 15))
+            
+            health = {
+                'low': round((riesgos_bajos / total_riesgos) * 100, 1),
+                'medium': round((riesgos_medios / total_riesgos) * 100, 1),
+                'high': round((riesgos_altos / total_riesgos) * 100, 1),
+                'score': round(score, 1)
+            }
+        else:
+            health = {
+                'low': 0,
+                'medium': 0,
+                'high': 0,
+                'score': 100
+            }
+        
+        return jsonify({
+            'cells': cells,
+            'health': health
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
