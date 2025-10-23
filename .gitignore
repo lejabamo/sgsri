@@ -35,3 +35,7 @@ instance/flask_session/
 # Archivos de bases de datos locales SQLite (si se usaran temporalmente)
 # *.sqlite3
 # *.db
+
+# Archivos de base de datos grandes
+bdglpi/glpi_db.sql
+*.sql
