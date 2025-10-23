@@ -206,7 +206,7 @@ const PredictiveSuggestionPanel: React.FC<PredictiveSuggestionPanelProps> = ({
     if (assetType) {
       loadSuggestions();
     }
-  }, [assetType, context]);
+  }, [assetType]); // Removemos context de las dependencias para evitar bucles
 
   if (isLoading) {
     return (

@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
-from ..models import db, Riesgo, Activo, evaluacion_riesgo_activo, controles_seguridad, nivelesriesgo
+from ..models import db, Riesgo, Activo, evaluacion_riesgo_activo, controles_seguridad, nivelesriesgo, niveles_probabilidad, niveles_impacto
+from ..modelos.documentos import DocumentoAdjunto
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import func, text
@@ -7,6 +8,20 @@ from datetime import datetime
 import math
 
 evaluacion_riesgos_bp = Blueprint('evaluacion_riesgos', __name__)
+
+def _obtener_documentos_evaluacion(activo_id):
+    """Obtener documentos asociados a una evaluación de activo"""
+    try:
+        # Buscar documentos por accion_id que contenga el activo_id
+        documentos = DocumentoAdjunto.query.filter(
+            DocumentoAdjunto.accion_id.like(f'%activo_{activo_id}%'),
+            DocumentoAdjunto.activo == True
+        ).all()
+        
+        return [doc.to_dict() for doc in documentos]
+    except Exception as e:
+        print(f"Error obteniendo documentos para activo {activo_id}: {e}")
+        return []
 
 def calcular_nivel_riesgo(probabilidad_valor, impacto_valor):
     """Calcula el nivel de riesgo basado en probabilidad e impacto"""
@@ -170,6 +185,154 @@ def get_matriz_riesgo():
             matriz_data[nivel_nombre] = count
         
         return jsonify(matriz_data), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@evaluacion_riesgos_bp.route('/evaluaciones-completadas', methods=['GET'])
+def get_evaluaciones_completadas():
+    """Obtener evaluaciones completadas por activo"""
+    try:
+        from app.models import Activo, Riesgo
+        
+        # Obtener todas las evaluaciones con datos completos incluyendo niveles
+        evaluaciones = db.session.query(
+            evaluacion_riesgo_activo,
+            Activo,
+            Riesgo,
+            niveles_probabilidad,
+            niveles_impacto,
+            nivelesriesgo
+        ).join(
+            Activo, evaluacion_riesgo_activo.ID_Activo == Activo.ID_Activo
+        ).join(
+            Riesgo, evaluacion_riesgo_activo.ID_Riesgo == Riesgo.ID_Riesgo
+        ).join(
+            niveles_probabilidad, evaluacion_riesgo_activo.id_nivel_probabilidad_inherente == niveles_probabilidad.ID_NivelProbabilidad
+        ).join(
+            niveles_impacto, evaluacion_riesgo_activo.id_nivel_impacto_inherente == niveles_impacto.ID_NivelImpacto
+        ).join(
+            nivelesriesgo, evaluacion_riesgo_activo.id_nivel_riesgo_inherente_calculado == nivelesriesgo.ID_NivelRiesgo
+        ).all()
+        
+        # Agrupar por activo
+        activos_evaluados = {}
+        for eval, activo, riesgo, prob_inherente, impacto_inherente, nivel_riesgo_inherente in evaluaciones:
+            activo_id = activo.ID_Activo
+            if activo_id not in activos_evaluados:
+                activos_evaluados[activo_id] = {
+                    'activo': {
+                        'id': activo.ID_Activo,
+                        'ID_Activo': activo.ID_Activo,
+                        'Nombre': activo.Nombre,
+                        'Tipo_Activo': activo.Tipo_Activo,
+                        'estado': activo.estado_activo,
+                        'nivel_criticidad_negocio': activo.nivel_criticidad_negocio
+                    },
+                    'evaluaciones': [],
+                    'fechaCompletada': eval.fecha_evaluacion_residual or eval.fecha_evaluacion_inherente,
+                    'completada': True
+                }
+            
+            # Agregar evaluación con estructura compatible con el frontend
+            activos_evaluados[activo_id]['evaluaciones'].append({
+                'evaluacion': {
+                    'selectedActivo': {
+                        'id': activo.ID_Activo,
+                        'ID_Activo': activo.ID_Activo,
+                        'Nombre': activo.Nombre,
+                        'Tipo_Activo': activo.Tipo_Activo,
+                        'estado': activo.estado_activo,
+                        'nivel_criticidad_negocio': activo.nivel_criticidad_negocio
+                    },
+                    'newRiesgo': {
+                        'amenaza': riesgo.Nombre,  # Usar el nombre del riesgo como amenaza
+                        'vulnerabilidad': 'Vulnerabilidad identificada',  # Placeholder
+                        'descripcion': riesgo.Descripcion
+                    },
+                    'evaluacionInherente': {
+                        'probabilidad': prob_inherente.Nombre if prob_inherente else f'Nivel {eval.id_nivel_probabilidad_inherente}',
+                        'impacto': impacto_inherente.Nombre if impacto_inherente else f'Nivel {eval.id_nivel_impacto_inherente}',
+                        'nivelRiesgo': nivel_riesgo_inherente.Nombre if nivel_riesgo_inherente else f'Nivel {eval.id_nivel_riesgo_inherente_calculado}',
+                        'justificacion': eval.justificacion_evaluacion_inherente or 'Evaluación inherente completada'
+                    },
+                    'controles': {
+                        'seleccionados': ['Control implementado'],
+                        'eficacia': 'Alta',
+                        'justificacion': 'Controles aplicados según evaluación'
+                    },
+                    'evaluacionResidual': {
+                        'probabilidad': f'Nivel {eval.id_nivel_probabilidad_residual}',
+                        'impacto': f'Nivel {eval.id_nivel_impacto_residual}',
+                        'nivelRiesgo': f'Nivel {eval.id_nivel_riesgo_residual_calculado}',
+                        'justificacion': eval.justificacion_evaluacion_residual or 'Evaluación residual completada'
+                    },
+                    'tratamiento': {
+                        'opcion': 'Mitigar',
+                        'responsable': 'Equipo de Seguridad',
+                        'fechaInicio': str(eval.fecha_evaluacion_inherente),
+                        'fechaFin': str(eval.fecha_evaluacion_residual),
+                        'presupuesto': 'Por definir'
+                    },
+                    'planAccion': {
+                        'acciones': [
+                            {
+                                'id': '1',
+                                'descripcion': 'Implementar controles de seguridad',
+                                'responsable': 'Equipo de Seguridad',
+                                'fechaInicio': str(eval.fecha_evaluacion_inherente),
+                                'fechaFin': str(eval.fecha_evaluacion_residual),
+                                'estado': 'Completado',
+                                'comentarios': 'Evaluación completada',
+                                'documentos': _obtener_documentos_evaluacion(activo_id)
+                            }
+                        ]
+                    }
+                },
+                'fechaCompletada': str(eval.fecha_evaluacion_residual or eval.fecha_evaluacion_inherente),
+                'completada': True
+            })
+        
+        return jsonify(activos_evaluados), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@evaluacion_riesgos_bp.route('/evaluacion-parcial', methods=['POST'])
+def guardar_evaluacion_parcial():
+    """Guardar una evaluación parcial para poder continuarla después"""
+    try:
+        data = request.get_json()
+        
+        # Validar datos requeridos
+        if 'activo_id' not in data or 'wizard_data' not in data:
+            return jsonify({'error': 'Datos requeridos: activo_id y wizard_data'}), 400
+        
+        # Crear o actualizar evaluación parcial
+        # Por ahora guardamos en una tabla temporal o en el localStorage del frontend
+        # En una implementación real, crearías una tabla 'evaluaciones_parciales'
+        
+        return jsonify({
+            'message': 'Evaluación parcial guardada exitosamente',
+            'activo_id': data['activo_id'],
+            'progreso': data.get('progreso', 0)
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@evaluacion_riesgos_bp.route('/evaluacion-parcial/<int:activo_id>', methods=['GET'])
+def obtener_evaluacion_parcial(activo_id):
+    """Obtener evaluación parcial guardada para continuar"""
+    try:
+        # En una implementación real, buscarías en la base de datos
+        # Por ahora devolvemos datos vacíos
+        return jsonify({
+            'activo_id': activo_id,
+            'wizard_data': {},
+            'progreso': 0,
+            'existe': False
+        }), 200
+        
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

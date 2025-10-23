@@ -13,28 +13,28 @@ import json
 
 def test_pdf_processor():
     """Probar el procesador de PDFs"""
-    print("🔍 Probando procesador de PDFs...")
+    print("Probando procesador de PDFs...")
     
     processor = ISOPDFProcessor()
     
     # Procesar documentos ISO
     processed_data = processor.process_all_documents()
     
-    print(f"✅ Controles encontrados: {len(processed_data.get('controles', {}))}")
-    print(f"✅ Amenazas encontradas: {len(processed_data.get('amenazas', {}))}")
-    print(f"✅ Vulnerabilidades encontradas: {len(processed_data.get('vulnerabilidades', {}))}")
+    print(f"Controles encontrados: {len(processed_data.get('controles', {}))}")
+    print(f"Amenazas encontradas: {len(processed_data.get('amenazas', {}))}")
+    print(f"Vulnerabilidades encontradas: {len(processed_data.get('vulnerabilidades', {}))}")
     
     # Guardar datos procesados
     if processor.save_processed_data():
-        print("✅ Base de conocimiento guardada exitosamente")
+        print("Base de conocimiento guardada exitosamente")
         return True
     else:
-        print("❌ Error al guardar la base de conocimiento")
+        print("Error al guardar la base de conocimiento")
         return False
 
 def test_suggestion_service():
     """Probar el servicio de sugerencias"""
-    print("\n🔍 Probando servicio de sugerencias...")
+    print("\nProbando servicio de sugerencias...")
     
     service = PredictiveSuggestionService()
     
@@ -46,7 +46,7 @@ def test_suggestion_service():
     ]
     
     for test_case in test_cases:
-        print(f"\n📊 Probando con activo: {test_case['asset_type']}")
+        print(f"\nProbando con activo: {test_case['asset_type']}")
         print("-" * 50)
         
         try:
@@ -68,18 +68,18 @@ def test_suggestion_service():
                 print(f"    - {control['titulo']} (Confianza: {control['confianza']:.2f})")
                 
         except Exception as e:
-            print(f"❌ Error al probar {test_case['asset_type']}: {e}")
+            print(f"Error al probar {test_case['asset_type']}: {e}")
             return False
     
     return True
 
 def test_api_endpoints():
     """Probar endpoints de la API"""
-    print("\n🔍 Probando endpoints de la API...")
+    print("\nProbando endpoints de la API...")
     
     try:
         from app.routes.predictive import predictive_bp
-        print("✅ Blueprint predictivo cargado exitosamente")
+        print("Blueprint predictivo cargado exitosamente")
         
         # Verificar que las rutas estén registradas
         routes = [
@@ -93,19 +93,19 @@ def test_api_endpoints():
             '/api/predictive/risk-level/calculate'
         ]
         
-        print("✅ Rutas de la API configuradas:")
+        print("Rutas de la API configuradas:")
         for route in routes:
             print(f"    - {route}")
         
         return True
         
     except Exception as e:
-        print(f"❌ Error al probar endpoints: {e}")
+        print(f"Error al probar endpoints: {e}")
         return False
 
 def main():
     """Función principal para probar el sistema predictivo"""
-    print("🚀 Iniciando pruebas del sistema predictivo ISO")
+    print("Iniciando pruebas del sistema predictivo ISO")
     print("=" * 60)
     
     # Probar procesador de PDFs
@@ -119,19 +119,19 @@ def main():
     
     # Resumen de pruebas
     print("\n" + "=" * 60)
-    print("📋 RESUMEN DE PRUEBAS:")
-    print(f"Procesador de PDFs: {'✅ Exitoso' if pdf_success else '❌ Falló'}")
-    print(f"Servicio de sugerencias: {'✅ Exitoso' if suggestion_success else '❌ Falló'}")
-    print(f"Endpoints de la API: {'✅ Exitoso' if api_success else '❌ Falló'}")
+    print("RESUMEN DE PRUEBAS:")
+    print(f"Procesador de PDFs: {'Exitoso' if pdf_success else 'Fallo'}")
+    print(f"Servicio de sugerencias: {'Exitoso' if suggestion_success else 'Fallo'}")
+    print(f"Endpoints de la API: {'Exitoso' if api_success else 'Fallo'}")
     
     if pdf_success and suggestion_success and api_success:
-        print("\n🎉 ¡Sistema predictivo funcionando correctamente!")
-        print("\n📝 Próximos pasos:")
+        print("\nSistema predictivo funcionando correctamente!")
+        print("\nProximos pasos:")
         print("1. Ejecutar el backend y probar los endpoints")
         print("2. Probar el frontend con el wizard predictivo")
-        print("3. Verificar la integración completa")
+        print("3. Verificar la integracion completa")
     else:
-        print("\n⚠️  Sistema predictivo con errores. Revisar los mensajes anteriores.")
+        print("\nSistema predictivo con errores. Revisar los mensajes anteriores.")
     
     return pdf_success and suggestion_success and api_success
 

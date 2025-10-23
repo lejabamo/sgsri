@@ -207,3 +207,5 @@ const documentos = await response.json();
 - Cache de metadatos
 - Índices en base de datos
 
+
+

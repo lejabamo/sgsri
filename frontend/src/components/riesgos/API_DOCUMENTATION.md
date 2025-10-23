@@ -183,3 +183,5 @@ const calculateRiskLevel = (probabilidad, impacto) => {
 
 
 
+
+

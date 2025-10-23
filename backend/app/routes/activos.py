@@ -42,26 +42,28 @@ def get_activos_stats():
         total = Activo.query.count()
 
         # Normalización simple en SQL con LOWER/REPLACE para acentos comunes
+        from sqlalchemy import text
+        
         en_produccion = db.session.execute(
-            """
+            text("""
             SELECT COUNT(*) FROM activos a
             WHERE LOWER(REPLACE(a.estado_activo, 'ó', 'o')) IN (
               'en produccion','produccion','productivo'
             )
-            """
+            """)
         ).scalar() or 0
 
         alta_criticidad = db.session.execute(
-            """
+            text("""
             SELECT COUNT(*) FROM activos a
             WHERE LOWER(REPLACE(a.nivel_criticidad_negocio, 'í', 'i')) IN (
               'critico','muy alto','alto'
             )
-            """
+            """)
         ).scalar() or 0
 
         requieren_backup = db.session.execute(
-            "SELECT COUNT(*) FROM activos a WHERE a.requiere_backup = 1"
+            text("SELECT COUNT(*) FROM activos a WHERE a.requiere_backup = 1")
         ).scalar() or 0
 
         return jsonify({

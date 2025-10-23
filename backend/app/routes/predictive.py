@@ -3,7 +3,6 @@ Rutas de la API para el sistema predictivo basado en normas ISO
 """
 
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
 import logging
 from typing import Dict, Any
 
@@ -22,7 +21,6 @@ suggestion_service = PredictiveSuggestionService()
 pdf_processor = ISOPDFProcessor()
 
 @predictive_bp.route('/suggestions/threats', methods=['POST'])
-@jwt_required()
 def suggest_threats():
     """Sugerir amenazas basadas en el tipo de activo"""
     try:
@@ -50,7 +48,6 @@ def suggest_threats():
         return jsonify({'error': 'Error interno del servidor'}), 500
 
 @predictive_bp.route('/suggestions/vulnerabilities', methods=['POST'])
-@jwt_required()
 def suggest_vulnerabilities():
     """Sugerir vulnerabilidades basadas en la amenaza seleccionada"""
     try:
@@ -78,7 +75,6 @@ def suggest_vulnerabilities():
         return jsonify({'error': 'Error interno del servidor'}), 500
 
 @predictive_bp.route('/suggestions/controls', methods=['POST'])
-@jwt_required()
 def suggest_controls():
     """Sugerir controles basados en amenaza y vulnerabilidad"""
     try:
@@ -110,7 +106,6 @@ def suggest_controls():
         return jsonify({'error': 'Error interno del servidor'}), 500
 
 @predictive_bp.route('/suggestions/complete', methods=['POST'])
-@jwt_required()
 def get_complete_suggestions():
     """Obtener sugerencias completas para evaluación de riesgos"""
     try:
@@ -133,7 +128,6 @@ def get_complete_suggestions():
         return jsonify({'error': 'Error interno del servidor'}), 500
 
 @predictive_bp.route('/knowledge-base/status', methods=['GET'])
-@jwt_required()
 def get_knowledge_base_status():
     """Obtener estado de la base de conocimiento"""
     try:
@@ -157,7 +151,6 @@ def get_knowledge_base_status():
         return jsonify({'error': 'Error interno del servidor'}), 500
 
 @predictive_bp.route('/knowledge-base/refresh', methods=['POST'])
-@jwt_required()
 def refresh_knowledge_base():
     """Refrescar la base de conocimiento procesando documentos ISO"""
     try:
@@ -187,7 +180,6 @@ def refresh_knowledge_base():
         return jsonify({'error': 'Error interno del servidor'}), 500
 
 @predictive_bp.route('/asset-types', methods=['GET'])
-@jwt_required()
 def get_asset_types():
     """Obtener tipos de activos disponibles"""
     try:
@@ -244,7 +236,6 @@ def get_asset_types():
         return jsonify({'error': 'Error interno del servidor'}), 500
 
 @predictive_bp.route('/risk-level/calculate', methods=['POST'])
-@jwt_required()
 def calculate_risk_level():
     """Calcular nivel de riesgo basado en amenaza y vulnerabilidad"""
     try:

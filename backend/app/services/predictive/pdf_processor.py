@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class ISOPDFProcessor:
     """Procesador de documentos PDF de normas ISO"""
     
-    def __init__(self, docs_path: str = "Docs"):
+    def __init__(self, docs_path: str = "../Docs"):
         self.docs_path = Path(docs_path)
         self.processed_data = {
             "controles": {},

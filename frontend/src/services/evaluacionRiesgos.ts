@@ -144,8 +144,47 @@ export const evaluacionRiesgosService = {
       console.error('Error fetching evaluaciones:', error);
       return [];
     }
+  },
+
+  // Obtener evaluaciones completadas por activo
+  async getEvaluacionesCompletadas(): Promise<{[key: string]: any}> {
+    try {
+      return await apiRequest<{[key: string]: any}>('/evaluacion-riesgos/evaluaciones-completadas');
+    } catch (error) {
+      console.error('Error fetching evaluaciones completadas:', error);
+      return {};
+    }
+  },
+
+  // Guardar evaluación parcial
+  async guardarEvaluacionParcial(activoId: number, wizardData: any, progreso: number): Promise<any> {
+    try {
+      return await apiRequest<any>('/evaluacion-riesgos/evaluacion-parcial', {
+        method: 'POST',
+        body: JSON.stringify({
+          activo_id: activoId,
+          wizard_data: wizardData,
+          progreso: progreso
+        })
+      });
+    } catch (error) {
+      console.error('Error guardando evaluación parcial:', error);
+      throw error;
+    }
+  },
+
+  // Obtener evaluación parcial
+  async obtenerEvaluacionParcial(activoId: number): Promise<any> {
+    try {
+      return await apiRequest<any>(`/evaluacion-riesgos/evaluacion-parcial/${activoId}`);
+    } catch (error) {
+      console.error('Error obteniendo evaluación parcial:', error);
+      return { existe: false, wizard_data: {}, progreso: 0 };
+    }
   }
 };
+
+
 
 
 

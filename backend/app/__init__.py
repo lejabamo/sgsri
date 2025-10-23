@@ -69,6 +69,10 @@ def create_app():
     from .routes.documentos import documentos_bp
     app.register_blueprint(documentos_bp)
 
+    # Rutas del sistema predictivo
+    from .routes.predictive import register_predictive_routes
+    register_predictive_routes(app)
+
     # Ruta de prueba para verificar que el servidor está funcionando
     @app.route('/api/health', methods=['GET'])
     def health_check():
