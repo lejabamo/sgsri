@@ -96,7 +96,8 @@ mysql -u root -p
 CREATE DATABASE sgsri_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 # Importar backup (si existe)
-mysql -u root -p sgsri_db < backup_sgsri_YYYYMMDD.sql
+# Ver BACKUP_INSTRUCTIONS.md para instrucciones detalladas
+./restore_database.sh backups/backup_sgri_YYYYMMDD.sql.gz sgsri_db root
 
 # O inicializar desde cero
 cd backend
