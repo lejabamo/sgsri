@@ -11,9 +11,11 @@ export default defineConfig({
     },
   },
   server: {
+    host: '0.0.0.0', // Permitir conexiones desde otros equipos
+    port: 5173,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:5000',
+        target: process.env.VITE_API_URL || 'http://127.0.0.1:5000',
         changeOrigin: true,
         secure: false,
       },
@@ -21,5 +23,51 @@ export default defineConfig({
   },
   css: {
     postcss: './postcss.config.js',
+  },
+  build: {
+    // Optimizaciones de build para producción
+    target: 'es2015',
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true, // Elimina console.log en producción
+        drop_debugger: true,
+      },
+    },
+    // Code splitting optimizado
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Separar vendor chunks
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'mui-vendor': ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
+          'query-vendor': ['@tanstack/react-query'],
+          'utils-vendor': ['axios', 'date-fns', 'yup'],
+        },
+        // Nombres de archivos optimizados
+        chunkFileNames: 'assets/js/[name]-[hash].js',
+        entryFileNames: 'assets/js/[name]-[hash].js',
+        assetFileNames: 'assets/[ext]/[name]-[hash].[ext]',
+      },
+    },
+    // Optimización de assets
+    assetsInlineLimit: 4096, // Inline assets < 4kb
+    chunkSizeWarningLimit: 1000,
+    // Generar source maps solo en desarrollo
+    sourcemap: false,
+    // Optimizar CSS
+    cssCodeSplit: true,
+    cssMinify: true,
+  },
+  // Optimización de dependencias
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      '@mui/material',
+      '@tanstack/react-query',
+      'axios',
+    ],
   },
 })

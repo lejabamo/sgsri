@@ -1,5 +1,5 @@
 // Servicio para conectar con el backend Flask
-const API_BASE_URL = 'http://127.0.0.1:5000/api';
+import { API_BASE_URL } from '../config/api';
 
 // Tipos de datos
 export interface Activo {
@@ -255,6 +255,16 @@ export const usuariosService = {
       console.error('Error deleting usuario:', error);
       throw error;
     }
+  },
+
+  // Obtener detalle completo del usuario
+  async getDetalleUsuario(usuarioId: number): Promise<any> {
+    try {
+      return await apiRequest<any>(`/usuarios/${usuarioId}/detalle`);
+    } catch (error) {
+      console.error('Error fetching detalle usuario:', error);
+      throw error;
+    }
   }
 };
 
@@ -389,8 +399,18 @@ export const dashboardService = {
       });
       return { activos: { total: 0, monthly: months }, riesgos: { total: 0, monthly: months } };
     }
-  }
-  ,
+  },
+
+  // Obtener evolución de riesgos (últimos 6 meses)
+  async getEvolucionRiesgos(): Promise<{ evolucion: Array<{ mes: string; riesgos: number; mitigados: number }> }> {
+    try {
+      return await apiRequest<{ evolucion: Array<{ mes: string; riesgos: number; mitigados: number }> }>('/dashboard/evolucion-riesgos');
+    } catch (error) {
+      console.error('Error fetching evolucion riesgos:', error);
+      // Retornar array vacío en caso de error
+      return { evolucion: [] };
+    }
+  },
   // Sistemas de información breakdown
   async getSistemasInfoBreakdown(by: 'criticidad' | 'secretaria' = 'criticidad'): Promise<{ by: string; data: { [key: string]: number } }> {
     try {
@@ -398,6 +418,135 @@ export const dashboardService = {
     } catch (error) {
       console.error('Error fetching sistemas info breakdown:', error);
       return { by, data: {} };
+    }
+  },
+  // Matriz de riesgos dinámica
+  async getMatrizRiesgos(params?: any): Promise<any> {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.activo_id) queryParams.append('activo_id', params.activo_id.toString());
+      if (params?.fecha_inicio) queryParams.append('fecha_inicio', params.fecha_inicio);
+      if (params?.fecha_fin) queryParams.append('fecha_fin', params.fecha_fin);
+      
+      const url = `/dashboard/matriz-riesgos${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+      return await apiRequest<any>(url);
+    } catch (error) {
+      console.error('Error fetching matriz de riesgos:', error);
+      return { matriz: [], estadisticas: { total: 0, altos: 0, medios: 0, bajos: 0 } };
+    }
+  },
+  async exportarMatrizRiesgos(params?: any): Promise<any> {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.activo_id) queryParams.append('activo_id', params.activo_id.toString());
+      if (params?.fecha_inicio) queryParams.append('fecha_inicio', params.fecha_inicio);
+      if (params?.fecha_fin) queryParams.append('fecha_fin', params.fecha_fin);
+      
+      const url = `/dashboard/matriz-riesgos/exportar${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+      return await apiRequest<any>(url);
+    } catch (error) {
+      console.error('Error exporting matriz de riesgos:', error);
+      throw error;
+    }
+  },
+  async getReporteCompletoRiesgos(): Promise<any> {
+    try {
+      return await apiRequest<any>('/dashboard/reporte-completo-riesgos');
+    } catch (error) {
+      console.error('Error fetching reporte completo de riesgos:', error);
+      throw error;
+    }
+  },
+  async getActivosEvaluadosDetalle(): Promise<any> {
+    try {
+      return await apiRequest<any>('/dashboard/activos-evaluados-detalle');
+    } catch (error) {
+      console.error('Error fetching activos evaluados detalle:', error);
+      throw error;
+    }
+  },
+  async getRiesgosConActivos(): Promise<any> {
+    try {
+      return await apiRequest<any>('/dashboard/riesgos-con-activos');
+    } catch (error) {
+      console.error('Error fetching riesgos con activos:', error);
+      throw error;
+    }
+  },
+  async getRiesgosAltosDetalle(): Promise<any> {
+    try {
+      return await apiRequest<any>('/dashboard/riesgos-altos-detalle');
+    } catch (error) {
+      console.error('Error fetching riesgos altos detalle:', error);
+      throw error;
+    }
+  },
+  async getEstadisticasActivos(): Promise<any> {
+    try {
+      return await apiRequest<any>('/dashboard/estadisticas-activos');
+    } catch (error) {
+      console.error('Error fetching estadisticas de activos:', error);
+      throw error;
+    }
+  },
+  async getTendenciasSeguridad(): Promise<any> {
+    try {
+      return await apiRequest<any>('/dashboard/tendencias-seguridad');
+    } catch (error) {
+      console.error('Error fetching tendencias de seguridad:', error);
+      throw error;
+    }
+  },
+  async getReporteUsuariosEvidencias(): Promise<any> {
+    try {
+      return await apiRequest<any>('/dashboard/reporte-usuarios-evidencias');
+    } catch (error) {
+      console.error('Error fetching reporte usuarios evidencias:', error);
+      throw error;
+    }
+  },
+  async getActivos(): Promise<any[]> {
+    try {
+      return await apiRequest<any[]>('/activos/');
+    } catch (error) {
+      console.error('Error fetching activos:', error);
+      return [];
+    }
+  },
+  // Salud institucional
+  async getSaludInstitucional(): Promise<any> {
+    try {
+      return await apiRequest<any>('/dashboard/salud-institucional');
+    } catch (error) {
+      console.error('Error fetching salud institucional:', error);
+      return { porcentaje: 100, estado: 'BUENO', distribucion: { altos: 0, medios: 0, bajos: 0, total: 0 } };
+    }
+  },
+  // Riesgos activos y mitigados
+  async getRiesgosActivosMitigados(): Promise<any> {
+    try {
+      return await apiRequest<any>('/dashboard/riesgos-activos-mitigados');
+    } catch (error) {
+      console.error('Error fetching riesgos activos/mitigados:', error);
+      return { activos: 0, mitigados: 0 };
+    }
+  },
+  // Top riesgos críticos
+  async getTopRiesgosCriticos(): Promise<any> {
+    try {
+      return await apiRequest<any>('/dashboard/top-riesgos-criticos');
+    } catch (error) {
+      console.error('Error fetching top riesgos críticos:', error);
+      return { riesgos: [] };
+    }
+  },
+  // Alertas del sistema
+  async getAlertas(): Promise<any[]> {
+    try {
+      return await apiRequest<any[]>('/dashboard/alertas');
+    } catch (error) {
+      console.error('Error fetching alertas:', error);
+      return [];
     }
   }
 };
