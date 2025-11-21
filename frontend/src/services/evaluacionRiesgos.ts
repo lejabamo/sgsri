@@ -181,6 +181,55 @@ export const evaluacionRiesgosService = {
       console.error('Error obteniendo evaluación parcial:', error);
       return { existe: false, wizard_data: {}, progreso: 0 };
     }
+  },
+
+  // Predicción de texto
+  async generateRiskDescription(amenaza: string, vulnerabilidad: string): Promise<any> {
+    try {
+      return await apiRequest<any>('/predictive/generate-description', {
+        method: 'POST',
+        body: JSON.stringify({ amenaza, vulnerabilidad })
+      });
+    } catch (error) {
+      console.error('Error generando descripción:', error);
+      throw error;
+    }
+  },
+
+  async generateJustification(probabilidad: string, impacto: string): Promise<any> {
+    try {
+      return await apiRequest<any>('/predictive/generate-justification', {
+        method: 'POST',
+        body: JSON.stringify({ probabilidad, impacto })
+      });
+    } catch (error) {
+      console.error('Error generando justificación:', error);
+      throw error;
+    }
+  },
+
+  async generateControlSuggestions(amenaza: string, vulnerabilidad: string): Promise<any> {
+    try {
+      return await apiRequest<any>('/predictive/generate-controls', {
+        method: 'POST',
+        body: JSON.stringify({ amenaza, vulnerabilidad })
+      });
+    } catch (error) {
+      console.error('Error generando sugerencias:', error);
+      throw error;
+    }
+  },
+
+  async generateAllPredictions(amenaza: string, vulnerabilidad: string, probabilidad?: string, impacto?: string): Promise<any> {
+    try {
+      return await apiRequest<any>('/predictive/generate-all', {
+        method: 'POST',
+        body: JSON.stringify({ amenaza, vulnerabilidad, probabilidad, impacto })
+      });
+    } catch (error) {
+      console.error('Error generando predicciones:', error);
+      throw error;
+    }
   }
 };
 

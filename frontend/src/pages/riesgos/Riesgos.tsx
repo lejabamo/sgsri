@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -50,6 +50,7 @@ import {
 import RiskMatrix from '../../components/common/RiskMatrix';
 import RiskMatrix4x5 from '../../components/riesgos/RiskMatrix4x5';
 import '../../styles/design-system.css';
+import { dashboardService } from '../../services/backend';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -75,41 +76,60 @@ function TabPanel(props: TabPanelProps) {
 
 const Riesgos: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
+  const [saludInstitucional, setSaludInstitucional] = useState<any>(null);
+  const [riesgosActivosMitigados, setRiesgosActivosMitigados] = useState<any>(null);
+  const [topRiesgosCriticos, setTopRiesgosCriticos] = useState<any[]>([]);
+  const [alertas, setAlertas] = useState<any[]>([]);
+  const [tendenciaRiesgos, setTendenciaRiesgos] = useState<Array<{ mes: string; riesgos: number; mitigados: number }>>([]);
+  const [loading, setLoading] = useState(true);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 
-  // Datos de ejemplo para el dashboard
-  const saludInstitucional = {
-    puntuacion: 78,
-    nivel: 'BUENO',
-    color: '#10B981',
-    tendencia: '+5%'
-  };
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [salud, riesgos, topCriticos, alertasData, evolucion] = await Promise.all([
+          dashboardService.getSaludInstitucional(),
+          dashboardService.getRiesgosActivosMitigados(),
+          dashboardService.getTopRiesgosCriticos(),
+          dashboardService.getAlertas(),
+          dashboardService.getEvolucionRiesgos()
+        ]);
+        setSaludInstitucional(salud);
+        setRiesgosActivosMitigados(riesgos);
+        setTopRiesgosCriticos(topCriticos?.riesgos || []);
+        setAlertas(alertasData || []);
+        setTendenciaRiesgos(evolucion?.evolucion || []);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        // En caso de error, mantener datos vacíos
+        setTendenciaRiesgos([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
-  const distribucionRiesgos = [
-    { name: 'LOW', value: 45, color: '#10B981' },
-    { name: 'MEDIUM', value: 35, color: '#F59E0B' },
-    { name: 'HIGH', value: 20, color: '#EF4444' },
-  ];
+  // Calcular riesgos por tipo desde top riesgos críticos
+  const riesgosPorTipo = React.useMemo(() => {
+    const tipoMap: { [key: string]: number } = {};
+    topRiesgosCriticos.forEach((riesgo: any) => {
+      // Si el riesgo tiene categoría, usarla; si no, inferir del nombre
+      const tipo = riesgo.categoria || 'General';
+      tipoMap[tipo] = (tipoMap[tipo] || 0) + 1;
+    });
+    return Object.entries(tipoMap).map(([tipo, cantidad]) => ({
+      tipo,
+      cantidad,
+      tendencia: '+0'
+    }));
+  }, [topRiesgosCriticos]);
 
-  const riesgosPorTipo = [
-    { tipo: 'Técnico', cantidad: 12, tendencia: '+2' },
-    { tipo: 'Operacional', cantidad: 8, tendencia: '-1' },
-    { tipo: 'Seguridad', cantidad: 15, tendencia: '+3' },
-    { tipo: 'Legal', cantidad: 5, tendencia: '0' },
-    { tipo: 'Financiero', cantidad: 7, tendencia: '+1' },
-  ];
-
-  const tendenciaRiesgos = [
-    { mes: 'Ene', riesgos: 25, mitigados: 5 },
-    { mes: 'Feb', riesgos: 28, mitigados: 8 },
-    { mes: 'Mar', riesgos: 32, mitigados: 12 },
-    { mes: 'Abr', riesgos: 30, mitigados: 15 },
-    { mes: 'May', riesgos: 27, mitigados: 18 },
-    { mes: 'Jun', riesgos: 24, mitigados: 20 },
-  ];
+  // tendenciaRiesgos ahora viene del backend (estado)
 
   const recomendaciones = [
     {
@@ -151,23 +171,29 @@ const Riesgos: React.FC = () => {
   ];
 
   const getNivelSalud = (puntuacion: number) => {
-    if (puntuacion >= 80) return { nivel: 'EXCELENTE', color: '#10B981' };
-    if (puntuacion >= 60) return { nivel: 'BUENO', color: '#3B82F6' };
-    if (puntuacion >= 40) return { nivel: 'REGULAR', color: '#F59E0B' };
+    if (puntuacion >= 80) return { nivel: 'BUENO', color: '#10B981' };
+    if (puntuacion >= 60) return { nivel: 'REGULAR', color: '#F59E0B' };
     return { nivel: 'CRÍTICO', color: '#EF4444' };
   };
 
-  const nivelSalud = getNivelSalud(saludInstitucional.puntuacion);
+  const nivelSalud = saludInstitucional 
+    ? getNivelSalud(saludInstitucional.porcentaje || 0)
+    : { nivel: 'CARGANDO', color: '#6B7280' };
+  
+  const saludPuntuacion = saludInstitucional?.porcentaje || 0;
+  const saludEstado = saludInstitucional?.estado || 'CARGANDO';
+  const riesgosActivos = riesgosActivosMitigados?.activos || 0;
+  const riesgosMitigados = riesgosActivosMitigados?.mitigados || 0;
 
   return (
     <Box>
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" className="font-poppins" sx={{ color: '#1E3A8A', fontWeight: 600, mb: 1 }}>
-          Dashboard de Salud Institucional
+          Gestión de Riesgos de Seguridad de la Información
         </Typography>
         <Typography variant="body1" className="font-roboto" sx={{ color: '#6B7280' }}>
-          Monitoreo integral de riesgos y salud de la organización
+          Monitoreo integral del estado de evaluación de activos, identificación de riesgos y salud institucional basado en datos reales del sistema
         </Typography>
       </Box>
 
@@ -187,17 +213,17 @@ const Riesgos: React.FC = () => {
                 <AssessmentIcon sx={{ fontSize: 32 }} />
               </Avatar>
               <Typography variant="h4" className="font-poppins" sx={{ color: '#1E3A8A', fontWeight: 700, mb: 1 }}>
-                {saludInstitucional.puntuacion}%
+                {loading ? '...' : `${Math.round(saludPuntuacion)}%`}
               </Typography>
               <Typography variant="h6" className="font-poppins" sx={{ color: nivelSalud.color, fontWeight: 600, mb: 1 }}>
-                {nivelSalud.nivel}
+                {saludEstado === 'BUENO' ? 'BUENO' : saludEstado === 'REGULAR' ? 'REGULAR' : saludEstado === 'CRÍTICO' ? 'CRÍTICO' : 'CARGANDO'}
               </Typography>
               <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280' }}>
                 Salud Institucional
               </Typography>
               <LinearProgress 
                 variant="determinate" 
-                value={saludInstitucional.puntuacion} 
+                value={loading ? 0 : saludPuntuacion} 
                 sx={{ 
                   mt: 2, 
                   height: 8, 
@@ -227,7 +253,7 @@ const Riesgos: React.FC = () => {
                 <WarningIcon sx={{ fontSize: 32 }} />
               </Avatar>
               <Typography variant="h4" className="font-poppins" sx={{ color: '#1E3A8A', fontWeight: 700, mb: 1 }}>
-                47
+                {loading ? '...' : riesgosActivos}
               </Typography>
               <Typography variant="h6" className="font-poppins" sx={{ color: '#EF4444', fontWeight: 600, mb: 1 }}>
                 Riesgos Activos
@@ -253,7 +279,7 @@ const Riesgos: React.FC = () => {
                 <CheckCircleIcon sx={{ fontSize: 32 }} />
               </Avatar>
               <Typography variant="h4" className="font-poppins" sx={{ color: '#1E3A8A', fontWeight: 700, mb: 1 }}>
-                23
+                {loading ? '...' : riesgosMitigados}
               </Typography>
               <Typography variant="h6" className="font-poppins" sx={{ color: '#10B981', fontWeight: 600, mb: 1 }}>
                 Mitigados
@@ -279,14 +305,28 @@ const Riesgos: React.FC = () => {
                 <SpeedIcon sx={{ fontSize: 32 }} />
               </Avatar>
               <Typography variant="h4" className="font-poppins" sx={{ color: '#1E3A8A', fontWeight: 700, mb: 1 }}>
-                {saludInstitucional.tendencia}
+                {loading ? '...' : saludInstitucional?.porcentaje_evaluacion ? `${Math.round(saludInstitucional.porcentaje_evaluacion)}%` : '0%'}
               </Typography>
               <Typography variant="h6" className="font-poppins" sx={{ color: '#3B82F6', fontWeight: 600, mb: 1 }}>
-                Tendencia
+                Activos Evaluados
               </Typography>
-              <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280' }}>
-                Último mes
+              <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280', mb: 1 }}>
+                {saludInstitucional?.activos_evaluados || 0} de {saludInstitucional?.total_activos || 0} activos
               </Typography>
+              <LinearProgress 
+                variant="determinate" 
+                value={loading ? 0 : (saludInstitucional?.porcentaje_evaluacion || 0)} 
+                sx={{ 
+                  mt: 1, 
+                  height: 6, 
+                  borderRadius: 3,
+                  backgroundColor: '#E5E7EB',
+                  '& .MuiLinearProgress-bar': {
+                    backgroundColor: '#3B82F6',
+                    borderRadius: 3
+                  }
+                }} 
+              />
             </CardContent>
           </Card>
         </Grid>
@@ -338,53 +378,61 @@ const Riesgos: React.FC = () => {
                     Top Riesgos Críticos
                   </Typography>
                   <List>
-                    {[
-                      { nombre: 'Acceso no autorizado a BD', nivel: 'HIGH', tipo: 'Seguridad' },
-                      { nombre: 'Falta de respaldo crítico', nivel: 'HIGH', tipo: 'Operacional' },
-                      { nombre: 'Software desactualizado', nivel: 'MEDIUM', tipo: 'Técnico' },
-                      { nombre: 'Políticas de acceso débiles', nivel: 'MEDIUM', tipo: 'Seguridad' },
-                      { nombre: 'Falta de capacitación', nivel: 'MEDIUM', tipo: 'Operacional' }
-                    ].map((riesgo, index) => (
-                      <React.Fragment key={index}>
-                        <ListItem sx={{ px: 0 }}>
-                          <ListItemIcon>
-                            <Avatar sx={{ 
-                              backgroundColor: riesgo.nivel === 'HIGH' ? '#EF4444' : '#F59E0B',
-                              color: '#FFFFFF',
-                              width: 32,
-                              height: 32
-                            }}>
-                              <WarningIcon sx={{ fontSize: 16 }} />
-                            </Avatar>
-                          </ListItemIcon>
-                          <ListItemText
-                            primary={
-                              <Typography variant="body1" className="font-poppins" sx={{ color: '#1E3A8A', fontWeight: 500 }}>
-                                {riesgo.nombre}
-                              </Typography>
-                            }
-                            secondary={
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                                <Chip
-                                  label={riesgo.nivel}
-                                  size="small"
-                                  sx={{
-                                    backgroundColor: riesgo.nivel === 'HIGH' ? '#EF4444' : '#F59E0B',
-                                    color: '#FFFFFF',
-                                    fontWeight: 500,
-                                    fontSize: '0.75rem'
-                                  }}
-                                />
-                                <Typography variant="caption" className="font-roboto" sx={{ color: '#6B7280' }}>
-                                  {riesgo.tipo}
-        </Typography>
-      </Box>
-                            }
-                          />
-                        </ListItem>
-                        {index < 4 && <Divider />}
-                      </React.Fragment>
-                    ))}
+                    {topRiesgosCriticos.length > 0 ? (
+                      topRiesgosCriticos.map((riesgo, index) => (
+                        <React.Fragment key={`riesgo-${riesgo.nombre}-${index}`}>
+                          <ListItem sx={{ px: 0 }}>
+                            <ListItemIcon>
+                              <Avatar sx={{ 
+                                backgroundColor: riesgo.severidad === 'HIGH' || riesgo.nivel === 'ALTO' ? '#EF4444' : '#F59E0B',
+                                color: '#FFFFFF',
+                                width: 32,
+                                height: 32
+                              }}>
+                                <WarningIcon sx={{ fontSize: 16 }} />
+                              </Avatar>
+                            </ListItemIcon>
+                            <ListItemText
+                              primary={
+                                <Typography variant="body1" className="font-poppins" sx={{ color: '#1E3A8A', fontWeight: 500 }}>
+                                  {riesgo.nombre}
+                                </Typography>
+                              }
+                              secondary={
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
+                                  <Chip
+                                    label={riesgo.nivel || riesgo.severidad}
+                                    size="small"
+                                    sx={{
+                                      backgroundColor: (riesgo.severidad === 'HIGH' || riesgo.nivel === 'ALTO') ? '#EF4444' : '#F59E0B',
+                                      color: '#FFFFFF',
+                                      fontWeight: 500,
+                                      fontSize: '0.75rem'
+                                    }}
+                                  />
+                                  {riesgo.activo && (
+                                    <Typography variant="caption" className="font-roboto" sx={{ color: '#6B7280' }}>
+                                      Activo: {riesgo.activo}
+                                    </Typography>
+                                  )}
+                                </Box>
+                              }
+                            />
+                          </ListItem>
+                          {index < topRiesgosCriticos.length - 1 && <Divider />}
+                        </React.Fragment>
+                      ))
+                    ) : (
+                      <ListItem>
+                        <ListItemText
+                          primary={
+                            <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280', fontStyle: 'italic' }}>
+                              No hay riesgos críticos identificados en este momento
+                            </Typography>
+                          }
+                        />
+                      </ListItem>
+                    )}
                   </List>
                 </CardContent>
               </Card>
@@ -470,17 +518,27 @@ const Riesgos: React.FC = () => {
                     Evolución de Riesgos (Últimos 6 meses)
                   </Typography>
                   <Box sx={{ height: 400 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={tendenciaRiesgos}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="mes" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        <Line type="monotone" dataKey="riesgos" stroke="#EF4444" strokeWidth={3} name="Riesgos Identificados" />
-                        <Line type="monotone" dataKey="mitigados" stroke="#10B981" strokeWidth={3} name="Riesgos Mitigados" />
-                      </LineChart>
-                    </ResponsiveContainer>
+                    {loading ? (
+                      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                        <Typography sx={{ color: '#6B7280' }}>Cargando datos...</Typography>
+                      </Box>
+                    ) : tendenciaRiesgos.length === 0 ? (
+                      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                        <Typography sx={{ color: '#6B7280' }}>No hay datos de evolución disponibles</Typography>
+                      </Box>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={tendenciaRiesgos}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="mes" />
+                          <YAxis />
+                          <Tooltip />
+                          <Legend />
+                          <Line type="monotone" dataKey="riesgos" stroke="#EF4444" strokeWidth={3} name="Riesgos Identificados" />
+                          <Line type="monotone" dataKey="mitigados" stroke="#10B981" strokeWidth={3} name="Riesgos Mitigados" />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    )}
                   </Box>
                 </CardContent>
               </Card>
@@ -489,25 +547,69 @@ const Riesgos: React.FC = () => {
         </TabPanel>
       </Card>
 
-      {/* Alertas Críticas */}
-      <Alert 
-        severity="warning" 
-        sx={{ 
-          mb: 3,
-          borderRadius: '12px',
-          '& .MuiAlert-message': {
-            width: '100%'
-          }
-        }}
-      >
-        <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', fontWeight: 600, mb: 1 }}>
-          ⚠️ Atención Requerida
-        </Typography>
-        <Typography variant="body1" className="font-roboto" sx={{ color: '#6B7280' }}>
-          Se han identificado 3 riesgos críticos que requieren atención inmediata. 
-          Se recomienda revisar las recomendaciones prioritarias y implementar las medidas de mitigación correspondientes.
-        </Typography>
-      </Alert>
+      {/* Alertas Críticas - Datos Reales */}
+      {alertas.length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          {alertas.map((alerta, index) => {
+            const severity = alerta.severidad === 'alta' ? 'error' : alerta.severidad === 'media' ? 'warning' : 'info';
+            return (
+              <Alert 
+                key={`alerta-${alerta.tipo}-${index}`}
+                severity={severity as any}
+                sx={{ 
+                  mb: 2,
+                  borderRadius: '12px',
+                  '& .MuiAlert-message': {
+                    width: '100%'
+                  }
+                }}
+              >
+                <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', fontWeight: 600, mb: 1 }}>
+                  ⚠️ Atención Requerida
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                  <Typography variant="body1" className="font-roboto" sx={{ color: '#6B7280' }} component="div">
+                    {alerta.mensaje}
+                  </Typography>
+                  {alerta.cantidad && (
+                    <Chip 
+                      label={alerta.cantidad} 
+                      size="small" 
+                      sx={{ 
+                        backgroundColor: alerta.severidad === 'alta' ? '#EF4444' : '#F59E0B',
+                        color: '#FFFFFF',
+                        fontWeight: 600
+                      }} 
+                    />
+                  )}
+                </Box>
+              </Alert>
+            );
+          })}
+        </Box>
+      )}
+      
+      {/* Alerta de riesgos críticos si hay top riesgos críticos */}
+      {topRiesgosCriticos.length > 0 && topRiesgosCriticos.filter((r: any) => r.severidad === 'HIGH' || r.nivel === 'ALTO').length > 0 && (
+        <Alert 
+          severity="error" 
+          sx={{ 
+            mb: 3,
+            borderRadius: '12px',
+            '& .MuiAlert-message': {
+              width: '100%'
+            }
+          }}
+        >
+          <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', fontWeight: 600, mb: 1 }}>
+            ⚠️ Riesgos Críticos Identificados
+          </Typography>
+          <Typography variant="body1" className="font-roboto" sx={{ color: '#6B7280' }}>
+            Se han identificado {topRiesgosCriticos.filter((r: any) => r.severidad === 'HIGH' || r.nivel === 'ALTO').length} riesgo(s) crítico(s) que requieren atención inmediata. 
+            Se recomienda revisar la pestaña "Análisis" para ver los detalles y las recomendaciones prioritarias.
+          </Typography>
+        </Alert>
+      )}
     </Box>
   );
 };

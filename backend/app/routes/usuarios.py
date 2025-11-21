@@ -22,6 +22,7 @@ def get_usuarios():
         
         usuarios = query.all()
         return jsonify([{
+            'id': u.id_usuario,  # Agregar 'id' para compatibilidad con DataGrid
             'id_usuario': u.id_usuario,
             'nombre_completo': u.nombre_completo,
             'email_institucional': u.email_institucional,
@@ -30,6 +31,10 @@ def get_usuarios():
             'fecha_creacion_registro': u.fecha_creacion_registro.isoformat() if u.fecha_creacion_registro else None
         } for u in usuarios]), 200
     except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Error en get_usuarios: {str(e)}")
+        print(f"Traceback: {error_trace}")
         return jsonify({'error': str(e)}), 500
 
 @usuarios_bp.route('/<int:usuario_id>', methods=['GET'])
@@ -176,6 +181,118 @@ def get_estados():
         return jsonify([estado[0] for estado in estados if estado[0]]), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@usuarios_bp.route('/<int:usuario_id>/detalle', methods=['GET'])
+def get_detalle_usuario(usuario_id):
+    """Obtener detalle completo del usuario con procesos y oficina"""
+    try:
+        from sqlalchemy import text
+        
+        usuario = UsuarioSistema.query.get_or_404(usuario_id)
+        usuario_dict = {
+            'id_usuario': usuario.id_usuario,
+            'nombre_completo': usuario.nombre_completo,
+            'email_institucional': usuario.email_institucional,
+            'puesto_organizacion': usuario.puesto_organizacion,
+            'estado_usuario': usuario.estado_usuario,
+            'fecha_creacion_registro': usuario.fecha_creacion_registro.isoformat() if usuario.fecha_creacion_registro else None,
+            'fecha_ultima_actualizacion': usuario.fecha_ultima_actualizacion.isoformat() if usuario.fecha_ultima_actualizacion else None,
+            'fecha_ultimo_login': usuario.fecha_ultimo_login.isoformat() if usuario.fecha_ultimo_login else None,
+        }
+        
+        # Obtener activos como propietario y custodio
+        activos_propietario = Activo.query.filter_by(ID_Propietario=usuario_id).all()
+        activos_custodio = Activo.query.filter_by(ID_Custodio=usuario_id).all()
+        
+        # Intentar obtener información de proceso y oficina desde otras tablas
+        # Si existen tablas de procesos u oficinas, se pueden consultar aquí
+        proceso_info = None
+        oficina_info = None
+        
+        try:
+            # Buscar proceso relacionado (si existe tabla procesos)
+            proceso_result = db.session.execute(
+                text("""
+                    SELECT 
+                        p.ID_Proceso,
+                        p.Nombre_Proceso,
+                        p.Descripcion_Proceso,
+                        p.Responsable_Proceso
+                    FROM procesos p
+                    WHERE p.Responsable_Proceso = :usuario_id
+                    LIMIT 1
+                """),
+                {'usuario_id': usuario_id}
+            ).fetchone()
+            
+            if proceso_result:
+                proceso_info = {
+                    'id': proceso_result.ID_Proceso,
+                    'nombre': proceso_result.Nombre_Proceso,
+                    'descripcion': proceso_result.Descripcion_Proceso,
+                    'responsable': proceso_result.Responsable_Proceso
+                }
+        except Exception:
+            # Si no existe la tabla, usar información del puesto como referencia
+            proceso_info = {
+                'nombre': usuario.puesto_organizacion or 'No definido',
+                'descripcion': f'Proceso asociado al puesto: {usuario.puesto_organizacion}',
+                'nota': 'Información derivada del puesto organizacional'
+            }
+        
+        try:
+            # Buscar oficina relacionada (si existe tabla oficinas)
+            oficina_result = db.session.execute(
+                text("""
+                    SELECT 
+                        o.ID_Oficina,
+                        o.Nombre_Oficina,
+                        o.Descripcion_Oficina,
+                        o.Direccion
+                    FROM oficinas o
+                    JOIN usuarios_oficinas uo ON o.ID_Oficina = uo.ID_Oficina
+                    WHERE uo.id_usuario = :usuario_id
+                    LIMIT 1
+                """),
+                {'usuario_id': usuario_id}
+            ).fetchone()
+            
+            if oficina_result:
+                oficina_info = {
+                    'id': oficina_result.ID_Oficina,
+                    'nombre': oficina_result.Nombre_Oficina,
+                    'descripcion': oficina_result.Descripcion_Oficina,
+                    'direccion': oficina_result.Direccion
+                }
+        except Exception:
+            # Si no existe la tabla, usar información del email como referencia
+            if usuario.email_institucional:
+                dominio = usuario.email_institucional.split('@')[1] if '@' in usuario.email_institucional else None
+                oficina_info = {
+                    'nombre': dominio or 'No definido',
+                    'descripcion': f'Oficina derivada del dominio: {dominio}',
+                    'nota': 'Información derivada del email institucional'
+                }
+        
+        return jsonify({
+            'usuario': usuario_dict,
+            'proceso': proceso_info,
+            'oficina': oficina_info,
+            'activos': {
+                'como_propietario': [activo.to_dict() for activo in activos_propietario],
+                'como_custodio': [activo.to_dict() for activo in activos_custodio],
+                'total_propietario': len(activos_propietario),
+                'total_custodio': len(activos_custodio),
+                'total': len(activos_propietario) + len(activos_custodio)
+            }
+        }), 200
+        
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Error en get_detalle_usuario: {str(e)}")
+        print(f"Traceback: {error_trace}")
+        return jsonify({'error': str(e), 'traceback': error_trace}), 500
 
 @usuarios_bp.route('/<int:usuario_id>/activos', methods=['GET'])
 def get_activos_usuario(usuario_id):

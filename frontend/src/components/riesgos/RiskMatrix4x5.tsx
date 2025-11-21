@@ -29,6 +29,7 @@ import {
   Select,
   Stack
 } from '@mui/material';
+import Autocomplete from '@mui/material/Autocomplete';
 import {
   TrendingUp,
   TrendingDown,
@@ -39,6 +40,7 @@ import {
   FilterList,
   Close
 } from '@mui/icons-material';
+import { dashboardService } from '../../services/backend';
 
 // Tipos de datos
 interface Risk {
@@ -68,6 +70,11 @@ interface HealthData {
 interface MatrixData {
   cells: MatrixCell[];
   health: HealthData;
+}
+
+interface MatrizRiesgoBackend {
+  cantidad: number;
+  nivel: 'BAJO' | 'MEDIO' | 'ALTO';
 }
 
 // Configuración de la matriz
@@ -128,12 +135,13 @@ const RiskMatrix4x5: React.FC = () => {
   const [selectedCell, setSelectedCell] = useState<MatrixCell | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [filters, setFilters] = useState({
-    activo: '',
-    propietario: '',
-    proceso: '',
+    activo_id: '',
     fechaInicio: '',
     fechaFin: ''
   });
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [activosList, setActivosList] = useState<any[]>([]);
+  const [totalActivosEvaluados, setTotalActivosEvaluados] = useState<number>(0);
 
   // Datos de ejemplo (simulando respuesta del backend)
   const mockData: MatrixData = {
@@ -206,13 +214,90 @@ const RiskMatrix4x5: React.FC = () => {
   };
 
   useEffect(() => {
-    const fetchMatrixData = async () => {
-      setLoading(true);
-      try {
-        // Importar el servicio de riesgos dinámicamente para evitar dependencias circulares
-        const { riesgosService } = await import('../../services/backend');
-        const data = await riesgosService.getMatrix('2025-Q3');
-        setMatrixData(data);
+    fetchMatrixData();
+  }, [filters]);
+
+  const fetchMatrixData = async () => {
+    setLoading(true);
+    try {
+      // Construir parámetros de filtro
+      const params: any = {};
+      if (filters.activo_id) params.activo_id = parseInt(filters.activo_id);
+      if (filters.fechaInicio) params.fecha_inicio = filters.fechaInicio;
+      if (filters.fechaFin) params.fecha_fin = filters.fechaFin;
+      
+      // Obtener datos reales desde el backend con filtros
+      const backendData = await dashboardService.getMatrizRiesgos(params);
+        
+        if (backendData && backendData.matriz) {
+          // Convertir datos del backend al formato del componente
+          const cells: MatrixCell[] = [];
+          
+          backendData.matriz.forEach((row: any[], probIdx: number) => {
+            row.forEach((cell, impIdx) => {
+              if (cell.cantidad > 0) {
+                // Convertir activos del backend al formato del componente
+                // Ahora cell.activos contiene los activos evaluados, no riesgos individuales
+                const risks: Risk[] = (cell.activos || []).map((activo: any) => ({
+                  id: activo.id || 0,
+                  nombre: activo.nombre || 'Sin nombre',
+                  nivel: (activo.nivel_riesgo === 'ALTO' ? 'HIGH' : 
+                         activo.nivel_riesgo === 'MEDIO' ? 'MEDIUM' : 'LOW') as 'LOW' | 'MEDIUM' | 'HIGH',
+                  propietario: activo.propietario || 'No asignado',
+                  fecha: activo.fecha || new Date().toISOString().split('T')[0],
+                  activo: activo.nombre || 'Sin activo',
+                  proceso: 'Evaluación'
+                }));
+                
+                cells.push({
+                  probabilidad_key: PROBABILIDADES[probIdx],
+                  impacto_key: IMPACTOS[impIdx],
+                  count: cell.cantidad, // Ahora cuenta activos, no riesgos
+                  risks: risks
+                });
+              }
+            });
+          });
+          
+          // Obtener salud institucional real del backend
+          try {
+            const saludData = await dashboardService.getSaludInstitucional();
+            const totalActivos = backendData.estadisticas.total || 0;
+            
+            // Verificar que la suma de celdas coincida con el total
+            const sumaCeldas = cells.reduce((sum, cell) => sum + cell.count, 0);
+            console.log(`Total activos evaluados (backend): ${totalActivos}, Suma de celdas: ${sumaCeldas}`);
+            
+            if (sumaCeldas !== totalActivos && totalActivos > 0) {
+              console.warn(`⚠️ Advertencia: La suma de celdas (${sumaCeldas}) no coincide con el total de activos evaluados (${totalActivos})`);
+            }
+            
+            setTotalActivosEvaluados(totalActivos);
+            
+            // Calcular porcentajes de distribución basados en total real
+            const health: HealthData = {
+              low: saludData.distribucion?.bajos || 0,
+              medium: saludData.distribucion?.medios || 0,
+              high: saludData.distribucion?.altos || 0,
+              score: saludData.porcentaje || 0  // Usar el score calculado por el backend
+            };
+            
+            setMatrixData({ cells, health });
+          } catch (error) {
+            console.error('Error fetching salud institucional:', error);
+            // Fallback a cálculo local si falla
+            const health: HealthData = {
+              low: backendData.estadisticas.bajos || 0,
+              medium: backendData.estadisticas.medios || 0,
+              high: backendData.estadisticas.altos || 0,
+              score: 0
+            };
+            setMatrixData({ cells, health });
+          }
+        } else {
+          // Usar datos mock si no hay datos del backend
+          setMatrixData(mockData);
+        }
       } catch (error) {
         console.error('Error fetching matrix data:', error);
         // Usar datos mock en caso de error
@@ -222,7 +307,17 @@ const RiskMatrix4x5: React.FC = () => {
       }
     };
 
-    fetchMatrixData();
+  useEffect(() => {
+    // Cargar lista de activos para el filtro
+    const loadActivos = async () => {
+      try {
+        const activos = await dashboardService.getActivos();
+        setActivosList(activos || []);
+      } catch (error) {
+        console.error('Error loading activos:', error);
+      }
+    };
+    loadActivos();
   }, []);
 
   const handleCellClick = (cell: MatrixCell) => {
@@ -230,9 +325,111 @@ const RiskMatrix4x5: React.FC = () => {
     setModalOpen(true);
   };
 
-  const handleExport = (format: 'PDF' | 'CSV') => {
-    // Implementar exportación
-    console.log(`Exporting to ${format}`);
+  const handleExport = async (format: 'PDF' | 'CSV') => {
+    try {
+      setLoading(true);
+      // Construir parámetros de filtro
+      const params: any = {};
+      if (filters.activo_id) params.activo_id = parseInt(filters.activo_id);
+      if (filters.fechaInicio) params.fecha_inicio = filters.fechaInicio;
+      if (filters.fechaFin) params.fecha_fin = filters.fechaFin;
+      
+      // Obtener datos del reporte
+      const reporte = await dashboardService.exportarMatrizRiesgos(params);
+      
+      if (format === 'CSV') {
+        // Generar CSV
+        let csv = 'Activo ID,Nombre Activo,Tipo,Criticidad,Estado,Riesgo ID,Nombre Riesgo,Probabilidad,Impacto,Nivel Riesgo,Fecha Evaluación,Evaluador\n';
+        
+        reporte.activos.forEach((activo: any) => {
+          activo.evaluaciones.forEach((evaluacion: any) => {
+            csv += `"${activo.id}","${activo.nombre}","${activo.tipo || ''}","${activo.criticidad || ''}","${activo.estado || ''}",`;
+            csv += `"${evaluacion.id_riesgo}","${evaluacion.nombre_riesgo}","${evaluacion.probabilidad || ''}","${evaluacion.impacto || ''}","${evaluacion.nivel_riesgo || ''}",`;
+            csv += `"${evaluacion.fecha_evaluacion || ''}","${evaluacion.evaluador || ''}"\n`;
+          });
+        });
+        
+        // Descargar CSV
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `reporte_activos_evaluados_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        // Generar PDF usando jsPDF
+        const { jsPDF } = await import('jspdf');
+        const pdf = new jsPDF();
+        let yPosition = 20;
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        
+        // Título
+        pdf.setFontSize(18);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Reporte de Activos Evaluados', pageWidth / 2, yPosition, { align: 'center' });
+        yPosition += 10;
+        
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`Fecha de generación: ${new Date().toLocaleDateString()}`, pageWidth / 2, yPosition, { align: 'center' });
+        pdf.text(`Total de activos: ${reporte.total_activos}`, pageWidth / 2, yPosition + 5, { align: 'center' });
+        yPosition += 15;
+        
+        // Contenido
+        reporte.activos.forEach((activo: any, idx: number) => {
+          // Verificar si necesitamos nueva página
+          if (yPosition > pageHeight - 60) {
+            pdf.addPage();
+            yPosition = 20;
+          }
+          
+          // Información del activo
+          pdf.setFontSize(12);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text(`${idx + 1}. ${activo.nombre}`, 20, yPosition);
+          yPosition += 7;
+          
+          pdf.setFontSize(10);
+          pdf.setFont('helvetica', 'normal');
+          pdf.text(`Tipo: ${activo.tipo || 'N/A'} | Criticidad: ${activo.criticidad || 'N/A'} | Estado: ${activo.estado || 'N/A'}`, 20, yPosition);
+          yPosition += 7;
+          
+          pdf.setFontSize(10);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text(`Evaluaciones (${activo.evaluaciones.length}):`, 20, yPosition);
+          yPosition += 5;
+          
+          activo.evaluaciones.forEach((evaluacion: any) => {
+            if (yPosition > pageHeight - 30) {
+              pdf.addPage();
+              yPosition = 20;
+            }
+            pdf.setFontSize(9);
+            pdf.setFont('helvetica', 'normal');
+            pdf.text(`  • ${evaluacion.nombre_riesgo}`, 25, yPosition);
+            yPosition += 5;
+            pdf.text(`    Probabilidad: ${evaluacion.probabilidad || 'N/A'} | Impacto: ${evaluacion.impacto || 'N/A'} | Nivel: ${evaluacion.nivel_riesgo || 'N/A'}`, 25, yPosition);
+            yPosition += 5;
+            pdf.text(`    Fecha: ${evaluacion.fecha_evaluacion || 'N/A'} | Evaluador: ${evaluacion.evaluador || 'N/A'}`, 25, yPosition);
+            yPosition += 8;
+          });
+          
+          yPosition += 5;
+        });
+        
+        // Descargar PDF
+        pdf.save(`reporte_activos_evaluados_${new Date().toISOString().split('T')[0]}.pdf`);
+      }
+    } catch (error) {
+      console.error('Error exporting report:', error);
+      alert('Error al exportar el reporte. Por favor, intente nuevamente.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getCellData = (probabilidad: string, impacto: string): MatrixCell | null => {
@@ -284,15 +481,28 @@ const RiskMatrix4x5: React.FC = () => {
           <Card sx={{ borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
             <CardContent sx={{ p: 3 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h5" className="font-poppins" sx={{ color: '#1E3A8A', fontWeight: 600 }}>
-                  Matriz de Evaluación de Riesgo
-                </Typography>
+                <Box>
+                  <Typography variant="h5" className="font-poppins" sx={{ color: '#1E3A8A', fontWeight: 600, mb: 0.5 }}>
+                    Matriz de Evaluación de Riesgo
+                  </Typography>
+                  {totalActivosEvaluados > 0 && (
+                    <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280' }}>
+                      Total de activos evaluados: {totalActivosEvaluados}
+                      {matrixData && (
+                        <span style={{ color: '#9CA3AF', marginLeft: '8px' }}>
+                          (Suma de celdas: {matrixData.cells.reduce((sum, cell) => sum + cell.count, 0)})
+                        </span>
+                      )}
+                    </Typography>
+                  )}
+                </Box>
                 <Stack direction="row" spacing={1}>
                   <Button
                     variant="outlined"
                     startIcon={<FilterList />}
                     size="small"
                     sx={{ borderRadius: '8px' }}
+                    onClick={() => setFiltersOpen(true)}
                   >
                     Filtros
                   </Button>
@@ -301,7 +511,10 @@ const RiskMatrix4x5: React.FC = () => {
                     startIcon={<Download />}
                     size="small"
                     sx={{ borderRadius: '8px' }}
-                    onClick={() => handleExport('PDF')}
+                    onClick={() => {
+                      const format = window.confirm('¿Exportar como PDF? (Cancelar para CSV)') ? 'PDF' : 'CSV';
+                      handleExport(format);
+                    }}
                   >
                     Exportar
                   </Button>
@@ -486,7 +699,7 @@ const RiskMatrix4x5: React.FC = () => {
               {/* Score Principal */}
               <Box sx={{ textAlign: 'center', mb: 3 }}>
                 <Typography variant="h2" className="font-poppins" sx={{ color: healthStatus.color, fontWeight: 700 }}>
-                  {matrixData.health.score}%
+                  {Math.round(matrixData.health.score)}%
                 </Typography>
                 <Typography variant="h6" className="font-roboto" sx={{ color: healthStatus.color, fontWeight: 600 }}>
                   {healthStatus.status}
@@ -514,77 +727,92 @@ const RiskMatrix4x5: React.FC = () => {
                 </Typography>
                 
                 <Stack spacing={2}>
-                  <Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280' }}>
-                        Riesgos Bajos
-                      </Typography>
-                      <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280', fontWeight: 600 }}>
-                        {matrixData.health.low}%
-                      </Typography>
-                    </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={matrixData.health.low}
-                      sx={{
-                        height: 6,
-                        borderRadius: 3,
-                        backgroundColor: '#E5E7EB',
-                        '& .MuiLinearProgress-bar': {
-                          backgroundColor: '#27AE60',
-                          borderRadius: 3
-                        }
-                      }}
-                    />
-                  </Box>
+                  {(() => {
+                    const total = matrixData.health.low + matrixData.health.medium + matrixData.health.high;
+                    const porcentajeBajos = total > 0 ? (matrixData.health.low / total * 100) : 0;
+                    const porcentajeMedios = total > 0 ? (matrixData.health.medium / total * 100) : 0;
+                    const porcentajeAltos = total > 0 ? (matrixData.health.high / total * 100) : 0;
+                    
+                    return (
+                      <>
+                        <Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                            <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280' }}>
+                              Riesgos Bajos
+                            </Typography>
+                            <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280', fontWeight: 600 }}>
+                              {matrixData.health.low} ({Math.round(porcentajeBajos)}%)
+                            </Typography>
+                          </Box>
+                          <LinearProgress
+                            variant="determinate"
+                            value={porcentajeBajos}
+                            sx={{
+                              height: 6,
+                              borderRadius: 3,
+                              backgroundColor: '#E5E7EB',
+                              '& .MuiLinearProgress-bar': {
+                                backgroundColor: '#27AE60',
+                                borderRadius: 3
+                              }
+                            }}
+                          />
+                        </Box>
 
-                  <Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280' }}>
-                        Riesgos Medios
-                      </Typography>
-                      <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280', fontWeight: 600 }}>
-                        {matrixData.health.medium}%
-                      </Typography>
-                    </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={matrixData.health.medium}
-                      sx={{
-                        height: 6,
-                        borderRadius: 3,
-                        backgroundColor: '#E5E7EB',
-                        '& .MuiLinearProgress-bar': {
-                          backgroundColor: '#FACC15',
-                          borderRadius: 3
-                        }
-                      }}
-                    />
-                  </Box>
+                        <Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                            <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280' }}>
+                              Riesgos Medios
+                            </Typography>
+                            <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280', fontWeight: 600 }}>
+                              {matrixData.health.medium} ({Math.round(porcentajeMedios)}%)
+                            </Typography>
+                          </Box>
+                          <LinearProgress
+                            variant="determinate"
+                            value={porcentajeMedios}
+                            sx={{
+                              height: 6,
+                              borderRadius: 3,
+                              backgroundColor: '#E5E7EB',
+                              '& .MuiLinearProgress-bar': {
+                                backgroundColor: '#FACC15',
+                                borderRadius: 3
+                              }
+                            }}
+                          />
+                        </Box>
 
-                  <Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280' }}>
-                        Riesgos Altos
-                      </Typography>
-                      <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280', fontWeight: 600 }}>
-                        {matrixData.health.high}%
-                      </Typography>
-                    </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={matrixData.health.high}
-                      sx={{
-                        height: 6,
-                        borderRadius: 3,
-                        backgroundColor: '#E5E7EB',
-                        '& .MuiLinearProgress-bar': {
-                          backgroundColor: '#D9534F',
-                          borderRadius: 3
-                        }
-                      }}
-                    />
-                  </Box>
+                        <Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                            <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280' }}>
+                              Riesgos Altos
+                            </Typography>
+                            <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280', fontWeight: 600 }}>
+                              {matrixData.health.high} ({Math.round(porcentajeAltos)}%)
+                            </Typography>
+                          </Box>
+                          <LinearProgress
+                            variant="determinate"
+                            value={porcentajeAltos}
+                            sx={{
+                              height: 6,
+                              borderRadius: 3,
+                              backgroundColor: '#E5E7EB',
+                              '& .MuiLinearProgress-bar': {
+                                backgroundColor: '#D9534F',
+                                borderRadius: 3
+                              }
+                            }}
+                          />
+                        </Box>
+                        
+                        <Typography variant="caption" className="font-roboto" sx={{ color: '#9CA3AF', textAlign: 'center', mt: 1 }}>
+                          Total: {total} riesgos evaluados
+                        </Typography>
+                      </>
+                    );
+                  })()}
                 </Stack>
               </Box>
 
@@ -629,7 +857,7 @@ const RiskMatrix4x5: React.FC = () => {
       >
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', fontWeight: 600 }}>
-            Riesgos: {selectedCell?.probabilidad_key} - {selectedCell?.impacto_key}
+            Activos Evaluados: {selectedCell?.probabilidad_key} - {selectedCell?.impacto_key}
           </Typography>
           <IconButton onClick={() => setModalOpen(false)}>
             <Close />
@@ -641,7 +869,7 @@ const RiskMatrix4x5: React.FC = () => {
             <Box>
               <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="body1" className="font-roboto" sx={{ color: '#6B7280' }}>
-                  Total de riesgos: {selectedCell.count}
+                  Total de activos evaluados: {selectedCell.count}
                 </Typography>
                 <Chip
                   label={getRiskLevel(selectedCell.probabilidad_key, selectedCell.impacto_key)}
@@ -657,46 +885,33 @@ const RiskMatrix4x5: React.FC = () => {
                 <Table>
                   <TableHead>
                     <TableRow>
-                      <TableCell>Riesgo</TableCell>
-                      <TableCell>Nivel</TableCell>
-                      <TableCell>Propietario</TableCell>
                       <TableCell>Activo</TableCell>
-                      <TableCell>Fecha</TableCell>
-                      <TableCell>Acciones</TableCell>
+                      <TableCell>Nivel de Riesgo</TableCell>
+                      <TableCell>Evaluador</TableCell>
+                      <TableCell>Fecha Evaluación</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {selectedCell.risks.map((risk) => (
-                      <TableRow key={risk.id}>
+                    {selectedCell.risks.map((activo) => (
+                      <TableRow key={activo.id}>
                         <TableCell>
                           <Typography variant="body2" className="font-roboto" sx={{ fontWeight: 500 }}>
-                            {risk.nombre}
+                            {activo.activo || activo.nombre}
                           </Typography>
                         </TableCell>
                         <TableCell>
                           <Chip
-                            label={risk.nivel}
+                            label={activo.nivel === 'HIGH' ? 'ALTO' : activo.nivel === 'MEDIUM' ? 'MEDIO' : 'BAJO'}
                             size="small"
                             sx={{
-                              backgroundColor: RISK_LEVELS[risk.nivel === 'HIGH' ? 'ALTO' : risk.nivel === 'MEDIUM' ? 'MEDIO' : 'BAJO'].color,
+                              backgroundColor: RISK_LEVELS[activo.nivel === 'HIGH' ? 'ALTO' : activo.nivel === 'MEDIUM' ? 'MEDIO' : 'BAJO'].color,
                               color: '#FFFFFF',
                               fontWeight: 600
                             }}
                           />
                         </TableCell>
-                        <TableCell>{risk.propietario}</TableCell>
-                        <TableCell>{risk.activo}</TableCell>
-                        <TableCell>{risk.fecha}</TableCell>
-                        <TableCell>
-                          <Stack direction="row" spacing={1}>
-                            <Button size="small" variant="outlined">
-                              Ver
-                            </Button>
-                            <Button size="small" variant="contained">
-                              Tratar
-                            </Button>
-                          </Stack>
-                        </TableCell>
+                        <TableCell>{activo.propietario}</TableCell>
+                        <TableCell>{activo.fecha}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -707,11 +922,129 @@ const RiskMatrix4x5: React.FC = () => {
         </DialogContent>
         
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => setModalOpen(false)}>
+          <Button onClick={() => setModalOpen(false)} variant="outlined" sx={{ borderRadius: '8px' }}>
             Cerrar
           </Button>
-          <Button variant="contained" startIcon={<Download />}>
-            Exportar Listado
+          <Button 
+            variant="contained" 
+            startIcon={<Download />}
+            onClick={() => handleExport('PDF')}
+            sx={{ borderRadius: '8px' }}
+          >
+            Exportar Reporte
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog de Filtros */}
+      <Dialog 
+        open={filtersOpen} 
+        onClose={() => setFiltersOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ pb: 2, pt: 3, px: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', fontWeight: 600 }}>
+              Filtros de Matriz de Riesgos
+            </Typography>
+            <IconButton
+              size="small"
+              onClick={() => setFiltersOpen(false)}
+              sx={{ color: '#6B7280' }}
+            >
+              <Close />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 2, px: 3, pb: 3 }}>
+          <Grid container spacing={3}>
+            <Grid item xs={12}>
+              <Autocomplete
+                options={activosList}
+                getOptionLabel={(option) => option.Nombre || option.nombre || 'Sin nombre'}
+                value={activosList.find(a => (a.ID_Activo || a.id)?.toString() === filters.activo_id) || null}
+                onChange={(event, newValue) => {
+                  setFilters({
+                    ...filters,
+                    activo_id: newValue ? (newValue.ID_Activo || newValue.id)?.toString() || '' : ''
+                  });
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Activo"
+                    placeholder="Seleccionar activo (opcional)"
+                    className="input"
+                    InputProps={{
+                      ...params.InputProps,
+                      sx: { borderRadius: '12px' }
+                    }}
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <Box component="li" {...props} key={option.ID_Activo || option.id}>
+                    <Typography variant="body2">
+                      {option.Nombre || option.nombre || 'Sin nombre'}
+                    </Typography>
+                  </Box>
+                )}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                type="date"
+                label="Fecha Inicio"
+                value={filters.fechaInicio}
+                onChange={(e) => setFilters({ ...filters, fechaInicio: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+                className="input"
+                InputProps={{
+                  sx: { borderRadius: '12px' }
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                type="date"
+                label="Fecha Fin"
+                value={filters.fechaFin}
+                onChange={(e) => setFilters({ ...filters, fechaFin: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+                className="input"
+                InputProps={{
+                  sx: { borderRadius: '12px' }
+                }}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, gap: 2 }}>
+          <Button
+            onClick={() => {
+              setFilters({
+                activo_id: '',
+                fechaInicio: '',
+                fechaFin: ''
+              });
+            }}
+            variant="outlined"
+            sx={{ borderRadius: '8px' }}
+          >
+            Limpiar Filtros
+          </Button>
+          <Button
+            onClick={() => setFiltersOpen(false)}
+            variant="contained"
+            sx={{ 
+              borderRadius: '8px',
+              backgroundColor: '#1E3A8A',
+              '&:hover': { backgroundColor: '#1E40AF' }
+            }}
+          >
+            Aplicar Filtros
           </Button>
         </DialogActions>
       </Dialog>

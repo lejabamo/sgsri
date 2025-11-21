@@ -37,12 +37,16 @@ import {
   TrendingUp as TrendingUpIcon,
   Assessment as AssessmentIcon,
   Clear as ClearIcon,
+  Visibility as VisibilityIcon,
+  Download as DownloadIcon,
+  PictureAsPdf as PdfIcon,
+  TableChart as ExcelIcon,
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
-import { activosService, type Activo } from '../../services/backend';
+import { activosService as activosServiceCorrecto, type Activo, type CreateActivoData } from '../../services/activos';
 import '../../styles/design-system.css';
 
 const Activos: React.FC = () => {
@@ -51,13 +55,18 @@ const Activos: React.FC = () => {
   const [estadoFilter, setEstadoFilter] = useState('');
   const [criticidadFilter, setCriticidadFilter] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
+  const [openDetalleDialog, setOpenDetalleDialog] = useState(false);
+  const [selectedActivo, setSelectedActivo] = useState<Activo | null>(null);
+  const [detalleActivo, setDetalleActivo] = useState<any>(null);
+  const [loadingDetalle, setLoadingDetalle] = useState(false);
+  const [exportando, setExportando] = useState(false);
   const [editingActivo, setEditingActivo] = useState<Activo | null>(null);
-  const [formData, setFormData] = useState<Partial<Activo>>({
-    nombre: '',
-    descripcion: '',
-    tipo: '',
-    estado: 'Activo',
-    criticidad: 'Medio',
+  const [formData, setFormData] = useState<CreateActivoData>({
+    Nombre: '',
+    Descripcion: '',
+    Tipo_Activo: '',
+    estado_activo: 'Planificado',
+    nivel_criticidad_negocio: 'Medio',
   });
 
   const queryClient = useQueryClient();
@@ -67,23 +76,37 @@ const Activos: React.FC = () => {
     queryKey: ['activos', tipoFilter, estadoFilter, criticidadFilter],
     queryFn: async () => {
       try {
-        const { activosService } = await import('../../services/backend');
-        return await activosService.getAll();
+        return await activosServiceCorrecto.getActivos({
+          tipo_activo: tipoFilter || undefined,
+          estado: estadoFilter || undefined,
+          nivel_criticidad: criticidadFilter || undefined,
+        });
       } catch (error) {
         console.error('Error fetching activos:', error);
+        toast.error('Error al cargar activos');
         return [];
       }
     },
   });
 
-  // Stats desde backend para consistencia
-  const { data: activosStats } = useQuery({
-    queryKey: ['activos-stats'],
-    queryFn: async () => {
-      const { activosService } = await import('../../services/backend');
-      return await activosService.getStats();
-    }
-  });
+  // Calcular estadísticas de activos desde los datos
+  const activosStats = React.useMemo(() => {
+    const total = activos.length;
+    const en_produccion = activos.filter(a => a.estado_activo === 'En Producción' || a.estado_activo === 'Producción').length;
+    const alta_criticidad = activos.filter(a => 
+      a.nivel_criticidad_negocio === 'Alto' || 
+      a.nivel_criticidad_negocio === 'Crítico' ||
+      a.nivel_criticidad_negocio === 'Alta'
+    ).length;
+    const requieren_backup = activos.filter(a => a.requiere_backup === true).length;
+    
+    return {
+      total,
+      en_produccion,
+      alta_criticidad,
+      requieren_backup
+    };
+  }, [activos]);
 
   // Obtener tipos y estados únicos de los datos reales
   const tiposActivo = [...new Set(activos.map(activo => activo.Tipo_Activo).filter(Boolean))];
@@ -92,46 +115,68 @@ const Activos: React.FC = () => {
 
   // Mutations
   const createMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const { activosService } = await import('../../services/backend');
-      return await activosService.create(data);
+    mutationFn: async (data: CreateActivoData) => {
+      return await activosServiceCorrecto.createActivo(data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['activos'] });
-      toast.success('Activo creado exitosamente');
+      toast.success('✅ Activo creado exitosamente');
       handleCloseDialog();
+      setFormData({
+        Nombre: '',
+        Descripcion: '',
+        Tipo_Activo: '',
+        estado_activo: 'Planificado',
+        nivel_criticidad_negocio: 'Medio',
+      });
     },
     onError: (error: any) => {
-      toast.error(`Error al crear activo: ${error.response?.data?.error || error.message}`);
+      console.error('Error creating activo:', error);
+      let errorMessage = 'Error desconocido';
+      
+      if (error.response) {
+        // El servidor respondió con un código de error
+        errorMessage = error.response.data?.error || error.response.data?.message || `Error ${error.response.status}: ${error.response.statusText}`;
+      } else if (error.request) {
+        // La petición se hizo pero no hubo respuesta
+        errorMessage = 'No se pudo conectar con el servidor. Verifica que el backend esté corriendo.';
+      } else {
+        // Algo más pasó
+        errorMessage = error.message || 'Error desconocido';
+      }
+      
+      toast.error(`❌ Error al crear activo: ${errorMessage}`);
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: Partial<Activo> }) => {
-      const { activosService } = await import('../../services/backend');
-      return await activosService.update(id, data);
+    mutationFn: async ({ id, data }: { id: number; data: Partial<CreateActivoData> }) => {
+      return await activosServiceCorrecto.updateActivo(id, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['activos'] });
-      toast.success('Activo actualizado exitosamente');
+      toast.success('✅ Activo actualizado exitosamente');
       handleCloseDialog();
     },
     onError: (error: any) => {
-      toast.error(`Error al actualizar activo: ${error.response?.data?.error || error.message}`);
+      const errorMessage = error.response?.data?.error || error.message || 'Error desconocido';
+      toast.error(`❌ Error al actualizar activo: ${errorMessage}`);
+      console.error('Error updating activo:', error);
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      const { activosService } = await import('../../services/backend');
-      return await activosService.delete(id);
+      return await activosServiceCorrecto.deleteActivo(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['activos'] });
-      toast.success('Activo eliminado exitosamente');
+      toast.success('✅ Activo eliminado exitosamente');
     },
     onError: (error: any) => {
-      toast.error(`Error al eliminar activo: ${error.response?.data?.error || error.message}`);
+      const errorMessage = error.response?.data?.error || error.message || 'Error desconocido';
+      toast.error(`❌ Error al eliminar activo: ${errorMessage}`);
+      console.error('Error deleting activo:', error);
     },
   });
 
@@ -152,24 +197,25 @@ const Activos: React.FC = () => {
     if (activo) {
       setEditingActivo(activo);
       setFormData({
-        nombre: activo.nombre,
-        descripcion: activo.descripcion || '',
-        tipo: activo.tipo,
-        estado: activo.estado,
-        criticidad: activo.criticidad,
-        propietario: activo.propietario || '',
-        ubicacion: activo.ubicacion || '',
+        Nombre: activo.Nombre || '',
+        Descripcion: activo.Descripcion || '',
+        Tipo_Activo: activo.Tipo_Activo || '',
+        estado_activo: activo.estado_activo || 'Planificado',
+        nivel_criticidad_negocio: activo.nivel_criticidad_negocio || 'Medio',
+        subtipo_activo: activo.subtipo_activo,
+        ID_Propietario: activo.ID_Propietario,
+        ID_Custodio: activo.ID_Custodio,
+        version_general_activo: activo.version_general_activo,
+        requiere_backup: activo.requiere_backup,
       });
     } else {
       setEditingActivo(null);
       setFormData({
-        nombre: '',
-        descripcion: '',
-        tipo: '',
-        estado: 'Activo',
-        criticidad: 'Medio',
-        propietario: '',
-        ubicacion: '',
+        Nombre: '',
+        Descripcion: '',
+        Tipo_Activo: '',
+        estado_activo: 'Planificado',
+        nivel_criticidad_negocio: 'Medio',
       });
     }
     setOpenDialog(true);
@@ -180,11 +226,328 @@ const Activos: React.FC = () => {
     setEditingActivo(null);
   };
 
+  const handleConsultarActivo = async (activo: Activo) => {
+    try {
+      setSelectedActivo(activo);
+      setOpenDetalleDialog(true);
+      setLoadingDetalle(true);
+      const detalle = await activosServiceCorrecto.getDetalleActivo(activo.ID_Activo);
+      setDetalleActivo(detalle);
+    } catch (error: any) {
+      console.error('Error fetching detalle activo:', error);
+      toast.error('Error al cargar el detalle del activo');
+      setDetalleActivo(null);
+    } finally {
+      setLoadingDetalle(false);
+    }
+  };
+
+  const handleCloseDetalleDialog = () => {
+    setOpenDetalleDialog(false);
+    setSelectedActivo(null);
+    setDetalleActivo(null);
+  };
+
+  const exportarPDF = async () => {
+    if (!detalleActivo) return;
+    
+    try {
+      setExportando(true);
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF();
+      
+      let yPos = 20;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 20;
+      const maxWidth = pageWidth - (margin * 2);
+      
+      // Título
+      doc.setFontSize(18);
+      doc.setTextColor(30, 58, 138);
+      doc.text('Reporte de Detalle de Activo', margin, yPos);
+      yPos += 10;
+      
+      // Información General
+      doc.setFontSize(14);
+      doc.setTextColor(0, 0, 0);
+      doc.text('Información General', margin, yPos);
+      yPos += 8;
+      
+      doc.setFontSize(10);
+      doc.text(`Nombre: ${detalleActivo.activo?.Nombre || 'N/A'}`, margin, yPos);
+      yPos += 6;
+      doc.text(`Tipo: ${detalleActivo.activo?.Tipo_Activo || 'N/A'}`, margin, yPos);
+      yPos += 6;
+      doc.text(`Estado: ${detalleActivo.activo?.estado_activo || 'N/A'}`, margin, yPos);
+      yPos += 6;
+      doc.text(`Criticidad: ${detalleActivo.activo?.nivel_criticidad_negocio || 'N/A'}`, margin, yPos);
+      yPos += 6;
+      
+      if (detalleActivo.activo?.Descripcion) {
+        const descLines = doc.splitTextToSize(`Descripción: ${detalleActivo.activo.Descripcion}`, maxWidth);
+        doc.text(descLines, margin, yPos);
+        yPos += descLines.length * 5;
+      }
+      
+      yPos += 5;
+      
+      // Evaluaciones
+      if (detalleActivo.evaluaciones && detalleActivo.evaluaciones.length > 0) {
+        doc.setFontSize(14);
+        doc.text(`Resumen de Evaluaciones (${detalleActivo.total_evaluaciones})`, margin, yPos);
+        yPos += 8;
+        
+        detalleActivo.evaluaciones.forEach((evaluacion: any, index: number) => {
+          // Verificar si necesitamos una nueva página
+          if (yPos > 250) {
+            doc.addPage();
+            yPos = 20;
+          }
+          
+          doc.setFontSize(12);
+          doc.setTextColor(30, 58, 138);
+          doc.text(`${index + 1}. ${evaluacion.riesgo?.nombre || 'Riesgo sin nombre'}`, margin, yPos);
+          yPos += 6;
+          
+          if (evaluacion.riesgo?.descripcion) {
+            doc.setFontSize(10);
+            doc.setTextColor(0, 0, 0);
+            const descLines = doc.splitTextToSize(evaluacion.riesgo.descripcion, maxWidth);
+            doc.text(descLines, margin, yPos);
+            yPos += descLines.length * 5;
+          }
+          
+          yPos += 3;
+          
+          // Evaluación Inherente
+          if (evaluacion.evaluacion_inherente) {
+            doc.setFontSize(11);
+            doc.setTextColor(0, 0, 0);
+            doc.text('Evaluación Inherente:', margin, yPos);
+            yPos += 6;
+            
+            doc.setFontSize(10);
+            doc.text(`  Probabilidad: ${evaluacion.evaluacion_inherente.probabilidad || 'N/A'}`, margin + 5, yPos);
+            yPos += 5;
+            doc.text(`  Impacto: ${evaluacion.evaluacion_inherente.impacto || 'N/A'}`, margin + 5, yPos);
+            yPos += 5;
+            doc.text(`  Nivel de Riesgo: ${evaluacion.evaluacion_inherente.nivel_riesgo || 'N/A'}`, margin + 5, yPos);
+            yPos += 5;
+            
+            if (evaluacion.evaluacion_inherente.justificacion) {
+              const justLines = doc.splitTextToSize(`  Justificación: ${evaluacion.evaluacion_inherente.justificacion}`, maxWidth - 10);
+              doc.text(justLines, margin + 5, yPos);
+              yPos += justLines.length * 5;
+            }
+          }
+          
+          yPos += 3;
+          
+          // Evaluación Residual
+          if (evaluacion.evaluacion_residual) {
+            doc.setFontSize(11);
+            doc.text('Evaluación Residual (Después de Controles):', margin, yPos);
+            yPos += 6;
+            
+            doc.setFontSize(10);
+            doc.text(`  Probabilidad: ${evaluacion.evaluacion_residual.probabilidad || 'N/A'}`, margin + 5, yPos);
+            yPos += 5;
+            doc.text(`  Impacto: ${evaluacion.evaluacion_residual.impacto || 'N/A'}`, margin + 5, yPos);
+            yPos += 5;
+            doc.text(`  Nivel de Riesgo: ${evaluacion.evaluacion_residual.nivel_riesgo || 'N/A'}`, margin + 5, yPos);
+            yPos += 5;
+            
+            if (evaluacion.evaluacion_residual.justificacion) {
+              const justLines = doc.splitTextToSize(`  Justificación: ${evaluacion.evaluacion_residual.justificacion}`, maxWidth - 10);
+              doc.text(justLines, margin + 5, yPos);
+              yPos += justLines.length * 5;
+            }
+          }
+          
+          yPos += 3;
+          
+          // Controles Aplicados
+          if (evaluacion.controles_aplicados && evaluacion.controles_aplicados.length > 0) {
+            doc.setFontSize(11);
+            doc.text(`Controles Aplicados (${evaluacion.controles_aplicados.length}):`, margin, yPos);
+            yPos += 6;
+            
+            evaluacion.controles_aplicados.forEach((control: any) => {
+              if (yPos > 250) {
+                doc.addPage();
+                yPos = 20;
+              }
+              
+              doc.setFontSize(10);
+              doc.text(`  - ${control.nombre}`, margin + 5, yPos);
+              yPos += 5;
+              if (control.codigo_iso) {
+                doc.text(`    Código ISO: ${control.codigo_iso}`, margin + 10, yPos);
+                yPos += 5;
+              }
+              if (control.descripcion) {
+                const ctrlDescLines = doc.splitTextToSize(`    Descripción: ${control.descripcion}`, maxWidth - 15);
+                doc.text(ctrlDescLines, margin + 10, yPos);
+                yPos += ctrlDescLines.length * 5;
+              }
+            });
+          }
+          
+          yPos += 5;
+        });
+      } else {
+        doc.setFontSize(10);
+        doc.text('Este activo no tiene evaluaciones registradas.', margin, yPos);
+      }
+      
+      // Pie de página
+      const totalPages = doc.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(128, 128, 128);
+        doc.text(
+          `Página ${i} de ${totalPages} - Generado el ${new Date().toLocaleDateString('es-ES')}`,
+          pageWidth / 2,
+          doc.internal.pageSize.getHeight() - 10,
+          { align: 'center' }
+        );
+      }
+      
+      // Guardar PDF
+      const fileName = `Reporte_Activo_${detalleActivo.activo?.Nombre?.replace(/[^a-z0-9]/gi, '_') || 'Activo'}_${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(fileName);
+      
+      toast.success('✅ Reporte PDF generado exitosamente');
+    } catch (error) {
+      console.error('Error generando PDF:', error);
+      toast.error('❌ Error al generar el reporte PDF');
+    } finally {
+      setExportando(false);
+    }
+  };
+
+  const exportarExcel = async () => {
+    if (!detalleActivo) return;
+    
+    try {
+      setExportando(true);
+      const XLSXModule = await import('xlsx');
+      const XLSX = XLSXModule.default || XLSXModule;
+      
+      // Crear workbook
+      const wb = XLSX.utils.book_new();
+      
+      // Hoja 1: Información General
+      const infoData = [
+        ['REPORTE DE DETALLE DE ACTIVO'],
+        [''],
+        ['INFORMACIÓN GENERAL'],
+        ['Nombre', detalleActivo.activo?.Nombre || 'N/A'],
+        ['Tipo de Activo', detalleActivo.activo?.Tipo_Activo || 'N/A'],
+        ['Estado', detalleActivo.activo?.estado_activo || 'N/A'],
+        ['Nivel de Criticidad', detalleActivo.activo?.nivel_criticidad_negocio || 'N/A'],
+        ['Descripción', detalleActivo.activo?.Descripcion || 'N/A'],
+        [''],
+        ['RESUMEN DE EVALUACIONES'],
+        ['Total de Evaluaciones', detalleActivo.total_evaluaciones || 0],
+      ];
+      
+      const ws1 = XLSX.utils.aoa_to_sheet(infoData);
+      XLSX.utils.book_append_sheet(wb, ws1, 'Información General');
+      
+      // Hoja 2: Evaluaciones
+      if (detalleActivo.evaluaciones && detalleActivo.evaluaciones.length > 0) {
+        const evaluacionesData = [
+          ['ID Evaluación', 'Riesgo', 'Categoría', 'Probabilidad Inh.', 'Impacto Inh.', 'Nivel Riesgo Inh.', 
+           'Probabilidad Res.', 'Impacto Res.', 'Nivel Riesgo Res.', 'Fecha Evaluación', 'Justificación Inh.', 'Justificación Res.']
+        ];
+        
+        detalleActivo.evaluaciones.forEach((evaluacion: any) => {
+          evaluacionesData.push([
+            evaluacion.id_evaluacion || '',
+            evaluacion.riesgo?.nombre || '',
+            evaluacion.riesgo?.categoria || '',
+            evaluacion.evaluacion_inherente?.probabilidad || '',
+            evaluacion.evaluacion_inherente?.impacto || '',
+            evaluacion.evaluacion_inherente?.nivel_riesgo || '',
+            evaluacion.evaluacion_residual?.probabilidad || '',
+            evaluacion.evaluacion_residual?.impacto || '',
+            evaluacion.evaluacion_residual?.nivel_riesgo || '',
+            evaluacion.evaluacion_inherente?.fecha || '',
+            evaluacion.evaluacion_inherente?.justificacion || '',
+            evaluacion.evaluacion_residual?.justificacion || ''
+          ]);
+        });
+        
+        const ws2 = XLSX.utils.aoa_to_sheet(evaluacionesData);
+        XLSX.utils.book_append_sheet(wb, ws2, 'Evaluaciones');
+        
+        // Hoja 3: Controles Aplicados
+        const controlesData = [
+          ['ID Evaluación', 'Riesgo', 'ID Control', 'Nombre Control', 'Código ISO', 'Tipo', 'Categoría', 'Descripción', 'Justificación', 'Eficacia']
+        ];
+        
+        detalleActivo.evaluaciones.forEach((evaluacion: any) => {
+          if (evaluacion.controles_aplicados && evaluacion.controles_aplicados.length > 0) {
+            evaluacion.controles_aplicados.forEach((control: any) => {
+              controlesData.push([
+                evaluacion.id_evaluacion || '',
+                evaluacion.riesgo?.nombre || '',
+                control.id || '',
+                control.nombre || '',
+                control.codigo_iso || '',
+                control.tipo || '',
+                control.categoria || '',
+                control.descripcion || '',
+                control.justificacion || '',
+                control.eficacia || ''
+              ]);
+            });
+          }
+        });
+        
+        if (controlesData.length > 1) {
+          const ws3 = XLSX.utils.aoa_to_sheet(controlesData);
+          XLSX.utils.book_append_sheet(wb, ws3, 'Controles Aplicados');
+        }
+      }
+      
+      // Guardar archivo
+      const fileName = `Reporte_Activo_${detalleActivo.activo?.Nombre?.replace(/[^a-z0-9]/gi, '_') || 'Activo'}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      
+      toast.success('✅ Reporte Excel generado exitosamente');
+    } catch (error) {
+      console.error('Error generando Excel:', error);
+      toast.error('❌ Error al generar el reporte Excel');
+    } finally {
+      setExportando(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    console.log('handleSubmit called', { formData, editingActivo });
+    
+    // Validaciones
+    if (!formData.Nombre || !formData.Nombre.trim()) {
+      toast.error('❌ El nombre del activo es obligatorio');
+      return;
+    }
+    if (!formData.Tipo_Activo) {
+      toast.error('❌ El tipo de activo es obligatorio');
+      return;
+    }
+    
+    console.log('Validations passed, calling mutation');
+    
     if (editingActivo) {
+      console.log('Updating activo:', editingActivo.ID_Activo);
       updateMutation.mutate({ id: editingActivo.ID_Activo, data: formData });
     } else {
+      console.log('Creating new activo');
       createMutation.mutate(formData);
     }
   };
@@ -308,12 +671,28 @@ const Activos: React.FC = () => {
     {
       field: 'actions',
       headerName: 'Acciones',
-      width: 120,
+      width: 160,
       headerAlign: 'center',
       align: 'center',
       sortable: false,
       renderCell: (params: GridRenderCellParams) => (
         <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+          <Tooltip title="Consultar detalle del activo">
+            <IconButton
+              size="small"
+              onClick={() => handleConsultarActivo(params.row)}
+              sx={{
+                color: '#3B82F6',
+                '&:hover': {
+                  backgroundColor: '#EFF6FF',
+                  color: '#2563EB',
+                },
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <VisibilityIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
           <Tooltip title="Editar activo">
             <IconButton
               size="small"
@@ -493,15 +872,21 @@ const Activos: React.FC = () => {
             <Box sx={{ flex: 1, minWidth: '280px' }}>
               <Autocomplete
                 freeSolo
-                options={activos.map(activo => activo.Nombre || activo.nombre || '')}
+                options={activos.map(activo => ({
+                  id: activo.ID_Activo,
+                  label: activo.Nombre || activo.nombre || `Activo ${activo.ID_Activo}`,
+                  activo: activo
+                }))}
+                getOptionLabel={(option) => typeof option === 'string' ? option : option.label}
                 value={searchTerm}
                 onInputChange={(event, newValue) => {
                   setSearchTerm(newValue || '');
                 }}
                 filterOptions={(options, { inputValue }) => {
-                  return options.filter(option =>
-                    option.toLowerCase().includes(inputValue.toLowerCase())
-                  );
+                  return options.filter(option => {
+                    const label = typeof option === 'string' ? option : option.label;
+                    return label.toLowerCase().includes(inputValue.toLowerCase());
+                  });
                 }}
                 renderInput={(params) => (
                   <TextField
@@ -531,12 +916,19 @@ const Activos: React.FC = () => {
                   />
                 )}
                 renderOption={(props, option) => {
-                  const activo = activos.find(a => (a.Nombre || a.nombre) === option);
+                  const activo = typeof option === 'string' 
+                    ? activos.find(a => (a.Nombre || a.nombre) === option)
+                    : option.activo;
+                  const label = typeof option === 'string' ? option : option.label;
+                  const key = typeof option === 'string' 
+                    ? activo?.ID_Activo || label
+                    : option.id;
+                  
                   return (
-                    <Box component="li" {...props}>
+                    <Box component="li" {...props} key={key}>
                       <Box>
                         <Typography variant="body2" className="font-roboto" sx={{ fontWeight: 500 }}>
-                          {option}
+                          {label}
                         </Typography>
                         <Typography variant="caption" className="font-roboto" sx={{ color: '#6B7280' }}>
                           {activo?.Tipo_Activo} • {activo?.estado_activo}
@@ -718,7 +1110,7 @@ const Activos: React.FC = () => {
       <Dialog 
         open={openDialog} 
         onClose={handleCloseDialog} 
-        maxWidth="md" 
+        maxWidth="lg" 
         fullWidth
         PaperProps={{
           sx: {
@@ -729,7 +1121,9 @@ const Activos: React.FC = () => {
       >
         <form onSubmit={handleSubmit}>
           <DialogTitle sx={{ 
-            pb: 2,
+            pb: 3,
+            pt: 3,
+            px: 3,
             borderBottom: '1px solid #E5E7EB',
             background: 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)',
             color: '#FFFFFF',
@@ -748,12 +1142,12 @@ const Activos: React.FC = () => {
             </Box>
           </DialogTitle>
           
-          <DialogContent sx={{ p: 3 }}>
-            <Stack spacing={3}>
-              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+          <DialogContent sx={{ pt: 6, px: 4, pb: 3, mt: 3 }}>
+            <Grid container spacing={4}>
+              <Grid item xs={12} sm={6}>
                 <TextField
-                  sx={{ flex: '1 1 300px' }}
-                  label="Nombre del Activo"
+                  fullWidth
+                  label="Nombre del Activo *"
                   value={formData.Nombre}
                   onChange={(e) => setFormData({ ...formData, Nombre: e.target.value })}
                   required
@@ -762,15 +1156,26 @@ const Activos: React.FC = () => {
                     sx: { borderRadius: '12px' }
                   }}
                 />
-                <FormControl sx={{ flex: '1 1 200px' }} required>
-                  <InputLabel>Tipo de Activo</InputLabel>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth required>
+                  <InputLabel id="tipo-activo-label" sx={{ mt: 0.5 }}>Tipo de Activo *</InputLabel>
                   <Select
+                    labelId="tipo-activo-label"
                     value={formData.Tipo_Activo}
                     onChange={(e) => setFormData({ ...formData, Tipo_Activo: e.target.value })}
-                    label="Tipo de Activo"
-                    sx={{ borderRadius: '12px' }}
+                    label="Tipo de Activo *"
+                    sx={{ borderRadius: '12px', minWidth: '200px' }}
+                    MenuProps={{
+                      PaperProps: {
+                        style: {
+                          maxHeight: 300,
+                        },
+                      },
+                    }}
                   >
                     <MenuItem value="Hardware">Hardware</MenuItem>
+                    <MenuItem value="Sistema de Información">Sistema de Información</MenuItem>
                     <MenuItem value="Software">Software</MenuItem>
                     <MenuItem value="Datos">Datos</MenuItem>
                     <MenuItem value="Servicios">Servicios</MenuItem>
@@ -783,29 +1188,39 @@ const Activos: React.FC = () => {
                     <MenuItem value="Otro">Otro</MenuItem>
                   </Select>
                 </FormControl>
-              </Box>
+              </Grid>
               
-              <TextField
-                fullWidth
-                multiline
-                rows={3}
-                label="Descripción del Activo"
-                value={formData.Descripcion}
-                onChange={(e) => setFormData({ ...formData, Descripcion: e.target.value })}
-                className="input"
-                InputProps={{
-                  sx: { borderRadius: '12px' }
-                }}
-              />
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={3}
+                  label="Descripción del Activo"
+                  value={formData.Descripcion}
+                  onChange={(e) => setFormData({ ...formData, Descripcion: e.target.value })}
+                  className="input"
+                  InputProps={{
+                    sx: { borderRadius: '12px' }
+                  }}
+                />
+              </Grid>
               
-              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                <FormControl sx={{ flex: '1 1 200px' }}>
-                  <InputLabel>Estado del Activo</InputLabel>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel id="estado-activo-label" sx={{ mt: 0.5 }}>Estado del Activo</InputLabel>
                   <Select
+                    labelId="estado-activo-label"
                     value={formData.estado_activo}
                     onChange={(e) => setFormData({ ...formData, estado_activo: e.target.value })}
                     label="Estado del Activo"
-                    sx={{ borderRadius: '12px' }}
+                    sx={{ borderRadius: '12px', minWidth: '200px' }}
+                    MenuProps={{
+                      PaperProps: {
+                        style: {
+                          maxHeight: 300,
+                        },
+                      },
+                    }}
                   >
                     <MenuItem value="En produccion">En producción</MenuItem>
                     <MenuItem value="En desarrollo">En desarrollo</MenuItem>
@@ -817,13 +1232,23 @@ const Activos: React.FC = () => {
                     <MenuItem value="Dañado">Dañado</MenuItem>
                   </Select>
                 </FormControl>
-                <FormControl sx={{ flex: '1 1 200px' }}>
-                  <InputLabel>Nivel de Criticidad</InputLabel>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel id="criticidad-label" sx={{ mt: 0.5 }}>Nivel de Criticidad</InputLabel>
                   <Select
+                    labelId="criticidad-label"
                     value={formData.nivel_criticidad_negocio}
                     onChange={(e) => setFormData({ ...formData, nivel_criticidad_negocio: e.target.value })}
                     label="Nivel de Criticidad"
-                    sx={{ borderRadius: '12px' }}
+                    sx={{ borderRadius: '12px', minWidth: '200px' }}
+                    MenuProps={{
+                      PaperProps: {
+                        style: {
+                          maxHeight: 300,
+                        },
+                      },
+                    }}
                   >
                     <MenuItem value="Muy Alto">Muy Alto</MenuItem>
                     <MenuItem value="Alto">Alto</MenuItem>
@@ -832,8 +1257,155 @@ const Activos: React.FC = () => {
                     <MenuItem value="Muy Bajo">Muy Bajo</MenuItem>
                   </Select>
                 </FormControl>
-              </Box>
-            </Stack>
+              </Grid>
+              
+              {/* Campos dinámicos según el tipo de activo */}
+              {formData.Tipo_Activo === 'Hardware' && (
+                <>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Subtipo de Hardware"
+                      value={formData.subtipo_activo || ''}
+                      onChange={(e) => setFormData({ ...formData, subtipo_activo: e.target.value })}
+                      placeholder="Ej: Servidor, Computadora, Router, etc."
+                      className="input"
+                      InputProps={{
+                        sx: { borderRadius: '12px' }
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Versión/Modelo"
+                      value={formData.version_general_activo || ''}
+                      onChange={(e) => setFormData({ ...formData, version_general_activo: e.target.value })}
+                      placeholder="Ej: Dell PowerEdge R740, Cisco ASR 1000"
+                      className="input"
+                      InputProps={{
+                        sx: { borderRadius: '12px' }
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      type="date"
+                      label="Fecha de Adquisición"
+                      value={formData.fecha_adquisicion || ''}
+                      onChange={(e) => setFormData({ ...formData, fecha_adquisicion: e.target.value })}
+                      InputLabelProps={{ shrink: true }}
+                      className="input"
+                      InputProps={{
+                        sx: { borderRadius: '12px' }
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth>
+                      <InputLabel id="requiere-backup-label" sx={{ mt: 0.5 }}>Requiere Backup</InputLabel>
+                      <Select
+                        labelId="requiere-backup-label"
+                        value={formData.requiere_backup !== undefined ? formData.requiere_backup.toString() : 'true'}
+                        onChange={(e) => setFormData({ ...formData, requiere_backup: e.target.value === 'true' })}
+                        label="Requiere Backup"
+                        sx={{ borderRadius: '12px' }}
+                      >
+                        <MenuItem value="true">Sí</MenuItem>
+                        <MenuItem value="false">No</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                </>
+              )}
+              
+              {formData.Tipo_Activo === 'Sistema de Información' && (
+                <>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Subtipo de Sistema"
+                      value={formData.subtipo_activo || ''}
+                      onChange={(e) => setFormData({ ...formData, subtipo_activo: e.target.value })}
+                      placeholder="Ej: ERP, CRM, Sistema de Gestión, etc."
+                      className="input"
+                      InputProps={{
+                        sx: { borderRadius: '12px' }
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Versión del Sistema"
+                      value={formData.version_general_activo || ''}
+                      onChange={(e) => setFormData({ ...formData, version_general_activo: e.target.value })}
+                      placeholder="Ej: v2.1.0, 2024.1"
+                      className="input"
+                      InputProps={{
+                        sx: { borderRadius: '12px' }
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      type="date"
+                      label="Fecha de Implementación"
+                      value={formData.fecha_adquisicion || ''}
+                      onChange={(e) => setFormData({ ...formData, fecha_adquisicion: e.target.value })}
+                      InputLabelProps={{ shrink: true }}
+                      className="input"
+                      InputProps={{
+                        sx: { borderRadius: '12px' }
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth>
+                      <InputLabel id="requiere-backup-si-label" sx={{ mt: 0.5 }}>Requiere Backup</InputLabel>
+                      <Select
+                        labelId="requiere-backup-si-label"
+                        value={formData.requiere_backup !== undefined ? formData.requiere_backup.toString() : 'true'}
+                        onChange={(e) => setFormData({ ...formData, requiere_backup: e.target.value === 'true' })}
+                        label="Requiere Backup"
+                        sx={{ borderRadius: '12px' }}
+                      >
+                        <MenuItem value="true">Sí</MenuItem>
+                        <MenuItem value="false">No</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Frecuencia de Backup"
+                      value={formData.frecuencia_backup_general || ''}
+                      onChange={(e) => setFormData({ ...formData, frecuencia_backup_general: e.target.value })}
+                      placeholder="Ej: Diario, Semanal, Mensual"
+                      className="input"
+                      InputProps={{
+                        sx: { borderRadius: '12px' }
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Tiempo de Retención"
+                      value={formData.tiempo_retencion_general || ''}
+                      onChange={(e) => setFormData({ ...formData, tiempo_retencion_general: e.target.value })}
+                      placeholder="Ej: 30 días, 1 año"
+                      className="input"
+                      InputProps={{
+                        sx: { borderRadius: '12px' }
+                      }}
+                    />
+                  </Grid>
+                </>
+              )}
+            </Grid>
           </DialogContent>
           
           <DialogActions sx={{ p: 3, pt: 2, borderTop: '1px solid #E5E7EB' }}>
@@ -880,6 +1452,360 @@ const Activos: React.FC = () => {
             </Button>
           </DialogActions>
         </form>
+      </Dialog>
+
+      {/* Dialog de Detalle del Activo */}
+      <Dialog 
+        open={openDetalleDialog} 
+        onClose={handleCloseDetalleDialog} 
+        maxWidth="lg" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '16px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          pb: 2,
+          pt: 3,
+          px: 3,
+          borderBottom: '1px solid #E5E7EB',
+          background: 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)',
+          color: '#FFFFFF'
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="h5" className="font-poppins" sx={{ fontWeight: 600 }}>
+              Detalle del Activo
+            </Typography>
+            <IconButton
+              onClick={handleCloseDetalleDialog}
+              sx={{ color: '#FFFFFF' }}
+            >
+              <ClearIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        
+        <DialogContent sx={{ pt: 3, px: 3, pb: 3 }}>
+          {loadingDetalle ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <Typography variant="body1" className="font-roboto" sx={{ color: '#6B7280' }}>
+                Cargando detalle del activo...
+              </Typography>
+            </Box>
+          ) : detalleActivo ? (
+            <Box>
+              {/* Información del Activo */}
+              <Card sx={{ mb: 3, border: '1px solid #E5E7EB' }}>
+                <CardContent sx={{ p: 3 }}>
+                  <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', fontWeight: 600, mb: 2 }}>
+                    Información General
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280', mb: 0.5 }}>
+                        Nombre
+                      </Typography>
+                      <Typography variant="body1" className="font-poppins" sx={{ color: '#374151', fontWeight: 500 }}>
+                        {detalleActivo.activo?.Nombre || 'N/A'}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280', mb: 0.5 }}>
+                        Tipo de Activo
+                      </Typography>
+                      <Typography variant="body1" className="font-poppins" sx={{ color: '#374151', fontWeight: 500 }}>
+                        {detalleActivo.activo?.Tipo_Activo || 'N/A'}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280', mb: 0.5 }}>
+                        Estado
+                      </Typography>
+                      <Chip
+                        label={detalleActivo.activo?.estado_activo || 'N/A'}
+                        size="small"
+                        sx={{
+                          backgroundColor: detalleActivo.activo?.estado_activo === 'En Producción' ? '#D1FAE5' : '#FEF3C7',
+                          color: detalleActivo.activo?.estado_activo === 'En Producción' ? '#065F46' : '#92400E',
+                          fontWeight: 500,
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280', mb: 0.5 }}>
+                        Nivel de Criticidad
+                      </Typography>
+                      <Chip
+                        label={detalleActivo.activo?.nivel_criticidad_negocio || 'N/A'}
+                        size="small"
+                        sx={{
+                          backgroundColor: detalleActivo.activo?.nivel_criticidad_negocio === 'Crítico' ? '#FEE2E2' : 
+                                         detalleActivo.activo?.nivel_criticidad_negocio === 'Alto' ? '#FEF3C7' : '#DBEAFE',
+                          color: detalleActivo.activo?.nivel_criticidad_negocio === 'Crítico' ? '#DC2626' :
+                                detalleActivo.activo?.nivel_criticidad_negocio === 'Alto' ? '#D97706' : '#2563EB',
+                          fontWeight: 500,
+                        }}
+                      />
+                    </Grid>
+                    {detalleActivo.activo?.Descripcion && (
+                      <Grid item xs={12}>
+                        <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280', mb: 0.5 }}>
+                          Descripción
+                        </Typography>
+                        <Typography variant="body1" className="font-roboto" sx={{ color: '#374151' }}>
+                          {detalleActivo.activo.Descripcion}
+                        </Typography>
+                      </Grid>
+                    )}
+                  </Grid>
+                </CardContent>
+              </Card>
+
+              {/* Evaluaciones */}
+              {detalleActivo.evaluaciones && detalleActivo.evaluaciones.length > 0 ? (
+                <Box>
+                  <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', fontWeight: 600, mb: 2 }}>
+                    Resumen de Evaluaciones ({detalleActivo.total_evaluaciones})
+                  </Typography>
+                  {detalleActivo.evaluaciones.map((evaluacion: any, index: number) => (
+                    <Card key={evaluacion.id_evaluacion || index} sx={{ mb: 2, border: '1px solid #E5E7EB' }}>
+                      <CardContent sx={{ p: 3 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                          <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', fontWeight: 600 }}>
+                            {evaluacion.riesgo?.nombre || 'Riesgo sin nombre'}
+                          </Typography>
+                          {evaluacion.riesgo?.categoria && (
+                            <Chip
+                              label={evaluacion.riesgo.categoria}
+                              size="small"
+                              sx={{ backgroundColor: '#EFF6FF', color: '#1E3A8A' }}
+                            />
+                          )}
+                        </Box>
+                        
+                        {evaluacion.riesgo?.descripcion && (
+                          <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280', mb: 2 }}>
+                            {evaluacion.riesgo.descripcion}
+                          </Typography>
+                        )}
+
+                        <Divider sx={{ my: 2 }} />
+
+                        {/* Evaluación Inherente */}
+                        {evaluacion.evaluacion_inherente && (
+                          <Box sx={{ mb: 2 }}>
+                            <Typography variant="subtitle2" className="font-poppins" sx={{ color: '#374151', fontWeight: 600, mb: 1 }}>
+                              Evaluación Inherente
+                            </Typography>
+                            <Grid container spacing={2}>
+                              <Grid item xs={12} md={4}>
+                                <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280' }}>
+                                  Probabilidad: <strong>{evaluacion.evaluacion_inherente.probabilidad || 'N/A'}</strong>
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={12} md={4}>
+                                <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280' }}>
+                                  Impacto: <strong>{evaluacion.evaluacion_inherente.impacto || 'N/A'}</strong>
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={12} md={4}>
+                                <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280' }}>
+                                  Nivel de Riesgo: 
+                                  <Chip
+                                    label={evaluacion.evaluacion_inherente.nivel_riesgo || 'N/A'}
+                                    size="small"
+                                    sx={{
+                                      ml: 1,
+                                      backgroundColor: evaluacion.evaluacion_inherente.nivel_riesgo === 'ALTO' ? '#FEE2E2' :
+                                                     evaluacion.evaluacion_inherente.nivel_riesgo === 'MEDIO' ? '#FEF3C7' : '#D1FAE5',
+                                      color: evaluacion.evaluacion_inherente.nivel_riesgo === 'ALTO' ? '#DC2626' :
+                                            evaluacion.evaluacion_inherente.nivel_riesgo === 'MEDIO' ? '#D97706' : '#065F46',
+                                      fontWeight: 600,
+                                    }}
+                                  />
+                                </Typography>
+                              </Grid>
+                              {evaluacion.evaluacion_inherente.justificacion && (
+                                <Grid item xs={12}>
+                                  <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280', fontStyle: 'italic' }}>
+                                    Justificación: {evaluacion.evaluacion_inherente.justificacion}
+                                  </Typography>
+                                </Grid>
+                              )}
+                            </Grid>
+                          </Box>
+                        )}
+
+                        {/* Evaluación Residual */}
+                        {evaluacion.evaluacion_residual && (
+                          <Box sx={{ mb: 2 }}>
+                            <Typography variant="subtitle2" className="font-poppins" sx={{ color: '#374151', fontWeight: 600, mb: 1 }}>
+                              Evaluación Residual (Después de Controles)
+                            </Typography>
+                            <Grid container spacing={2}>
+                              <Grid item xs={12} md={4}>
+                                <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280' }}>
+                                  Probabilidad: <strong>{evaluacion.evaluacion_residual.probabilidad || 'N/A'}</strong>
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={12} md={4}>
+                                <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280' }}>
+                                  Impacto: <strong>{evaluacion.evaluacion_residual.impacto || 'N/A'}</strong>
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={12} md={4}>
+                                <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280' }}>
+                                  Nivel de Riesgo: 
+                                  <Chip
+                                    label={evaluacion.evaluacion_residual.nivel_riesgo || 'N/A'}
+                                    size="small"
+                                    sx={{
+                                      ml: 1,
+                                      backgroundColor: evaluacion.evaluacion_residual.nivel_riesgo === 'ALTO' ? '#FEE2E2' :
+                                                     evaluacion.evaluacion_residual.nivel_riesgo === 'MEDIO' ? '#FEF3C7' : '#D1FAE5',
+                                      color: evaluacion.evaluacion_residual.nivel_riesgo === 'ALTO' ? '#DC2626' :
+                                            evaluacion.evaluacion_residual.nivel_riesgo === 'MEDIO' ? '#D97706' : '#065F46',
+                                      fontWeight: 600,
+                                    }}
+                                  />
+                                </Typography>
+                              </Grid>
+                              {evaluacion.evaluacion_residual.justificacion && (
+                                <Grid item xs={12}>
+                                  <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280', fontStyle: 'italic' }}>
+                                    Justificación: {evaluacion.evaluacion_residual.justificacion}
+                                  </Typography>
+                                </Grid>
+                              )}
+                            </Grid>
+                          </Box>
+                        )}
+
+                        {/* Controles Aplicados */}
+                        {evaluacion.controles_aplicados && evaluacion.controles_aplicados.length > 0 && (
+                          <Box sx={{ mt: 2 }}>
+                            <Typography variant="subtitle2" className="font-poppins" sx={{ color: '#374151', fontWeight: 600, mb: 1 }}>
+                              Controles Aplicados ({evaluacion.controles_aplicados.length})
+                            </Typography>
+                            <Stack spacing={1}>
+                              {evaluacion.controles_aplicados.map((control: any, ctrlIndex: number) => (
+                                <Card key={control.id || ctrlIndex} variant="outlined" sx={{ p: 2 }}>
+                                  <Typography variant="body2" className="font-poppins" sx={{ fontWeight: 600, color: '#1E3A8A', mb: 0.5 }}>
+                                    {control.nombre}
+                                  </Typography>
+                                  {control.codigo_iso && (
+                                    <Chip
+                                      label={control.codigo_iso}
+                                      size="small"
+                                      sx={{ mb: 1, backgroundColor: '#EFF6FF', color: '#1E3A8A' }}
+                                    />
+                                  )}
+                                  {control.descripcion && (
+                                    <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280', mb: 0.5 }}>
+                                      {control.descripcion}
+                                    </Typography>
+                                  )}
+                                  {control.justificacion && (
+                                    <Typography variant="caption" className="font-roboto" sx={{ color: '#9CA3AF', fontStyle: 'italic' }}>
+                                      Justificación: {control.justificacion}
+                                    </Typography>
+                                  )}
+                                </Card>
+                              ))}
+                            </Stack>
+                          </Box>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Box>
+              ) : (
+                <Alert severity="info" sx={{ borderRadius: '12px' }}>
+                  <Typography variant="body2" className="font-roboto">
+                    Este activo no tiene evaluaciones registradas aún.
+                  </Typography>
+                </Alert>
+              )}
+            </Box>
+          ) : (
+            <Box sx={{ py: 4, textAlign: 'center' }}>
+              <Typography variant="body1" className="font-roboto" sx={{ color: '#6B7280' }}>
+                No se pudo cargar el detalle del activo
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        
+        <DialogActions sx={{ p: 3, pt: 2, borderTop: '1px solid #E5E7EB', display: 'flex', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              onClick={exportarPDF}
+              disabled={exportando || !detalleActivo}
+              startIcon={<PdfIcon />}
+              variant="outlined"
+              sx={{
+                borderRadius: '12px',
+                px: 2,
+                py: 1.5,
+                textTransform: 'none',
+                fontWeight: 500,
+                borderColor: '#DC2626',
+                color: '#DC2626',
+                '&:hover': {
+                  borderColor: '#B91C1C',
+                  backgroundColor: '#FEF2F2',
+                },
+                '&:disabled': {
+                  borderColor: '#D1D5DB',
+                  color: '#9CA3AF',
+                }
+              }}
+            >
+              {exportando ? 'Exportando...' : 'PDF'}
+            </Button>
+            <Button
+              onClick={exportarExcel}
+              disabled={exportando || !detalleActivo}
+              startIcon={<ExcelIcon />}
+              variant="outlined"
+              sx={{
+                borderRadius: '12px',
+                px: 2,
+                py: 1.5,
+                textTransform: 'none',
+                fontWeight: 500,
+                borderColor: '#10B981',
+                color: '#10B981',
+                '&:hover': {
+                  borderColor: '#059669',
+                  backgroundColor: '#D1FAE5',
+                },
+                '&:disabled': {
+                  borderColor: '#D1D5DB',
+                  color: '#9CA3AF',
+                }
+              }}
+            >
+              {exportando ? 'Exportando...' : 'Excel'}
+            </Button>
+          </Box>
+          <Button 
+            onClick={handleCloseDetalleDialog}
+            className="btn btn-secondary"
+            sx={{
+              borderRadius: '12px',
+              px: 3,
+              py: 1.5,
+              textTransform: 'none',
+              fontWeight: 500,
+            }}
+          >
+            Cerrar
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );

@@ -79,8 +79,23 @@ export const activosService = {
 
   // Crear un nuevo activo
   async createActivo(data: CreateActivoData): Promise<Activo> {
-    const response = await api.post('/activos/', data);
-    return response.data;
+    try {
+      console.log('createActivo called with data:', data);
+      console.log('API base URL:', api.defaults.baseURL);
+      const response = await api.post('/activos/', data);
+      console.log('createActivo response:', response);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error creating activo:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response,
+        request: error.request,
+        config: error.config
+      });
+      // Re-lanzar el error para que el componente pueda manejarlo
+      throw error;
+    }
   },
 
   // Actualizar un activo
@@ -109,6 +124,12 @@ export const activosService = {
   // Obtener riesgos asociados a un activo
   async getRiesgosActivo(activoId: number): Promise<any[]> {
     const response = await api.get(`/activos/${activoId}/riesgos`);
+    return response.data;
+  },
+  
+  // Obtener detalle completo del activo con evaluaciones
+  async getDetalleActivo(activoId: number): Promise<any> {
+    const response = await api.get(`/activos/${activoId}/detalle`);
     return response.data;
   }
 };

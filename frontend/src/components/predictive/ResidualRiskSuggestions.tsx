@@ -185,7 +185,7 @@ const ResidualRiskSuggestions: React.FC<ResidualRiskSuggestionsProps> = ({
 
       <Grid container spacing={2}>
         {suggestions.map((suggestion, index) => (
-          <Grid item xs={12} md={6} key={suggestion.id}>
+          <Grid item xs={12} md={6} key={`residual-suggestion-${suggestion.id}-${index}`}>
             <Zoom
               in={true}
               timeout={300 + index * 100}
@@ -287,7 +287,7 @@ const ResidualRiskSuggestions: React.FC<ResidualRiskSuggestionsProps> = ({
                   <Box display="flex" flexWrap="wrap" gap={0.5}>
                     {suggestion.controles_efectivos.map((control, idx) => (
                       <Chip
-                        key={idx}
+                        key={`residual-control-${suggestion.id}-${idx}-${control}`}
                         label={control}
                         size="small"
                         sx={{ 
@@ -309,5 +309,8 @@ const ResidualRiskSuggestions: React.FC<ResidualRiskSuggestionsProps> = ({
 };
 
 export default ResidualRiskSuggestions;
+
+
+
 
 

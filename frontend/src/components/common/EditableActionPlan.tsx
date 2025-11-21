@@ -30,7 +30,9 @@ import {
   Assignment as AssignmentIcon,
   Person as PersonIcon,
   Schedule as ScheduleIcon,
-  Flag as FlagIcon
+  Flag as FlagIcon,
+  AttachFile as AttachFileIcon,
+  CloudUpload as CloudUploadIcon
 } from '@mui/icons-material';
 
 interface ActionItem {
@@ -43,6 +45,7 @@ interface ActionItem {
   estado: 'pendiente' | 'en_progreso' | 'completada' | 'cancelada';
   prioridad: 'baja' | 'media' | 'alta' | 'critica';
   comentarios: string;
+  documentos: File[];
 }
 
 interface EditableActionPlanProps {
@@ -66,7 +69,8 @@ const EditableActionPlan: React.FC<EditableActionPlanProps> = ({
     fechaFin: '',
     estado: 'pendiente',
     prioridad: 'media',
-    comentarios: ''
+    comentarios: '',
+    documentos: []
   });
 
   const handleAddItem = () => {
@@ -79,9 +83,29 @@ const EditableActionPlan: React.FC<EditableActionPlanProps> = ({
       fechaFin: '',
       estado: 'pendiente',
       prioridad: 'media',
-      comentarios: ''
+      comentarios: '',
+      documentos: []
     });
     setIsDialogOpen(true);
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files) {
+      const fileArray = Array.from(files);
+      setNewItem({
+        ...newItem,
+        documentos: [...(newItem.documentos || []), ...fileArray]
+      });
+    }
+  };
+
+  const handleRemoveDocument = (index: number) => {
+    const updatedDocuments = (newItem.documentos || []).filter((_, i) => i !== index);
+    setNewItem({
+      ...newItem,
+      documentos: updatedDocuments
+    });
   };
 
   const handleEditItem = (item: ActionItem) => {
@@ -109,7 +133,8 @@ const EditableActionPlan: React.FC<EditableActionPlanProps> = ({
       fechaFin: newItem.fechaFin || '',
       estado: newItem.estado || 'pendiente',
       prioridad: newItem.prioridad || 'media',
-      comentarios: newItem.comentarios || ''
+      comentarios: newItem.comentarios || '',
+      documentos: newItem.documentos || []
     };
 
     if (editingItem) {
@@ -189,7 +214,7 @@ const EditableActionPlan: React.FC<EditableActionPlanProps> = ({
       ) : (
         <Grid container spacing={2}>
           {actionItems.map((item, index) => (
-            <Grid item xs={12} md={6} key={item.id}>
+            <Grid item xs={12} md={6} key={`action-plan-item-${item.id || index}-${index}`}>
               <Card sx={{ height: '100%', position: 'relative' }}>
                 <CardContent>
                   <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
@@ -270,6 +295,34 @@ const EditableActionPlan: React.FC<EditableActionPlanProps> = ({
                         <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                           <strong>Comentarios:</strong> {item.comentarios}
                         </Typography>
+                      </Grid>
+                    )}
+                    
+                    {item.documentos && item.documentos.length > 0 && (
+                      <Grid item xs={12}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                          <AttachFileIcon sx={{ fontSize: 16, color: '#6B7280' }} />
+                          <Typography variant="body2" color="text.secondary">
+                            <strong>Documentos:</strong> {item.documentos.length} archivo(s)
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                          {item.documentos.map((file, index) => (
+                            <Chip
+                              key={`doc-${item.id}-${file.name || file.id || index}`}
+                              label={file.name}
+                              size="small"
+                              icon={<AttachFileIcon />}
+                              sx={{
+                                backgroundColor: '#E3F2FD',
+                                color: '#1976D2',
+                                '& .MuiChip-icon': {
+                                  color: '#1976D2'
+                                }
+                              }}
+                            />
+                          ))}
+                        </Box>
                       </Grid>
                     )}
                   </Grid>
@@ -366,6 +419,76 @@ const EditableActionPlan: React.FC<EditableActionPlanProps> = ({
                 value={newItem.comentarios || ''}
                 onChange={(e) => setNewItem({ ...newItem, comentarios: e.target.value })}
               />
+            </Grid>
+            
+            <Grid item xs={12}>
+              <Typography variant="h6" sx={{ color: '#1E3A8A', mb: 2 }}>
+                📎 Documentos de Soporte
+              </Typography>
+              
+              <Box sx={{ mb: 2 }}>
+                <input
+                  type="file"
+                  multiple
+                  onChange={handleFileUpload}
+                  style={{ display: 'none' }}
+                  id="file-upload"
+                />
+                <label htmlFor="file-upload">
+                  <Button
+                    component="span"
+                    variant="outlined"
+                    startIcon={<CloudUploadIcon />}
+                    sx={{ 
+                      borderColor: '#1E3A8A',
+                      color: '#1E3A8A',
+                      '&:hover': {
+                        borderColor: '#1E40AF',
+                        backgroundColor: '#1E3A8A10'
+                      }
+                    }}
+                  >
+                    Adjuntar Documentos
+                  </Button>
+                </label>
+              </Box>
+              
+              {newItem.documentos && newItem.documentos.length > 0 && (
+                <Box>
+                  <Typography variant="body2" sx={{ color: '#6B7280', mb: 1 }}>
+                    Documentos adjuntos:
+                  </Typography>
+                  {newItem.documentos.map((file, index) => (
+                    <Box key={`new-doc-${file.name || file.id || index}`} sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'space-between',
+                      p: 1,
+                      border: '1px solid #E5E7EB',
+                      borderRadius: 1,
+                      mb: 1,
+                      backgroundColor: '#F9FAFB'
+                    }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <AttachFileIcon sx={{ fontSize: 16, color: '#6B7280' }} />
+                        <Typography variant="body2" sx={{ color: '#374151' }}>
+                          {file.name}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: '#6B7280' }}>
+                          ({(file.size / 1024).toFixed(1)} KB)
+                        </Typography>
+                      </Box>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleRemoveDocument(index)}
+                        sx={{ color: '#EF4444' }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  ))}
+                </Box>
+              )}
             </Grid>
           </Grid>
         </DialogContent>

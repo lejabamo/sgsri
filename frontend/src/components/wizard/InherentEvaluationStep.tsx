@@ -156,12 +156,13 @@ const InherentEvaluationStep: React.FC<InherentEvaluationStepProps> = ({
     if (probIndex === -1 || impIndex === -1) return 'LOW';
     
     // Matriz de riesgo (probabilidad x impacto)
+    // Orden: Insignificante, Menor, Moderado, Mayor, Catastrófico
     const riskMatrix = [
-      ['LOW', 'LOW', 'MEDIUM', 'HIGH', 'HIGH'],      // Frecuente
-      ['LOW', 'MEDIUM', 'MEDIUM', 'HIGH', 'HIGH'],    // Probable
-      ['LOW', 'LOW', 'MEDIUM', 'MEDIUM', 'HIGH'],     // Ocasional
-      ['LOW', 'LOW', 'LOW', 'MEDIUM', 'MEDIUM'],      // Posible
-      ['LOW', 'LOW', 'LOW', 'LOW', 'MEDIUM']          // Improbable
+      ['MEDIUM', 'HIGH', 'HIGH', 'HIGH', 'HIGH'],      // Frecuente
+      ['MEDIUM', 'MEDIUM', 'HIGH', 'HIGH', 'HIGH'],    // Probable
+      ['LOW', 'MEDIUM', 'MEDIUM', 'HIGH', 'HIGH'],     // Ocasional
+      ['LOW', 'LOW', 'MEDIUM', 'MEDIUM', 'HIGH'],      // Posible
+      ['LOW', 'LOW', 'LOW', 'MEDIUM', 'MEDIUM']        // Improbable
     ];
     
     return riskMatrix[probIndex][impIndex];
@@ -196,7 +197,7 @@ const InherentEvaluationStep: React.FC<InherentEvaluationStepProps> = ({
     setJustification(data.justificacion || '');
   }, [data]);
 
-  // Actualizar datos cuando cambian los valores
+  // Actualizar datos cuando cambian los valores (solo probabilidad e impacto, no justificación)
   useEffect(() => {
     if (probabilityValue >= 0 && impactValue >= 0) {
       const selectedProb = probabilityLevels[probabilityValue];
@@ -210,7 +211,8 @@ const InherentEvaluationStep: React.FC<InherentEvaluationStepProps> = ({
         justificacion: justification
       });
     }
-  }, [probabilityValue, impactValue, justification]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [probabilityValue, impactValue]);
 
   const handleProbabilityChange = (event: Event, newValue: number | number[]) => {
     setProbabilityValue(newValue as number);
@@ -223,7 +225,21 @@ const InherentEvaluationStep: React.FC<InherentEvaluationStepProps> = ({
   };
 
   const handleJustificationChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setJustification(event.target.value);
+    const newValue = event.target.value;
+    setJustification(newValue);
+    // Actualizar inmediatamente sin esperar al useEffect para evitar bucles
+    if (probabilityValue >= 0 && impactValue >= 0) {
+      const selectedProb = probabilityLevels[probabilityValue];
+      const selectedImp = impactLevels[impactValue];
+      const riskLevel = calculateRiskLevel(selectedProb.value, selectedImp.value);
+      
+      onUpdate({
+        probabilidad: selectedProb.value,
+        impacto: selectedImp.value,
+        nivelRiesgo: riskLevel,
+        justificacion: newValue
+      });
+    }
   };
 
   const selectedProbability = probabilityLevels[probabilityValue];
@@ -507,7 +523,7 @@ const InherentEvaluationStep: React.FC<InherentEvaluationStepProps> = ({
                   <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 0.5, mb: 1 }}>
                     <Box></Box>
                     {impactLevels.map((level, index) => (
-                      <Typography key={index} variant="caption" className="font-roboto" sx={{ 
+                      <Typography key={`impact-${level.value}-${index}`} variant="caption" className="font-roboto" sx={{ 
                         textAlign: 'center', 
                         fontWeight: 600,
                         color: '#374151'
@@ -518,7 +534,7 @@ const InherentEvaluationStep: React.FC<InherentEvaluationStepProps> = ({
                   </Box>
                   
                   {probabilityLevels.map((probLevel, probIndex) => (
-                    <Box key={probIndex} sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 0.5, mb: 0.5 }}>
+                    <Box key={`prob-${probLevel.value}-${probIndex}`} sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 0.5, mb: 0.5 }}>
                       <Typography variant="caption" className="font-roboto" sx={{ 
                         fontWeight: 600,
                         color: '#374151',
@@ -532,7 +548,7 @@ const InherentEvaluationStep: React.FC<InherentEvaluationStepProps> = ({
                         const isSelected = selectedProbability?.value === probLevel.value && selectedImpact?.value === impLevel.value;
                         return (
                           <Box
-                            key={impIndex}
+                            key={`prob-${probLevel.value}-imp-${impLevel.value}-${probIndex}-${impIndex}`}
                             sx={{
                               width: '100%',
                               height: 20,

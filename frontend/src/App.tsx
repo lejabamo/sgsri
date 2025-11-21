@@ -1,19 +1,25 @@
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
-import { CssBaseline } from "@mui/material";
+import { CssBaseline, CircularProgress, Box } from "@mui/material";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "react-hot-toast";
 
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import Layout from "./components/common/Layout";
 import Login from "./components/auth/Login";
-import Dashboard from "./pages/dashboard/Dashboard";
-import Activos from "./pages/activos/Activos";
-import Usuarios from "./pages/usuarios/Usuarios";
-import Riesgos from "./pages/riesgos/Riesgos";
-import Reportes from "./pages/reportes/Reportes";
-import RiskAssessmentWizard from "./pages/wizard/RiskAssessmentWizard";
+
+// Lazy loading de componentes para code splitting
+const Dashboard = lazy(() => import("./pages/dashboard/Dashboard"));
+const Activos = lazy(() => import("./pages/activos/Activos"));
+const Usuarios = lazy(() => import("./pages/usuarios/Usuarios"));
+const Riesgos = lazy(() => import("./pages/riesgos/Riesgos"));
+const Reportes = lazy(() => import("./pages/reportes/Reportes"));
+const InformeRiesgos = lazy(() => import("./pages/reportes/InformeRiesgos"));
+const EstadisticasActivos = lazy(() => import("./pages/reportes/EstadisticasActivos"));
+const TendenciasSeguridad = lazy(() => import("./pages/reportes/TendenciasSeguridad"));
+const ReportesUsuarios = lazy(() => import("./pages/reportes/ReportesUsuarios"));
+const RiskAssessmentWizard = lazy(() => import("./pages/wizard/RiskAssessmentWizard"));
 
 const theme = createTheme({
   palette: {
@@ -143,16 +149,45 @@ const theme = createTheme({
   },
 });
 
-const queryClient = new QueryClient();
+// Configuración optimizada de React Query con caché
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutos
+      cacheTime: 10 * 60 * 1000, // 10 minutos
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
+
+// Componente de carga para lazy loading
+const LoadingFallback: React.FC = () => (
+  <Box
+    display="flex"
+    justifyContent="center"
+    alignItems="center"
+    minHeight="100vh"
+    bgcolor="background.default"
+  >
+    <CircularProgress />
+  </Box>
+);
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
-    return <div>Cargando...</div>;
+    return <LoadingFallback />;
   }
 
-  return isAuthenticated ? <Layout>{children}</Layout> : <Navigate to="/login" />;
+  return isAuthenticated ? (
+    <Layout>
+      <Suspense fallback={<LoadingFallback />}>{children}</Suspense>
+    </Layout>
+  ) : (
+    <Navigate to="/login" />
+  );
 };
 
 const App: React.FC = () => {
@@ -162,58 +197,92 @@ const App: React.FC = () => {
         <CssBaseline />
         <AuthProvider>
           <Router>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedRoute>
-                    <Dashboard />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/activos"
-                element={
-                  <ProtectedRoute>
-                    <Activos />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/usuarios"
-                element={
-                  <ProtectedRoute>
-                    <Usuarios />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/riesgos"
-                element={
-                  <ProtectedRoute>
-                    <Riesgos />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/reportes"
-                element={
-                  <ProtectedRoute>
-                    <Reportes />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/wizard"
-                element={
-                  <ProtectedRoute>
-                    <RiskAssessmentWizard />
-                  </ProtectedRoute>
-                }
-              />
-              <Route path="/" element={<Navigate to="/dashboard" />} />
-            </Routes>
+            <Suspense fallback={<LoadingFallback />}>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/activos"
+                  element={
+                    <ProtectedRoute>
+                      <Activos />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/usuarios"
+                  element={
+                    <ProtectedRoute>
+                      <Usuarios />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/riesgos"
+                  element={
+                    <ProtectedRoute>
+                      <Riesgos />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/reportes"
+                  element={
+                    <ProtectedRoute>
+                      <Reportes />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/reportes/informe-riesgos"
+                  element={
+                    <ProtectedRoute>
+                      <InformeRiesgos />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/reportes/estadisticas-activos"
+                  element={
+                    <ProtectedRoute>
+                      <EstadisticasActivos />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/reportes/tendencias-seguridad"
+                  element={
+                    <ProtectedRoute>
+                      <TendenciasSeguridad />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/reportes/reportes-usuarios"
+                  element={
+                    <ProtectedRoute>
+                      <ReportesUsuarios />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/wizard"
+                  element={
+                    <ProtectedRoute>
+                      <RiskAssessmentWizard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="/" element={<Navigate to="/dashboard" />} />
+              </Routes>
+            </Suspense>
           </Router>
         </AuthProvider>
         <Toaster position="top-right" />

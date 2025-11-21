@@ -395,7 +395,7 @@ const PredictiveSuggestionPanel: React.FC<PredictiveSuggestionPanelProps> = ({
                 <List>
                   {suggestions.controles.map((control, index) => (
                     <ListItem
-                      key={control.id}
+                      key={`predictive-control-${control.id}-${index}`}
                       button
                       onClick={() => handleControlSelect(control)}
                       sx={{

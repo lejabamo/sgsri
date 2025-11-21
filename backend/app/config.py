@@ -19,14 +19,20 @@ class Config:
     SQLALCHEMY_DATABASE_URI = f'mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?auth_plugin=mysql_native_password&charset=utf8mb4'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    # Configuración adicional para UTF-8
+    # Configuración adicional para UTF-8 y optimización de pool de conexiones
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_pre_ping': True,
-        'pool_recycle': 300,
+        'pool_recycle': 3600,  # Reciclar conexiones cada hora
+        'pool_size': 10,  # Tamaño del pool de conexiones
+        'max_overflow': 20,  # Conexiones adicionales permitidas
+        'pool_timeout': 30,  # Timeout para obtener conexión del pool
         'connect_args': {
             'charset': 'utf8mb4',
             'use_unicode': True,
-            'autocommit': True
+            'autocommit': True,
+            'connect_timeout': 10,  # Timeout de conexión
+            'read_timeout': 30,  # Timeout de lectura
+            'write_timeout': 30,  # Timeout de escritura
         }
     }
     

@@ -16,6 +16,19 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Interceptor de respuesta para manejar errores
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('API Error:', error);
+    // Si es un error de autenticación, podríamos redirigir al login
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      console.error('Error de autenticación:', error.response?.data);
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Función helper para hacer requests con manejo de errores
 export const apiRequest = async <T>(endpoint: string, options: RequestInit = {}): Promise<T> => {
   const url = `${API_BASE_URL}${endpoint}`;
@@ -34,7 +47,28 @@ export const apiRequest = async <T>(endpoint: string, options: RequestInit = {})
     const response = await fetch(url, config);
     
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      // Intentar obtener el mensaje de error del backend
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      try {
+        // Clonar la respuesta para poder leerla sin consumirla
+        const clonedResponse = response.clone();
+        const errorData = await clonedResponse.json();
+        errorMessage = errorData.error || errorData.message || errorMessage;
+        console.error(`API error details for ${endpoint}:`, errorData);
+      } catch (e) {
+        // Si no se puede parsear el JSON, usar el mensaje por defecto
+        try {
+          const clonedResponse = response.clone();
+          const text = await clonedResponse.text();
+          console.error(`API error response (text) for ${endpoint}:`, text);
+          if (text) {
+            errorMessage = text;
+          }
+        } catch (textError) {
+          console.error(`Could not read error response for ${endpoint}`);
+        }
+      }
+      throw new Error(errorMessage);
     }
     
     return await response.json();

@@ -201,3 +201,9 @@ const CriticityCalculator: React.FC<CriticityCalculatorProps> = ({
 export default CriticityCalculator;
 
 
+
+
+
+
+
+

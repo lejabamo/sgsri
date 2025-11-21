@@ -1,37 +1,69 @@
 from flask import Flask, request, make_response
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+from flask_compress import Compress
 from .config import Config  # Usar MySQL
 
 db = SQLAlchemy()
+compress = Compress()
 
-def create_app():
+def create_app(config=None):
     app = Flask(__name__)
-    app.config.from_object(Config)
+    # Usar configuración proporcionada o la por defecto
+    config_class = config if config else Config
+    app.config.from_object(config_class)
 
     # Configuración UTF-8
     app.config['JSON_AS_ASCII'] = False
     app.config['MYSQL_CHARSET'] = 'utf8mb4'
     app.config['MYSQL_COLLATION'] = 'utf8mb4_unicode_ci'
+    
+    # Deshabilitar redirect automático de trailing slashes para evitar problemas CORS
+    app.url_map.strict_slashes = False
 
+    # Inicializar compresión
+    compress.init_app(app)
+    
     db.init_app(app)
     
-    # Configuración CORS más específica
-    CORS(app, 
-         origins=['http://localhost:5173', 'http://127.0.0.1:5173', 'http://[::1]:5173'],
-         methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-         allow_headers=['Content-Type', 'Authorization'],
-         supports_credentials=True)
+    # Configuración CORS - más permisiva en desarrollo
+    import os
+    is_production = os.environ.get('FLASK_ENV') == 'production'
     
-    # Manejador para peticiones OPTIONS (preflight)
-    @app.before_request
-    def handle_preflight():
-        if request.method == "OPTIONS":
-            response = make_response()
-            response.headers.add("Access-Control-Allow-Origin", "*")
-            response.headers.add('Access-Control-Allow-Headers', "*")
-            response.headers.add('Access-Control-Allow-Methods', "*")
-            return response
+    if is_production:
+        # En producción, CORS restrictivo
+        cors_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:5173').split(',')
+        CORS(app, 
+             origins=cors_origins,
+             methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+             allow_headers=['Content-Type', 'Authorization'],
+             supports_credentials=True)
+    else:
+        # En desarrollo, permitir todos los orígenes (solo para desarrollo)
+        # Flask-CORS maneja los headers automáticamente, NO agregar manualmente
+        CORS(app, 
+             origins="*",
+             methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+             allow_headers=['Content-Type', 'Authorization'],
+             supports_credentials=False)  # No se puede usar credentials con "*"
+    
+    # NO agregar before_request para CORS, Flask-CORS ya lo maneja
+    # Esto evita headers duplicados que causan "Multiple CORS header not allowed"
+    
+    # Headers de caché y optimización para respuestas estáticas
+    # NO agregar headers CORS aquí, Flask-CORS ya los maneja automáticamente
+    @app.after_request
+    def add_cache_headers(response):
+        # Caché para respuestas GET exitosas (5 minutos)
+        if request.method == 'GET' and response.status_code == 200:
+            # No cachear endpoints de autenticación o datos dinámicos
+            if not any(path in request.path for path in ['/api/auth', '/api/dashboard', '/api/predictive']):
+                response.cache_control.max_age = 300
+                response.cache_control.public = True
+        # Headers de seguridad y optimización
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['X-Frame-Options'] = 'DENY'
+        return response
 
     # Importar modelos después de inicializar db
     with app.app_context():
@@ -72,6 +104,18 @@ def create_app():
     # Rutas del sistema predictivo
     from .routes.predictive import register_predictive_routes
     register_predictive_routes(app)
+    
+    # Rutas de predicción de texto
+    from .routes.predictive_text import predictive_text_bp
+    app.register_blueprint(predictive_text_bp, url_prefix='/api/predictive')
+    
+    # Rutas de sugerencias ISO
+    from .routes.iso_suggestions import iso_suggestions_bp
+    app.register_blueprint(iso_suggestions_bp, url_prefix='/api/iso')
+    
+    # Rutas de controles de evaluación
+    from .routes.controles_evaluacion import controles_evaluacion_bp
+    app.register_blueprint(controles_evaluacion_bp, url_prefix='/api/controles-evaluacion')
 
     # Ruta de prueba para verificar que el servidor está funcionando
     @app.route('/api/health', methods=['GET'])

@@ -170,7 +170,7 @@ const InteractiveSuggestions: React.FC<InteractiveSuggestionsProps> = ({
         <Box display="flex" flexWrap="wrap" gap={1.5}>
           {items.map((item, index) => (
             <Zoom
-              key={item.id}
+              key={`interactive-${type}-${item.id}-${index}`}
               in={true}
               timeout={300 + index * 100}
               style={{ transitionDelay: `${index * 100}ms` }}
@@ -342,5 +342,8 @@ const InteractiveSuggestions: React.FC<InteractiveSuggestionsProps> = ({
 };
 
 export default InteractiveSuggestions;
+
+
+
 
 

@@ -71,8 +71,10 @@ const ControlSuggestions: React.FC<ControlSuggestionsProps> = ({
         },
         body: JSON.stringify({
           asset_type: assetType,
-          threat_id: threatType || 'malware',
-          vulnerability_id: vulnerabilityType || 'software_desactualizado'
+          threat_id: threatType || '',
+          threat_name: threatType || '',
+          vulnerability_id: vulnerabilityType || '',
+          vulnerability_name: vulnerabilityType || ''
         })
       });
 
@@ -164,7 +166,7 @@ const ControlSuggestions: React.FC<ControlSuggestionsProps> = ({
       <Box display="flex" flexWrap="wrap" gap={1.5}>
         {suggestions.map((control, index) => (
           <Zoom
-            key={control.id}
+            key={`control-suggestion-${control.id}-${index}`}
             in={true}
             timeout={300 + index * 100}
             style={{ transitionDelay: `${index * 100}ms` }}

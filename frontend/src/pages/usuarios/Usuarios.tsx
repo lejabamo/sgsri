@@ -25,6 +25,9 @@ import {
   Tooltip,
   Avatar,
   Autocomplete,
+  List,
+  ListItem,
+  ListItemText,
 } from '@mui/material';
 import { Grid } from '@mui/material';
 import {
@@ -39,6 +42,11 @@ import {
   Clear as ClearIcon,
   Email as EmailIcon,
   Work as WorkIcon,
+  Visibility as VisibilityIcon,
+  PictureAsPdf as PdfIcon,
+  TableChart as ExcelIcon,
+  Business as BusinessIcon,
+  Assignment as AssignmentIcon,
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
@@ -47,11 +55,25 @@ import { toast } from 'react-hot-toast';
 import { usuariosService, type Usuario } from '../../services/backend';
 import '../../styles/design-system.css';
 
+interface CreateUsuarioData {
+  nombre_completo: string;
+  email_institucional: string;
+  puesto_organizacion: string;
+  estado_usuario: string;
+}
+
+interface UpdateUsuarioData extends Partial<CreateUsuarioData> {}
+
 const Usuarios: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [puestoFilter, setPuestoFilter] = useState('');
   const [estadoFilter, setEstadoFilter] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
+  const [openDetalleDialog, setOpenDetalleDialog] = useState(false);
+  const [selectedUsuario, setSelectedUsuario] = useState<Usuario | null>(null);
+  const [detalleUsuario, setDetalleUsuario] = useState<any>(null);
+  const [loadingDetalle, setLoadingDetalle] = useState(false);
+  const [exportando, setExportando] = useState(false);
   const [editingUsuario, setEditingUsuario] = useState<Usuario | null>(null);
   const [formData, setFormData] = useState<CreateUsuarioData>({
     nombre_completo: '',
@@ -191,6 +213,279 @@ const Usuarios: React.FC = () => {
     }
   };
 
+  const handleConsultarUsuario = async (usuario: Usuario) => {
+    try {
+      setSelectedUsuario(usuario);
+      setOpenDetalleDialog(true);
+      setLoadingDetalle(true);
+      const { usuariosService } = await import('../../services/backend');
+      const detalle = await usuariosService.getDetalleUsuario(usuario.id_usuario);
+      setDetalleUsuario(detalle);
+    } catch (error: any) {
+      console.error('Error fetching detalle usuario:', error);
+      toast.error('Error al cargar el detalle del usuario');
+      setDetalleUsuario(null);
+    } finally {
+      setLoadingDetalle(false);
+    }
+  };
+
+  const handleCloseDetalleDialog = () => {
+    setOpenDetalleDialog(false);
+    setSelectedUsuario(null);
+    setDetalleUsuario(null);
+  };
+
+  const exportarPDF = async () => {
+    if (!detalleUsuario) return;
+    
+    try {
+      setExportando(true);
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF();
+      
+      let yPos = 20;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 20;
+      const maxWidth = pageWidth - (margin * 2);
+      
+      // Título
+      doc.setFontSize(18);
+      doc.setTextColor(30, 58, 138);
+      doc.text('Reporte de Detalle de Usuario', margin, yPos);
+      yPos += 10;
+      
+      // Información General
+      doc.setFontSize(14);
+      doc.setTextColor(0, 0, 0);
+      doc.text('Información General', margin, yPos);
+      yPos += 8;
+      
+      doc.setFontSize(10);
+      doc.text(`Nombre: ${detalleUsuario.usuario?.nombre_completo || 'N/A'}`, margin, yPos);
+      yPos += 6;
+      doc.text(`Email: ${detalleUsuario.usuario?.email_institucional || 'N/A'}`, margin, yPos);
+      yPos += 6;
+      doc.text(`Puesto: ${detalleUsuario.usuario?.puesto_organizacion || 'N/A'}`, margin, yPos);
+      yPos += 6;
+      doc.text(`Estado: ${detalleUsuario.usuario?.estado_usuario || 'N/A'}`, margin, yPos);
+      yPos += 6;
+      
+      if (detalleUsuario.usuario?.fecha_creacion_registro) {
+        doc.text(`Fecha Creación: ${new Date(detalleUsuario.usuario.fecha_creacion_registro).toLocaleDateString('es-ES')}`, margin, yPos);
+        yPos += 6;
+      }
+      
+      yPos += 5;
+      
+      // Proceso
+      if (detalleUsuario.proceso) {
+        if (yPos > 250) {
+          doc.addPage();
+          yPos = 20;
+        }
+        doc.setFontSize(14);
+        doc.text('Proceso Asociado', margin, yPos);
+        yPos += 8;
+        
+        doc.setFontSize(10);
+        doc.text(`Nombre: ${detalleUsuario.proceso.nombre || 'No definido'}`, margin, yPos);
+        yPos += 6;
+        if (detalleUsuario.proceso.descripcion) {
+          const descLines = doc.splitTextToSize(detalleUsuario.proceso.descripcion, maxWidth);
+          doc.text(descLines, margin, yPos);
+          yPos += descLines.length * 5;
+        }
+        yPos += 5;
+      }
+      
+      // Oficina
+      if (detalleUsuario.oficina) {
+        if (yPos > 250) {
+          doc.addPage();
+          yPos = 20;
+        }
+        doc.setFontSize(14);
+        doc.text('Oficina', margin, yPos);
+        yPos += 8;
+        
+        doc.setFontSize(10);
+        doc.text(`Nombre: ${detalleUsuario.oficina.nombre || 'No definido'}`, margin, yPos);
+        yPos += 6;
+        if (detalleUsuario.oficina.descripcion) {
+          const descLines = doc.splitTextToSize(detalleUsuario.oficina.descripcion, maxWidth);
+          doc.text(descLines, margin, yPos);
+          yPos += descLines.length * 5;
+        }
+        if (detalleUsuario.oficina.direccion) {
+          doc.text(`Dirección: ${detalleUsuario.oficina.direccion}`, margin, yPos);
+          yPos += 6;
+        }
+        yPos += 5;
+      }
+      
+      // Activos
+      if (detalleUsuario.activos && detalleUsuario.activos.total > 0) {
+        if (yPos > 250) {
+          doc.addPage();
+          yPos = 20;
+        }
+        doc.setFontSize(14);
+        doc.text(`Activos Asociados (${detalleUsuario.activos.total})`, margin, yPos);
+        yPos += 8;
+        
+        if (detalleUsuario.activos.como_propietario.length > 0) {
+          doc.setFontSize(12);
+          doc.text(`Como Propietario (${detalleUsuario.activos.total_propietario}):`, margin, yPos);
+          yPos += 6;
+          doc.setFontSize(10);
+          detalleUsuario.activos.como_propietario.slice(0, 10).forEach((activo: any) => {
+            if (yPos > 250) {
+              doc.addPage();
+              yPos = 20;
+            }
+            doc.text(`  - ${activo.Nombre} (${activo.Tipo_Activo})`, margin + 5, yPos);
+            yPos += 5;
+          });
+          yPos += 3;
+        }
+        
+        if (detalleUsuario.activos.como_custodio.length > 0) {
+          doc.setFontSize(12);
+          doc.text(`Como Custodio (${detalleUsuario.activos.total_custodio}):`, margin, yPos);
+          yPos += 6;
+          doc.setFontSize(10);
+          detalleUsuario.activos.como_custodio.slice(0, 10).forEach((activo: any) => {
+            if (yPos > 250) {
+              doc.addPage();
+              yPos = 20;
+            }
+            doc.text(`  - ${activo.Nombre} (${activo.Tipo_Activo})`, margin + 5, yPos);
+            yPos += 5;
+          });
+        }
+      }
+      
+      // Pie de página
+      const totalPages = doc.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(128, 128, 128);
+        doc.text(
+          `Página ${i} de ${totalPages} - Generado el ${new Date().toLocaleDateString('es-ES')}`,
+          pageWidth / 2,
+          doc.internal.pageSize.getHeight() - 10,
+          { align: 'center' }
+        );
+      }
+      
+      // Guardar PDF
+      const fileName = `Reporte_Usuario_${detalleUsuario.usuario?.nombre_completo?.replace(/[^a-z0-9]/gi, '_') || 'Usuario'}_${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(fileName);
+      
+      toast.success('✅ Reporte PDF generado exitosamente');
+    } catch (error) {
+      console.error('Error generando PDF:', error);
+      toast.error('❌ Error al generar el reporte PDF');
+    } finally {
+      setExportando(false);
+    }
+  };
+
+  const exportarExcel = async () => {
+    if (!detalleUsuario) return;
+    
+    try {
+      setExportando(true);
+      const XLSXModule = await import('xlsx');
+      const XLSX = XLSXModule.default || XLSXModule;
+      
+      // Crear workbook
+      const wb = XLSX.utils.book_new();
+      
+      // Hoja 1: Información General
+      const infoData = [
+        ['REPORTE DE DETALLE DE USUARIO'],
+        [''],
+        ['INFORMACIÓN GENERAL'],
+        ['Nombre Completo', detalleUsuario.usuario?.nombre_completo || 'N/A'],
+        ['Email Institucional', detalleUsuario.usuario?.email_institucional || 'N/A'],
+        ['Puesto Organizacional', detalleUsuario.usuario?.puesto_organizacion || 'N/A'],
+        ['Estado', detalleUsuario.usuario?.estado_usuario || 'N/A'],
+        ['Fecha Creación', detalleUsuario.usuario?.fecha_creacion_registro ? new Date(detalleUsuario.usuario.fecha_creacion_registro).toLocaleDateString('es-ES') : 'N/A'],
+        [''],
+        ['PROCESO ASOCIADO'],
+        ['Nombre', detalleUsuario.proceso?.nombre || 'No definido'],
+        ['Descripción', detalleUsuario.proceso?.descripcion || ''],
+        [''],
+        ['OFICINA'],
+        ['Nombre', detalleUsuario.oficina?.nombre || 'No definido'],
+        ['Descripción', detalleUsuario.oficina?.descripcion || ''],
+        ['Dirección', detalleUsuario.oficina?.direccion || ''],
+        [''],
+        ['ACTIVOS ASOCIADOS'],
+        ['Total Activos', detalleUsuario.activos?.total || 0],
+        ['Como Propietario', detalleUsuario.activos?.total_propietario || 0],
+        ['Como Custodio', detalleUsuario.activos?.total_custodio || 0],
+      ];
+      
+      const ws1 = XLSX.utils.aoa_to_sheet(infoData);
+      XLSX.utils.book_append_sheet(wb, ws1, 'Información General');
+      
+      // Hoja 2: Activos como Propietario
+      if (detalleUsuario.activos?.como_propietario.length > 0) {
+        const activosPropData = [
+          ['ID', 'Nombre', 'Tipo', 'Estado', 'Descripción']
+        ];
+        
+        detalleUsuario.activos.como_propietario.forEach((activo: any) => {
+          activosPropData.push([
+            activo.ID_Activo || '',
+            activo.Nombre || '',
+            activo.Tipo_Activo || '',
+            activo.estado_activo || '',
+            activo.Descripcion || ''
+          ]);
+        });
+        
+        const ws2 = XLSX.utils.aoa_to_sheet(activosPropData);
+        XLSX.utils.book_append_sheet(wb, ws2, 'Activos Propietario');
+      }
+      
+      // Hoja 3: Activos como Custodio
+      if (detalleUsuario.activos?.como_custodio.length > 0) {
+        const activosCustData = [
+          ['ID', 'Nombre', 'Tipo', 'Estado', 'Descripción']
+        ];
+        
+        detalleUsuario.activos.como_custodio.forEach((activo: any) => {
+          activosCustData.push([
+            activo.ID_Activo || '',
+            activo.Nombre || '',
+            activo.Tipo_Activo || '',
+            activo.estado_activo || '',
+            activo.Descripcion || ''
+          ]);
+        });
+        
+        const ws3 = XLSX.utils.aoa_to_sheet(activosCustData);
+        XLSX.utils.book_append_sheet(wb, ws3, 'Activos Custodio');
+      }
+      
+      // Guardar archivo
+      const fileName = `Reporte_Usuario_${detalleUsuario.usuario?.nombre_completo?.replace(/[^a-z0-9]/gi, '_') || 'Usuario'}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      
+      toast.success('✅ Reporte Excel generado exitosamente');
+    } catch (error) {
+      console.error('Error generando Excel:', error);
+      toast.error('❌ Error al generar el reporte Excel');
+    } finally {
+      setExportando(false);
+    }
+  };
+
   const columns: GridColDef[] = [
     { 
       field: 'id_usuario', 
@@ -295,12 +590,28 @@ const Usuarios: React.FC = () => {
     {
       field: 'actions',
       headerName: 'Acciones',
-      width: 120,
+      width: 160,
       headerAlign: 'center',
       align: 'center',
       sortable: false,
       renderCell: (params: GridRenderCellParams) => (
         <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+          <Tooltip title="Consultar detalle del usuario">
+            <IconButton
+              size="small"
+              onClick={() => handleConsultarUsuario(params.row)}
+              sx={{
+                color: '#3B82F6',
+                '&:hover': {
+                  backgroundColor: '#EFF6FF',
+                  color: '#2563EB',
+                },
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <VisibilityIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
           <Tooltip title="Editar usuario">
             <IconButton
               size="small"
@@ -804,6 +1115,356 @@ const Usuarios: React.FC = () => {
             </Button>
           </DialogActions>
         </form>
+      </Dialog>
+
+      {/* Dialog de Detalle del Usuario */}
+      <Dialog
+        open={openDetalleDialog}
+        onClose={handleCloseDetalleDialog}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '16px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          pb: 2,
+          borderBottom: '1px solid #E5E7EB',
+          background: 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)',
+          color: '#FFFFFF',
+          borderRadius: '16px 16px 0 0',
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <PeopleIcon sx={{ fontSize: 28 }} />
+              <Box>
+                <Typography variant="h6" className="font-poppins" sx={{ fontWeight: 600, mb: 0.5 }}>
+                  Detalle del Usuario
+                </Typography>
+                <Typography variant="body2" className="font-roboto" sx={{ opacity: 0.9 }}>
+                  Información completa del usuario, procesos y oficina
+                </Typography>
+              </Box>
+            </Box>
+            <IconButton
+              onClick={handleCloseDetalleDialog}
+              sx={{
+                color: '#FFFFFF',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                }
+              }}
+            >
+              <ClearIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+
+        <DialogContent sx={{ p: 4, mt: 2 }}>
+          {loadingDetalle ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
+              <Typography variant="body1" className="font-roboto" sx={{ color: '#6B7280' }}>
+                Cargando información del usuario...
+              </Typography>
+            </Box>
+          ) : detalleUsuario ? (
+            <Stack spacing={4}>
+              {/* Información General */}
+              <Card sx={{ borderRadius: '12px', border: '1px solid #E5E7EB' }}>
+                <CardHeader
+                  title="Información General"
+                  titleTypographyProps={{
+                    className: 'font-poppins',
+                    fontWeight: 600,
+                    color: '#1E3A8A',
+                    fontSize: '1.1rem'
+                  }}
+                  sx={{ pb: 1 }}
+                />
+                <CardContent>
+                  <Grid container spacing={3}>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="caption" className="font-roboto" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
+                        Nombre Completo
+                      </Typography>
+                      <Typography variant="body1" className="font-roboto" sx={{ color: '#1F2937', fontWeight: 500 }}>
+                        {detalleUsuario.usuario?.nombre_completo || 'N/A'}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="caption" className="font-roboto" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
+                        Email Institucional
+                      </Typography>
+                      <Typography variant="body1" className="font-roboto" sx={{ color: '#1F2937', fontWeight: 500 }}>
+                        {detalleUsuario.usuario?.email_institucional || 'N/A'}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="caption" className="font-roboto" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
+                        Puesto Organizacional
+                      </Typography>
+                      <Typography variant="body1" className="font-roboto" sx={{ color: '#1F2937', fontWeight: 500 }}>
+                        {detalleUsuario.usuario?.puesto_organizacion || 'No especificado'}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="caption" className="font-roboto" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
+                        Estado
+                      </Typography>
+                      <Chip
+                        label={detalleUsuario.usuario?.estado_usuario || 'N/A'}
+                        size="small"
+                        sx={{
+                          backgroundColor: detalleUsuario.usuario?.estado_usuario === 'Activo' ? '#D1FAE5' :
+                                         detalleUsuario.usuario?.estado_usuario === 'Inactivo' ? '#FEF3C7' :
+                                         detalleUsuario.usuario?.estado_usuario === 'Bloqueado' ? '#FEE2E2' : '#F3F4F6',
+                          color: detalleUsuario.usuario?.estado_usuario === 'Activo' ? '#065F46' :
+                                 detalleUsuario.usuario?.estado_usuario === 'Inactivo' ? '#92400E' :
+                                 detalleUsuario.usuario?.estado_usuario === 'Bloqueado' ? '#DC2626' : '#6B7280',
+                          fontWeight: 500,
+                        }}
+                      />
+                    </Grid>
+                    {detalleUsuario.usuario?.fecha_creacion_registro && (
+                      <Grid item xs={12} md={6}>
+                        <Typography variant="caption" className="font-roboto" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
+                          Fecha de Creación
+                        </Typography>
+                        <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280' }}>
+                          {new Date(detalleUsuario.usuario.fecha_creacion_registro).toLocaleDateString('es-ES', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </Typography>
+                      </Grid>
+                    )}
+                  </Grid>
+                </CardContent>
+              </Card>
+
+              {/* Proceso */}
+              {detalleUsuario.proceso && (
+                <Card sx={{ borderRadius: '12px', border: '1px solid #E5E7EB' }}>
+                  <CardHeader
+                    avatar={<AssignmentIcon sx={{ color: '#3B82F6', fontSize: 28 }} />}
+                    title="Proceso Asociado"
+                    titleTypographyProps={{
+                      className: 'font-poppins',
+                      fontWeight: 600,
+                      color: '#1E3A8A',
+                      fontSize: '1.1rem'
+                    }}
+                    sx={{ pb: 1 }}
+                  />
+                  <CardContent>
+                    <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', fontWeight: 600, mb: 1 }}>
+                      {detalleUsuario.proceso.nombre || 'No definido'}
+                    </Typography>
+                    {detalleUsuario.proceso.descripcion && (
+                      <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280', mb: 2 }}>
+                        {detalleUsuario.proceso.descripcion}
+                      </Typography>
+                    )}
+                    {detalleUsuario.proceso.nota && (
+                      <Alert severity="info" sx={{ borderRadius: '8px', mt: 1 }}>
+                        <Typography variant="caption" className="font-roboto">
+                          {detalleUsuario.proceso.nota}
+                        </Typography>
+                      </Alert>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Oficina */}
+              {detalleUsuario.oficina && (
+                <Card sx={{ borderRadius: '12px', border: '1px solid #E5E7EB' }}>
+                  <CardHeader
+                    avatar={<BusinessIcon sx={{ color: '#10B981', fontSize: 28 }} />}
+                    title="Oficina"
+                    titleTypographyProps={{
+                      className: 'font-poppins',
+                      fontWeight: 600,
+                      color: '#1E3A8A',
+                      fontSize: '1.1rem'
+                    }}
+                    sx={{ pb: 1 }}
+                  />
+                  <CardContent>
+                    <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', fontWeight: 600, mb: 1 }}>
+                      {detalleUsuario.oficina.nombre || 'No definido'}
+                    </Typography>
+                    {detalleUsuario.oficina.descripcion && (
+                      <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280', mb: 1 }}>
+                        {detalleUsuario.oficina.descripcion}
+                      </Typography>
+                    )}
+                    {detalleUsuario.oficina.direccion && (
+                      <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280' }}>
+                        <strong>Dirección:</strong> {detalleUsuario.oficina.direccion}
+                      </Typography>
+                    )}
+                    {detalleUsuario.oficina.nota && (
+                      <Alert severity="info" sx={{ borderRadius: '8px', mt: 1 }}>
+                        <Typography variant="caption" className="font-roboto">
+                          {detalleUsuario.oficina.nota}
+                        </Typography>
+                      </Alert>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Activos Asociados */}
+              {detalleUsuario.activos && detalleUsuario.activos.total > 0 && (
+                <Card sx={{ borderRadius: '12px', border: '1px solid #E5E7EB' }}>
+                  <CardHeader
+                    title={`Activos Asociados (${detalleUsuario.activos.total})`}
+                    titleTypographyProps={{
+                      className: 'font-poppins',
+                      fontWeight: 600,
+                      color: '#1E3A8A',
+                      fontSize: '1.1rem'
+                    }}
+                    sx={{ pb: 1 }}
+                  />
+                  <CardContent>
+                    <Stack spacing={2}>
+                      {detalleUsuario.activos.como_propietario.length > 0 && (
+                        <Box>
+                          <Typography variant="subtitle2" className="font-poppins" sx={{ color: '#1E3A8A', fontWeight: 600, mb: 1 }}>
+                            Como Propietario ({detalleUsuario.activos.total_propietario})
+                          </Typography>
+                          <List dense>
+                            {detalleUsuario.activos.como_propietario.slice(0, 5).map((activo: any) => (
+                              <ListItem key={activo.ID_Activo} sx={{ px: 0 }}>
+                                <ListItemText
+                                  primary={
+                                    <Typography variant="body2" className="font-roboto" sx={{ color: '#1F2937', fontWeight: 500 }}>
+                                      {activo.Nombre}
+                                    </Typography>
+                                  }
+                                  secondary={
+                                    <Typography variant="caption" className="font-roboto" sx={{ color: '#6B7280' }}>
+                                      {activo.Tipo_Activo} • {activo.estado_activo}
+                                    </Typography>
+                                  }
+                                />
+                              </ListItem>
+                            ))}
+                          </List>
+                        </Box>
+                      )}
+                      {detalleUsuario.activos.como_custodio.length > 0 && (
+                        <Box>
+                          <Typography variant="subtitle2" className="font-poppins" sx={{ color: '#1E3A8A', fontWeight: 600, mb: 1 }}>
+                            Como Custodio ({detalleUsuario.activos.total_custodio})
+                          </Typography>
+                          <List dense>
+                            {detalleUsuario.activos.como_custodio.slice(0, 5).map((activo: any) => (
+                              <ListItem key={activo.ID_Activo} sx={{ px: 0 }}>
+                                <ListItemText
+                                  primary={
+                                    <Typography variant="body2" className="font-roboto" sx={{ color: '#1F2937', fontWeight: 500 }}>
+                                      {activo.Nombre}
+                                    </Typography>
+                                  }
+                                  secondary={
+                                    <Typography variant="caption" className="font-roboto" sx={{ color: '#6B7280' }}>
+                                      {activo.Tipo_Activo} • {activo.estado_activo}
+                                    </Typography>
+                                  }
+                                />
+                              </ListItem>
+                            ))}
+                          </List>
+                        </Box>
+                      )}
+                    </Stack>
+                  </CardContent>
+                </Card>
+              )}
+            </Stack>
+          ) : (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
+              <Typography variant="body1" className="font-roboto" sx={{ color: '#6B7280' }}>
+                No se pudo cargar la información del usuario
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+
+        <DialogActions sx={{ p: 3, pt: 2, borderTop: '1px solid #E5E7EB', display: 'flex', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              onClick={exportarPDF}
+              disabled={exportando || !detalleUsuario}
+              startIcon={<PdfIcon />}
+              variant="outlined"
+              sx={{
+                borderRadius: '12px',
+                px: 2,
+                py: 1.5,
+                textTransform: 'none',
+                fontWeight: 500,
+                borderColor: '#DC2626',
+                color: '#DC2626',
+                '&:hover': {
+                  borderColor: '#B91C1C',
+                  backgroundColor: '#FEF2F2',
+                },
+                '&:disabled': {
+                  borderColor: '#D1D5DB',
+                  color: '#9CA3AF',
+                }
+              }}
+            >
+              {exportando ? 'Exportando...' : 'PDF'}
+            </Button>
+            <Button
+              onClick={exportarExcel}
+              disabled={exportando || !detalleUsuario}
+              startIcon={<ExcelIcon />}
+              variant="outlined"
+              sx={{
+                borderRadius: '12px',
+                px: 2,
+                py: 1.5,
+                textTransform: 'none',
+                fontWeight: 500,
+                borderColor: '#10B981',
+                color: '#10B981',
+                '&:hover': {
+                  borderColor: '#059669',
+                  backgroundColor: '#D1FAE5',
+                },
+                '&:disabled': {
+                  borderColor: '#D1D5DB',
+                  color: '#9CA3AF',
+                }
+              }}
+            >
+              {exportando ? 'Exportando...' : 'Excel'}
+            </Button>
+          </Box>
+          <Button 
+            onClick={handleCloseDetalleDialog}
+            className="btn btn-secondary"
+            sx={{
+              borderRadius: '12px',
+              px: 3,
+              py: 1.5,
+              textTransform: 'none',
+              fontWeight: 500,
+            }}
+          >
+            Cerrar
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );

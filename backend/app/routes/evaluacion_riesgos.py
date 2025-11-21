@@ -166,6 +166,129 @@ def crear_evaluacion():
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
+@evaluacion_riesgos_bp.route('/guardar-plan-accion', methods=['POST'])
+def guardar_plan_accion():
+    """Guardar acciones del plan de acción con documentos asociados al responsable"""
+    try:
+        data = request.get_json()
+        
+        # Validar datos requeridos
+        if 'id_evaluacion' not in data or 'acciones' not in data:
+            return jsonify({'error': 'id_evaluacion y acciones son requeridos'}), 400
+        
+        id_evaluacion = data['id_evaluacion']
+        acciones = data['acciones']
+        id_activo = data.get('id_activo')
+        
+        # Verificar que la evaluación existe
+        evaluacion = db.session.execute(
+            text('SELECT ID_Activo FROM evaluacion_riesgo_activo WHERE id_evaluacion_riesgo_activo = :id'),
+            {'id': id_evaluacion}
+        ).fetchone()
+        
+        if not evaluacion:
+            return jsonify({'error': 'Evaluación no encontrada'}), 404
+        
+        if not id_activo:
+            id_activo = evaluacion[0]
+        
+        # Obtener ID del usuario responsable desde el nombre o email
+        def obtener_id_usuario_responsable(responsable: str):
+            """Obtener ID de usuario sistema desde nombre o email"""
+            if not responsable:
+                return None
+            
+            # Buscar por nombre completo
+            usuario = db.session.execute(
+                text('SELECT id_usuario FROM usuarios_sistema WHERE nombre_completo = :nombre LIMIT 1'),
+                {'nombre': responsable}
+            ).fetchone()
+            
+            if usuario:
+                return usuario[0]
+            
+            # Buscar por email
+            usuario = db.session.execute(
+                text('SELECT id_usuario FROM usuarios_sistema WHERE email_institucional = :email LIMIT 1'),
+                {'email': responsable}
+            ).fetchone()
+            
+            if usuario:
+                return usuario[0]
+            
+            # Si no se encuentra, buscar en usuarios_auth
+            usuario_auth = db.session.execute(
+                text('SELECT id_usuario_auth FROM usuarios_auth WHERE email = :email LIMIT 1'),
+                {'email': responsable}
+            ).fetchone()
+            
+            if usuario_auth:
+                # Obtener id_usuario_sistema asociado
+                usuario_sistema = db.session.execute(
+                    text('SELECT id_usuario_sistema FROM usuarios_auth WHERE id_usuario_auth = :id LIMIT 1'),
+                    {'id': usuario_auth[0]}
+                ).fetchone()
+                
+                if usuario_sistema and usuario_sistema[0]:
+                    return usuario_sistema[0]
+            
+            return None
+        
+        # Procesar cada acción
+        acciones_guardadas = []
+        for accion in acciones:
+            responsable = accion.get('responsable', '')
+            id_usuario_responsable = obtener_id_usuario_responsable(responsable)
+            
+            # Crear accion_id único para esta acción
+            accion_id = f"eval_{id_evaluacion}_activo_{id_activo}_{accion.get('id', datetime.now().timestamp())}"
+            
+            # Guardar documentos si existen
+            documentos_ids = []
+            if accion.get('documentos') and len(accion['documentos']) > 0:
+                for doc in accion['documentos']:
+                    # Si el documento ya tiene ID (ya fue subido), solo actualizar accion_id y responsable
+                    if doc.get('id'):
+                        try:
+                            # Actualizar documento existente
+                            db.session.execute(
+                                text("""
+                                    UPDATE documentos_adjuntos 
+                                    SET accion_id = :accion_id,
+                                        subido_por = COALESCE((SELECT id_usuario_auth FROM usuarios_auth WHERE id_usuario_sistema = :usuario_id LIMIT 1), subido_por)
+                                    WHERE id = :doc_id
+                                """),
+                                {
+                                    'accion_id': accion_id,
+                                    'usuario_id': id_usuario_responsable,
+                                    'doc_id': doc['id']
+                                }
+                            )
+                            documentos_ids.append(doc['id'])
+                        except Exception as e:
+                            print(f"Error actualizando documento {doc['id']}: {e}")
+            
+            acciones_guardadas.append({
+                'id': accion.get('id'),
+                'accion_id': accion_id,
+                'documentos_count': len(documentos_ids)
+            })
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Plan de acción guardado exitosamente',
+            'acciones_guardadas': acciones_guardadas
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Error en guardar_plan_accion: {str(e)}")
+        print(f"Traceback: {error_trace}")
+        return jsonify({'error': str(e)}), 500
+
 @evaluacion_riesgos_bp.route('/matriz-riesgo', methods=['GET'])
 def get_matriz_riesgo():
     """Obtener matriz de riesgo con conteos por nivel"""
@@ -195,6 +318,7 @@ def get_evaluaciones_completadas():
         from app.models import Activo, Riesgo
         
         # Obtener todas las evaluaciones con datos completos incluyendo niveles
+        # Usar outerjoin para evitar errores si faltan relaciones
         evaluaciones = db.session.query(
             evaluacion_riesgo_activo,
             Activo,
@@ -202,21 +326,28 @@ def get_evaluaciones_completadas():
             niveles_probabilidad,
             niveles_impacto,
             nivelesriesgo
-        ).join(
+        ).outerjoin(
             Activo, evaluacion_riesgo_activo.ID_Activo == Activo.ID_Activo
-        ).join(
+        ).outerjoin(
             Riesgo, evaluacion_riesgo_activo.ID_Riesgo == Riesgo.ID_Riesgo
-        ).join(
+        ).outerjoin(
             niveles_probabilidad, evaluacion_riesgo_activo.id_nivel_probabilidad_inherente == niveles_probabilidad.ID_NivelProbabilidad
-        ).join(
+        ).outerjoin(
             niveles_impacto, evaluacion_riesgo_activo.id_nivel_impacto_inherente == niveles_impacto.ID_NivelImpacto
-        ).join(
+        ).outerjoin(
             nivelesriesgo, evaluacion_riesgo_activo.id_nivel_riesgo_inherente_calculado == nivelesriesgo.ID_NivelRiesgo
+        ).filter(
+            evaluacion_riesgo_activo.id_nivel_probabilidad_inherente.isnot(None),
+            evaluacion_riesgo_activo.id_nivel_impacto_inherente.isnot(None)
         ).all()
         
         # Agrupar por activo
         activos_evaluados = {}
         for eval, activo, riesgo, prob_inherente, impacto_inherente, nivel_riesgo_inherente in evaluaciones:
+            # Validar que existan los datos necesarios
+            if not activo or not riesgo or not eval:
+                continue
+                
             activo_id = activo.ID_Activo
             if activo_id not in activos_evaluados:
                 activos_evaluados[activo_id] = {
@@ -232,6 +363,39 @@ def get_evaluaciones_completadas():
                     'fechaCompletada': eval.fecha_evaluacion_residual or eval.fecha_evaluacion_inherente,
                     'completada': True
                 }
+            
+            # Obtener controles aplicados para esta evaluación
+            controles_aplicados = db.session.execute(
+                text("""
+                    SELECT 
+                        c.ID_Control,
+                        c.Nombre,
+                        c.Descripcion,
+                        c.Tipo_Control,
+                        c.categoria_control_iso,
+                        c.codigo_control_iso,
+                        rca.justificacion_aplicacion_control,
+                        rca.efectividad_real_observada
+                    FROM riesgocontrolaplicado rca
+                    JOIN controles c ON rca.ID_Control = c.ID_Control
+                    WHERE rca.id_evaluacion_riesgo_activo = :eval_id
+                """),
+                {'eval_id': eval.id_evaluacion_riesgo_activo}
+            ).fetchall()
+            
+            # Convertir controles a formato esperado
+            controles_list = []
+            for ctrl in controles_aplicados:
+                controles_list.append({
+                    'id': ctrl.ID_Control,
+                    'nombre': ctrl.Nombre,
+                    'descripcion': ctrl.Descripcion,
+                    'tipo': ctrl.Tipo_Control,
+                    'categoria': ctrl.categoria_control_iso,
+                    'codigo_iso': ctrl.codigo_control_iso,
+                    'justificacion': ctrl.justificacion_aplicacion_control,
+                    'eficacia': ctrl.efectividad_real_observada or 'Media'
+                })
             
             # Agregar evaluación con estructura compatible con el frontend
             activos_evaluados[activo_id]['evaluaciones'].append({
@@ -256,9 +420,9 @@ def get_evaluaciones_completadas():
                         'justificacion': eval.justificacion_evaluacion_inherente or 'Evaluación inherente completada'
                     },
                     'controles': {
-                        'seleccionados': ['Control implementado'],
-                        'eficacia': 'Alta',
-                        'justificacion': 'Controles aplicados según evaluación'
+                        'seleccionados': controles_list,
+                        'eficacia': controles_list[0]['eficacia'] if controles_list else 'Media',
+                        'justificacion': controles_list[0]['justificacion'] if controles_list else 'Controles aplicados según evaluación'
                     },
                     'evaluacionResidual': {
                         'probabilidad': f'Nivel {eval.id_nivel_probabilidad_residual}',
@@ -295,6 +459,10 @@ def get_evaluaciones_completadas():
         return jsonify(activos_evaluados), 200
         
     except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Error en get_evaluaciones_completadas: {str(e)}")
+        print(f"Traceback: {error_trace}")
         return jsonify({'error': str(e)}), 500
 
 @evaluacion_riesgos_bp.route('/evaluacion-parcial', methods=['POST'])
@@ -343,22 +511,34 @@ def get_estadisticas_evaluacion():
         # Total de riesgos
         total_riesgos = Riesgo.query.count()
         
-        # Riesgos evaluados
+        # Riesgos evaluados (distintos)
         riesgos_evaluados = db.session.query(evaluacion_riesgo_activo.ID_Riesgo).distinct().count()
         
         # Riesgos pendientes
-        riesgos_pendientes = total_riesgos - riesgos_evaluados
+        riesgos_pendientes = max(0, total_riesgos - riesgos_evaluados)
         
-        # Distribución por nivel de riesgo
-        distribucion = db.session.query(
-            nivelesriesgo.Nombre,
-            func.count(evaluacion_riesgo_activo.id_evaluacion_riesgo_activo)
-        ).join(
-            evaluacion_riesgo_activo,
-            nivelesriesgo.ID_NivelRiesgo == evaluacion_riesgo_activo.id_nivel_riesgo_residual_calculado
-        ).group_by(nivelesriesgo.Nombre).all()
-        
-        distribucion_dict = {nivel: count for nivel, count in distribucion}
+        # Distribución por nivel de riesgo (usar residual si existe, si no inherente)
+        # Usar outerjoin y text para evitar errores con relaciones faltantes
+        try:
+            distribucion = db.session.execute(
+                text("""
+                    SELECT 
+                        nr.Nombre as nivel,
+                        COUNT(DISTINCT era.id_evaluacion_riesgo_activo) as count
+                    FROM evaluacion_riesgo_activo era
+                    LEFT JOIN nivelesriesgo nr ON nr.ID_NivelRiesgo = COALESCE(
+                        era.id_nivel_riesgo_residual_calculado,
+                        era.id_nivel_riesgo_inherente_calculado
+                    )
+                    WHERE nr.ID_NivelRiesgo IS NOT NULL
+                    GROUP BY nr.Nombre
+                """)
+            ).fetchall()
+            
+            distribucion_dict = {row.nivel: int(row.count) for row in distribucion if row.nivel}
+        except Exception as e:
+            print(f"Error obteniendo distribución de niveles: {str(e)}")
+            distribucion_dict = {}
         
         # Porcentaje de evaluación
         porcentaje_evaluacion = (riesgos_evaluados / total_riesgos * 100) if total_riesgos > 0 else 0
@@ -372,7 +552,11 @@ def get_estadisticas_evaluacion():
         }), 200
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Error en get_estadisticas_evaluacion: {str(e)}")
+        print(f"Traceback: {error_trace}")
+        return jsonify({'error': str(e), 'traceback': error_trace}), 500
 
 @evaluacion_riesgos_bp.route('/evaluaciones', methods=['GET'])
 def get_evaluaciones():

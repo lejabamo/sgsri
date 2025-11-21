@@ -147,7 +147,7 @@ const RiskMatrix: React.FC<RiskMatrixProps> = ({
 
               {/* Matrix cells */}
               {[0, 1, 2, 3, 4].map((rowIndex) => (
-                <Grid item xs={12} key={rowIndex}>
+                <Grid item xs={12} key={`matrix-row-${rowIndex}`}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-around' }}>
                     {[0, 1, 2, 3, 4].map((colIndex) => {
                       const cell = matrix[rowIndex][colIndex];

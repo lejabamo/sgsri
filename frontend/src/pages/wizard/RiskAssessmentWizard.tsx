@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import EvaluationAvatar from '../../components/common/EvaluationAvatar';
+import ISOSuggestions from '../../components/common/ISOSuggestions';
 import {
   Box,
   Card,
@@ -34,6 +36,7 @@ import {
   Paper,
   Alert,
   Snackbar,
+  Divider,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -60,13 +63,16 @@ import {
   Image as ImageIcon,
   InsertDriveFile as FileIcon,
   TrendingUp as TrendingUpIcon,
+  Visibility as VisibilityIcon,
 } from '@mui/icons-material';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'react-hot-toast';
 import { activosService } from '../../services/activos';
+import { evaluacionRiesgosService } from '../../services/evaluacionRiesgos';
 import RiskMatrix from '../../components/common/RiskMatrix';
 import InherentEvaluationStep from '../../components/wizard/InherentEvaluationStep';
 import ActivoDetailCard from '../../components/activos/ActivoDetailCard';
@@ -91,6 +97,7 @@ interface WizardData {
     amenaza: string;
     vulnerabilidad: string;
     descripcion: string;
+    tipoRiesgo: string;
   };
   evaluacionInherente: {
     probabilidad: string;
@@ -122,10 +129,11 @@ interface WizardData {
 }
 
 const RiskAssessmentWizard: React.FC = () => {
+  const queryClient = useQueryClient();
   const [activeStep, setActiveStep] = useState(0);
   const [wizardData, setWizardData] = useState<WizardData>({
     selectedActivo: null,
-    newRiesgo: { amenaza: '', vulnerabilidad: '', descripcion: '' },
+    newRiesgo: { amenaza: '', vulnerabilidad: '', descripcion: '', tipoRiesgo: '' },
     evaluacionInherente: { probabilidad: '', impacto: '', nivelRiesgo: '', justificacion: '' },
     controles: { seleccionados: [], eficacia: '', justificacion: '' },
     evaluacionResidual: { probabilidad: '', impacto: '', nivelRiesgo: '', justificacion: '' },
@@ -145,12 +153,24 @@ const RiskAssessmentWizard: React.FC = () => {
     estado: 'Planificado',
     criticidad: 'Medio',
   });
+  
+  // Función para mapear formData a CreateActivoData
+  const mapFormDataToCreateActivoData = (data: typeof formData) => {
+    return {
+      Nombre: data.nombre,
+      Descripcion: data.descripcion || undefined,
+      Tipo_Activo: data.tipo,
+      estado_activo: data.estado,
+      nivel_criticidad_negocio: data.criticidad,
+    };
+  };
   const [riesgoFormData, setRiesgoFormData] = useState({
     nombre: '',
     amenaza: '',
     vulnerabilidad: '',
     descripcion: '',
   });
+  const [tiposRiesgo, setTiposRiesgo] = useState<string[]>([]);
   const [riesgosExistentes, setRiesgosExistentes] = useState([
     'Malware en servidores críticos',
     'Ataques de phishing a usuarios',
@@ -190,20 +210,50 @@ const RiskAssessmentWizard: React.FC = () => {
   const [evaluacionesCompletadas, setEvaluacionesCompletadas] = useState<{[key: string]: any}>({});
   const [exportMessage, setExportMessage] = useState('');
 
+  // Cargar tipos de riesgo disponibles
+  useEffect(() => {
+    const cargarTiposRiesgo = async () => {
+      try {
+        const { apiRequest } = await import('../../services/api');
+        const tipos = await apiRequest<string[]>('/riesgos/tipos');
+        setTiposRiesgo(tipos || []);
+      } catch (error) {
+        console.error('Error cargando tipos de riesgo:', error);
+        // Valores por defecto si falla la carga
+        setTiposRiesgo(['Operacional', 'Tecnológico', 'Legal', 'Estratégico', 'Financiero', 'Reputacional']);
+      }
+    };
+    
+    cargarTiposRiesgo();
+  }, []);
+
   // Cargar evaluaciones completadas desde la base de datos
   useEffect(() => {
+    let isMounted = true;
+    
     const cargarEvaluacionesCompletadas = async () => {
       try {
         const { evaluacionRiesgosService } = await import('../../services/evaluacionRiesgos');
         const evaluaciones = await evaluacionRiesgosService.getEvaluacionesCompletadas();
-        setEvaluacionesCompletadas(evaluaciones);
+        
+        if (isMounted) {
+          setEvaluacionesCompletadas(evaluaciones);
+        }
       } catch (error) {
         console.error('Error cargando evaluaciones completadas:', error);
+        // En caso de error, usar datos vacíos para evitar loops
+        if (isMounted) {
+          setEvaluacionesCompletadas({});
+        }
       }
     };
     
     cargarEvaluacionesCompletadas();
-  }, []);
+    
+    return () => {
+      isMounted = false;
+    };
+  }, []); // Dependencias vacías para evitar loops
 
   // Función para guardar evaluación parcial
   const guardarEvaluacionParcial = async (activoId: number, progreso: number) => {
@@ -225,6 +275,7 @@ const RiskAssessmentWizard: React.FC = () => {
         console.log('Evaluación parcial guardada en backend exitosamente');
       } catch (backendError) {
         console.warn('No se pudo guardar en backend, usando localStorage:', backendError);
+        // No lanzar error para evitar loops
       }
       
       console.log('Evaluación parcial guardada exitosamente');
@@ -272,62 +323,28 @@ const RiskAssessmentWizard: React.FC = () => {
         return await activosService.getAll();
       } catch (error) {
         console.error('Error fetching activos:', error);
-        // Datos de fallback con estados de evaluación
-        return [
-          { 
-            id: 1, 
-            ID_Activo: 1,
-            Nombre: 'Servidor Web Principal', 
-            Tipo_Activo: 'Infraestructura', 
-            estado: 'Activo', 
-            nivel_criticidad_negocio: 'Alta',
-            evaluacion_completa: true,
-            porcentaje_evaluacion: 100
-          },
-          { 
-            id: 2, 
-            ID_Activo: 2,
-            Nombre: 'EFINANCIERA-5', 
-            Tipo_Activo: 'Aplicación', 
-            estado: 'Activo', 
-            nivel_criticidad_negocio: 'Crítica',
-            evaluacion_completa: false,
-            porcentaje_evaluacion: 65
-          },
-          { 
-            id: 3, 
-            ID_Activo: 3,
-            Nombre: 'Firewall Corporativo', 
-            Tipo_Activo: 'Seguridad', 
-            estado: 'Activo', 
-            nivel_criticidad_negocio: 'Alta',
-            evaluacion_completa: false,
-            porcentaje_evaluacion: 0
-          },
-          { 
-            id: 4, 
-            ID_Activo: 4,
-            Nombre: 'Sistema de Backup', 
-            Tipo_Activo: 'Infraestructura', 
-            estado: 'Activo', 
-            nivel_criticidad_negocio: 'Medio',
-            evaluacion_completa: false,
-            porcentaje_evaluacion: 30
-          },
-          { 
-            id: 5, 
-            ID_Activo: 5,
-            Nombre: 'Servidor de Correo', 
-            Tipo_Activo: 'Aplicación', 
-            estado: 'Activo', 
-            nivel_criticidad_negocio: 'Medio',
-            evaluacion_completa: true,
-            porcentaje_evaluacion: 100
-          }
-        ];
+        // Retornar array vacío en caso de error - NO usar datos hardcodeados
+        return [];
       }
     }
   });
+
+  // Cargar controles de la base de datos
+  const { data: controlesBD = [] } = useQuery({
+    queryKey: ['controles'],
+    queryFn: async () => {
+      try {
+        return await evaluacionRiesgosService.getControles();
+      } catch (error) {
+        console.error('Error fetching controles:', error);
+        return [];
+      }
+    }
+  });
+
+  // Estado para control manual
+  const [nuevoControlManual, setNuevoControlManual] = useState('');
+  const [mostrarInputManual, setMostrarInputManual] = useState(false);
 
   const steps = [
     'Selección de Activo',
@@ -347,6 +364,31 @@ const RiskAssessmentWizard: React.FC = () => {
   });
 
   const handleNext = () => {
+    // Validación específica para el paso 1 (Identificación de Riesgo)
+    if (activeStep === 1) {
+      if (!wizardData.newRiesgo.amenaza || !wizardData.newRiesgo.vulnerabilidad) {
+        toast.error('Por favor, completa la amenaza y vulnerabilidad antes de continuar');
+        return;
+      }
+      // Validar tipo de riesgo si es obligatorio
+      if (!wizardData.newRiesgo.tipoRiesgo) {
+        toast.error('El tipo de riesgo es obligatorio. Por favor, selecciona un tipo de riesgo.');
+        return;
+      }
+    }
+    
+    // Validación para el paso 3 (Controles Existentes) - OBLIGATORIO
+    if (activeStep === 3) {
+      if (!wizardData.controles.seleccionados || wizardData.controles.seleccionados.length === 0) {
+        toast.error('⚠️ Es obligatorio seleccionar al menos un control. Puedes elegir controles de la base de datos, sugerencias ISO 27001/27002/27005, o agregar uno manualmente.');
+        return;
+      }
+      if (!wizardData.controles.eficacia) {
+        toast.error('Por favor, selecciona el nivel de eficacia de los controles.');
+        return;
+      }
+    }
+    
     if (activeStep < steps.length - 1) {
       setActiveStep(activeStep + 1);
     }
@@ -399,15 +441,55 @@ const RiskAssessmentWizard: React.FC = () => {
 
   const handleCreateActivo = async () => {
     try {
-      const { activosService } = await import('../../services/backend');
-      const nuevoActivo = await activosService.create(formData);
+      // Validaciones
+      if (!formData.nombre || !formData.nombre.trim()) {
+        toast.error('❌ El nombre del activo es obligatorio');
+        return;
+      }
+      if (!formData.tipo) {
+        toast.error('❌ El tipo de activo es obligatorio');
+        return;
+      }
       
-      // Actualizar la lista de activos
-      window.location.reload(); // Recargar para mostrar el nuevo activo
+      // Mapear formData a CreateActivoData
+      const activoData = mapFormDataToCreateActivoData(formData);
       
+      console.log('Creating activo with data:', activoData);
+      
+      // Usar el servicio correcto
+      const nuevoActivo = await activosService.createActivo(activoData);
+      
+      console.log('Activo creado exitosamente:', nuevoActivo);
+      
+      toast.success('✅ Activo creado exitosamente');
+      
+      // Cerrar el diálogo
       handleCloseDialog();
-    } catch (error) {
+      
+      // Resetear el formulario
+      setFormData({
+        nombre: '',
+        descripcion: '',
+        tipo: '',
+        estado: 'Planificado',
+        criticidad: 'Medio',
+      });
+      
+      // Recargar la página para mostrar el nuevo activo
+      window.location.reload();
+    } catch (error: any) {
       console.error('Error al crear activo:', error);
+      let errorMessage = 'Error desconocido';
+      
+      if (error.response) {
+        errorMessage = error.response.data?.error || error.response.data?.message || `Error ${error.response.status}: ${error.response.statusText}`;
+      } else if (error.request) {
+        errorMessage = 'No se pudo conectar con el servidor. Verifica que el backend esté corriendo.';
+      } else {
+        errorMessage = error.message || 'Error desconocido';
+      }
+      
+      toast.error(`❌ Error al crear activo: ${errorMessage}`);
     }
   };
 
@@ -571,8 +653,8 @@ const RiskAssessmentWizard: React.FC = () => {
       const resumenData = [
         ['Evaluación de Riesgo de Activos de Información'],
         [''],
-        ['Activo Seleccionado:', wizardData.activoSeleccionado?.nombre || 'No seleccionado'],
-        ['Tipo de Activo:', wizardData.activoSeleccionado?.tipo || 'No especificado'],
+        ['Activo Seleccionado:', wizardData.selectedActivo?.Nombre || wizardData.selectedActivo?.nombre || 'No seleccionado'],
+        ['Tipo de Activo:', wizardData.selectedActivo?.Tipo_Activo || wizardData.selectedActivo?.tipo || 'No especificado'],
         [''],
         ['Riesgo Identificado:', wizardData.newRiesgo.descripcion || 'No especificado'],
         ['Amenaza:', wizardData.newRiesgo.amenaza || 'No especificada'],
@@ -602,10 +684,10 @@ const RiskAssessmentWizard: React.FC = () => {
       XLSX.utils.book_append_sheet(workbook, resumenSheet, 'Resumen');
 
       // Hoja de controles
-      if (wizardData.controles.selected.length > 0) {
+      if (wizardData.controles.seleccionados.length > 0) {
         const controlesData = [
           ['Controles Seleccionados', 'Eficacia', 'Justificación'],
-          ...wizardData.controles.selected.map(control => [
+          ...wizardData.controles.seleccionados.map(control => [
             control,
             wizardData.controles.efficacy,
             wizardData.controles.justification
@@ -648,32 +730,207 @@ const RiskAssessmentWizard: React.FC = () => {
   const guardarEvaluacion = async () => {
     setIsExportando(true);
     try {
-      // Aquí se haría la llamada al backend para guardar
-      // Por ahora simulamos el guardado
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Guardar la evaluación en el estado local
       const activoId = wizardData.selectedActivo?.ID_Activo || wizardData.selectedActivo?.id;
-      if (activoId) {
-        setEvaluacionesCompletadas(prev => ({
-          ...prev,
-          [activoId]: {
-            activo: wizardData.selectedActivo,
-            evaluacion: wizardData,
-            fechaCompletada: new Date().toISOString(),
-            completada: true
-          }
-        }));
+      if (!activoId) {
+        throw new Error('No hay activo seleccionado');
       }
+
+      // Obtener el ID del riesgo (siempre creamos uno nuevo desde newRiesgo)
+      let riesgoId = null;
       
+      // Crear el riesgo nuevo
+      // Verificar si hay amenaza y vulnerabilidad (requisitos mínimos para crear un riesgo)
+      if (wizardData.newRiesgo.amenaza && wizardData.newRiesgo.vulnerabilidad) {
+        try {
+          const { apiRequest } = await import('../../services/api');
+          // Generar nombre y descripción del riesgo
+          const nombreRiesgo = wizardData.newRiesgo.descripcion 
+            ? wizardData.newRiesgo.descripcion 
+            : `${wizardData.newRiesgo.amenaza} - ${wizardData.newRiesgo.vulnerabilidad}`;
+          const descripcionRiesgo = wizardData.newRiesgo.descripcion 
+            ? wizardData.newRiesgo.descripcion 
+            : `Riesgo asociado a la amenaza "${wizardData.newRiesgo.amenaza}" y la vulnerabilidad "${wizardData.newRiesgo.vulnerabilidad}"`;
+          
+          const nuevoRiesgo = await apiRequest<any>('/riesgos/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              Nombre: nombreRiesgo,
+              Descripcion: descripcionRiesgo,
+              tipo_riesgo: wizardData.newRiesgo.tipoRiesgo || null,
+              Estado_Riesgo_General: 'Identificado',
+            }),
+          });
+          riesgoId = nuevoRiesgo.ID_Riesgo || nuevoRiesgo.id;
+        } catch (error: any) {
+          console.error('Error creando riesgo:', error);
+          const errorMessage = error?.message || 'No se pudo crear el riesgo';
+          throw new Error(errorMessage);
+        }
+      }
+
+      if (!riesgoId) {
+        throw new Error('No hay riesgo seleccionado o creado');
+      }
+
+      // Obtener IDs de probabilidad e impacto inherente
+      const { evaluacionRiesgosService } = await import('../../services/evaluacionRiesgos');
+      const nivelesProb = await evaluacionRiesgosService.getNivelesProbabilidad();
+      const nivelesImp = await evaluacionRiesgosService.getNivelesImpacto();
+      
+      // Mapeo de valores del wizard a valores de la base de datos
+      // La BD tiene: 'Alto', 'Bajo', 'Medio', 'Muy Alto', 'Muy Bajo'
+      // El wizard usa: 'Frecuente', 'Probable', 'Ocasional', 'Posible', 'Improbable'
+      const probabilidadMapping: { [key: string]: string[] } = {
+        'Frecuente': ['Muy Alto', 'Alto'],
+        'Probable': ['Alto', 'Medio'],
+        'Ocasional': ['Medio'],
+        'Posible': ['Bajo', 'Medio'],
+        'Improbable': ['Muy Bajo', 'Bajo']
+      };
+      
+      // Función helper para normalizar nombres (case-insensitive, sin acentos, sin espacios extra)
+      const normalizeName = (name: string) => {
+        return name?.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '') || '';
+      };
+      
+      // Buscar probabilidad usando el mapeo
+      const probWizardValue = wizardData.evaluacionInherente.probabilidad;
+      const probDbNames = probabilidadMapping[probWizardValue] || [probWizardValue];
+      const probInherente = nivelesProb.find(p => 
+        probDbNames.some(dbName => normalizeName(p.nombre) === normalizeName(dbName))
+      );
+      
+      // Los impactos coinciden directamente
+      const impInherente = nivelesImp.find(i => 
+        normalizeName(i.nombre) === normalizeName(wizardData.evaluacionInherente.impacto)
+      );
+
+      if (!probInherente || !impInherente) {
+        console.error('Niveles disponibles - Probabilidad:', nivelesProb.map(p => p.nombre));
+        console.error('Niveles disponibles - Impacto:', nivelesImp.map(i => i.nombre));
+        console.error('Valores buscados - Probabilidad:', wizardData.evaluacionInherente.probabilidad);
+        console.error('Valores buscados - Impacto:', wizardData.evaluacionInherente.impacto);
+        throw new Error(`Niveles de probabilidad o impacto no válidos. Probabilidad buscada: "${wizardData.evaluacionInherente.probabilidad}", Impacto buscado: "${wizardData.evaluacionInherente.impacto}"`);
+      }
+
+      // Crear evaluación inherente
+      const evaluacionData: any = {
+        id_riesgo: riesgoId,
+        id_activo: activoId,
+        probabilidad_inherente: probInherente.id,
+        impacto_inherente: impInherente.id,
+        justificacion_inherente: wizardData.evaluacionInherente.justificacion || '',
+      };
+
+      // Si hay evaluación residual, agregarla
+      if (wizardData.evaluacionResidual.probabilidad && wizardData.evaluacionResidual.impacto) {
+        const probResidualWizardValue = wizardData.evaluacionResidual.probabilidad;
+        const probResidualDbNames = probabilidadMapping[probResidualWizardValue] || [probResidualWizardValue];
+        const probResidual = nivelesProb.find(p => 
+          probResidualDbNames.some(dbName => normalizeName(p.nombre) === normalizeName(dbName))
+        );
+        const impResidual = nivelesImp.find(i => 
+          normalizeName(i.nombre) === normalizeName(wizardData.evaluacionResidual.impacto)
+        );
+
+        if (probResidual && impResidual) {
+          evaluacionData.probabilidad_residual = probResidual.id;
+          evaluacionData.impacto_residual = impResidual.id;
+          evaluacionData.justificacion_residual = wizardData.evaluacionResidual.justificacion || '';
+        }
+      }
+
+      // Guardar evaluación en el backend
+      const evaluacionResult = await evaluacionRiesgosService.crearEvaluacion(evaluacionData);
+      const idEvaluacion = evaluacionResult.id;
+
+      // Guardar controles si hay
+      if (wizardData.controles.seleccionados && wizardData.controles.seleccionados.length > 0) {
+        try {
+          const { apiRequest } = await import('../../services/api');
+          await apiRequest('/controles-evaluacion/guardar-controles-evaluacion', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id_evaluacion_riesgo_activo: idEvaluacion,
+              controles: wizardData.controles.seleccionados.map((ctrl: any) => ({
+                ID_Control: ctrl.ID_Control || ctrl.id,
+                justificacion: ctrl.justificacion || wizardData.controles.justificacion || '',
+                eficacia: ctrl.eficacia || wizardData.controles.eficacia || 'Media',
+              })),
+            }),
+          });
+        } catch (ctrlError) {
+          console.warn('Error guardando controles:', ctrlError);
+          // No fallar la evaluación completa si falla guardar controles
+        }
+      }
+
+      // Guardar plan de acción con documentos si hay
+      if (wizardData.planAccion.acciones && wizardData.planAccion.acciones.length > 0) {
+        try {
+          const { apiRequest } = await import('../../services/api');
+          await apiRequest('/evaluacion-riesgos/guardar-plan-accion', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id_evaluacion: idEvaluacion,
+              id_activo: activoId,
+              acciones: wizardData.planAccion.acciones.map((accion: any) => ({
+                id: accion.id,
+                titulo: accion.titulo || accion.descripcion,
+                descripcion: accion.descripcion,
+                responsable: accion.responsable || wizardData.tratamiento.responsable,
+                fechaInicio: accion.fechaInicio || wizardData.tratamiento.fechaInicio,
+                fechaFin: accion.fechaFin || wizardData.tratamiento.fechaFin,
+                estado: accion.estado || 'pendiente',
+                comentarios: accion.comentarios || '',
+                documentos: accion.documentos || []
+              }))
+            }),
+          });
+        } catch (planError) {
+          console.warn('Error guardando plan de acción:', planError);
+          // No fallar la evaluación completa si falla guardar plan de acción
+        }
+      }
+
+      // Guardar la evaluación en el estado local
+      setEvaluacionesCompletadas(prev => ({
+        ...prev,
+        [activoId]: {
+          activo: wizardData.selectedActivo,
+          evaluacion: wizardData,
+          fechaCompletada: new Date().toISOString(),
+          completada: true,
+          idEvaluacion: idEvaluacion,
+        }
+      }));
+
+      // Limpiar evaluación parcial guardada
+      localStorage.removeItem(`evaluacion_parcial_${activoId}`);
+
       setIsEvaluacionCompletada(true);
       setShowSuccessMessage(true);
-      setExportMessage('Evaluación guardada exitosamente');
+      setExportMessage('Evaluación guardada exitosamente en la base de datos');
       setShowExportMessage(true);
-    } catch (error) {
+      
+      // Invalidar caché de React Query para actualizar dashboard y otros componentes
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['activos'] });
+      queryClient.invalidateQueries({ queryKey: ['evaluaciones'] });
+      queryClient.invalidateQueries({ queryKey: ['estadisticas'] });
+      
+      // Recargar la página después de 2 segundos para reflejar los cambios
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch (error: any) {
       console.error('Error al guardar:', error);
-      setExportMessage('Error al guardar la evaluación');
+      setExportMessage(`Error al guardar la evaluación: ${error.message || 'Error desconocido'}`);
       setShowExportMessage(true);
+      toast.error(`Error al guardar: ${error.message || 'Error desconocido'}`);
     } finally {
       setIsExportando(false);
     }
@@ -696,6 +953,17 @@ const RiskAssessmentWizard: React.FC = () => {
   const exportarResumenPDF = async (evaluacion: any, activo: any) => {
     setIsExportando(true);
     try {
+      // Usar wizardData si no hay evaluación guardada
+      const datosEvaluacion = evaluacion?.evaluacion || evaluacion || wizardData;
+      
+      // Debug logging
+      console.log('Generando PDF con datos:', {
+        evaluacion: datosEvaluacion,
+        activo: activo,
+        evaluacionKeys: Object.keys(datosEvaluacion || {}),
+        activoKeys: Object.keys(activo || {})
+      });
+      
       const pdf = new jsPDF();
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
@@ -723,85 +991,91 @@ const RiskAssessmentWizard: React.FC = () => {
       yPosition += 15;
 
       // Información del riesgo
-      if (evaluacion.evaluacion?.newRiesgo.amenaza) {
+      pdf.setFontSize(14);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Riesgo Identificado:', 20, yPosition);
+      yPosition += 10;
+      
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`Amenaza: ${datosEvaluacion?.newRiesgo?.amenaza || 'N/A'}`, 20, yPosition);
+      yPosition += 8;
+      pdf.text(`Vulnerabilidad: ${datosEvaluacion?.newRiesgo?.vulnerabilidad || 'N/A'}`, 20, yPosition);
+      yPosition += 8;
+      pdf.text(`Descripción: ${datosEvaluacion?.newRiesgo?.descripcion || 'N/A'}`, 20, yPosition);
+      yPosition += 15;
+
+      // Evaluación inherente
+      pdf.setFontSize(14);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Evaluación Inherente:', 20, yPosition);
+      yPosition += 10;
+      
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`Probabilidad: ${datosEvaluacion?.evaluacionInherente?.probabilidad || 'N/A'}`, 20, yPosition);
+      yPosition += 8;
+      pdf.text(`Impacto: ${datosEvaluacion?.evaluacionInherente?.impacto || 'N/A'}`, 20, yPosition);
+      yPosition += 8;
+      pdf.text(`Nivel de Riesgo: ${datosEvaluacion?.evaluacionInherente?.nivelRiesgo || 'N/A'}`, 20, yPosition);
+      yPosition += 8;
+      pdf.text(`Justificación: ${datosEvaluacion?.evaluacionInherente?.justificacion || 'N/A'}`, 20, yPosition);
+      yPosition += 15;
+
+      // Evaluación residual
+      pdf.setFontSize(14);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Evaluación Residual:', 20, yPosition);
+      yPosition += 10;
+      
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`Probabilidad: ${datosEvaluacion?.evaluacionResidual?.probabilidad || 'N/A'}`, 20, yPosition);
+      yPosition += 8;
+      pdf.text(`Impacto: ${datosEvaluacion?.evaluacionResidual?.impacto || 'N/A'}`, 20, yPosition);
+      yPosition += 8;
+      pdf.text(`Nivel de Riesgo: ${datosEvaluacion?.evaluacionResidual?.nivelRiesgo || 'N/A'}`, 20, yPosition);
+      yPosition += 8;
+      pdf.text(`Justificación: ${datosEvaluacion?.evaluacionResidual?.justificacion || 'N/A'}`, 20, yPosition);
+      yPosition += 15;
+
+      // Controles seleccionados
+      if (datosEvaluacion?.controles?.seleccionados && datosEvaluacion.controles.seleccionados.length > 0) {
         pdf.setFontSize(14);
         pdf.setFont('helvetica', 'bold');
-        pdf.text('Información del Riesgo:', 20, yPosition);
+        pdf.text('Controles Seleccionados:', 20, yPosition);
         yPosition += 10;
         
         pdf.setFontSize(12);
         pdf.setFont('helvetica', 'normal');
-        pdf.text(`Amenaza: ${evaluacion.evaluacion?.newRiesgo.amenaza}`, 20, yPosition);
-        yPosition += 8;
-        pdf.text(`Vulnerabilidad: ${evaluacion.evaluacion?.newRiesgo.vulnerabilidad}`, 20, yPosition);
-        yPosition += 8;
-        pdf.text(`Descripción: ${evaluacion.evaluacion?.newRiesgo.descripcion}`, 20, yPosition);
-        yPosition += 15;
+        datosEvaluacion.controles.seleccionados.forEach((control: string) => {
+          pdf.text(`• ${control}`, 20, yPosition);
+          yPosition += 8;
+        });
+        yPosition += 10;
       }
 
-      // Evaluación Inherente
-      if (evaluacion.evaluacion?.evaluacionInherente.probabilidad) {
+      // Plan de acción
+      if (datosEvaluacion?.planAccion?.acciones && datosEvaluacion.planAccion.acciones.length > 0) {
         pdf.setFontSize(14);
         pdf.setFont('helvetica', 'bold');
-        pdf.text('Evaluación Inherente:', 20, yPosition);
+        pdf.text('Plan de Acción:', 20, yPosition);
         yPosition += 10;
         
         pdf.setFontSize(12);
         pdf.setFont('helvetica', 'normal');
-        pdf.text(`Probabilidad: ${evaluacion.evaluacion?.evaluacionInherente.probabilidad}`, 20, yPosition);
-        yPosition += 8;
-        pdf.text(`Impacto: ${evaluacion.evaluacion?.evaluacionInherente.impacto}`, 20, yPosition);
-        yPosition += 8;
-        pdf.text(`Nivel de Riesgo: ${evaluacion.evaluacion?.evaluacionInherente.nivelRiesgo}`, 20, yPosition);
-        yPosition += 8;
-        pdf.text(`Justificación: ${evaluacion.evaluacion?.evaluacionInherente.justificacion}`, 20, yPosition);
-        yPosition += 15;
-      }
-
-      // Evaluación Residual
-      if (evaluacion.evaluacion?.evaluacionResidual.probabilidad) {
-        pdf.setFontSize(14);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('Evaluación Residual:', 20, yPosition);
+        datosEvaluacion.planAccion.acciones.forEach((accion: any) => {
+          pdf.text(`• ${accion.titulo || accion.descripcion || 'Acción'}: ${accion.responsable || 'N/A'}`, 20, yPosition);
+          yPosition += 8;
+        });
         yPosition += 10;
-        
-        pdf.setFontSize(12);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(`Probabilidad: ${evaluacion.evaluacion?.evaluacionResidual.probabilidad}`, 20, yPosition);
-        yPosition += 8;
-        pdf.text(`Impacto: ${evaluacion.evaluacion?.evaluacionResidual.impacto}`, 20, yPosition);
-        yPosition += 8;
-        pdf.text(`Nivel de Riesgo: ${evaluacion.evaluacion?.evaluacionResidual.nivelRiesgo}`, 20, yPosition);
-        yPosition += 8;
-        pdf.text(`Justificación: ${evaluacion.evaluacion?.evaluacionResidual.justificacion}`, 20, yPosition);
-        yPosition += 15;
       }
 
-      // Opciones de Tratamiento
-      if (evaluacion.evaluacion?.tratamiento.opcion) {
-        pdf.setFontSize(14);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('Opciones de Tratamiento:', 20, yPosition);
-        yPosition += 10;
-        
-        pdf.setFontSize(12);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(`Opción: ${evaluacion.evaluacion?.tratamiento.opcion}`, 20, yPosition);
-        yPosition += 8;
-        pdf.text(`Responsable: ${evaluacion.evaluacion?.tratamiento.responsable}`, 20, yPosition);
-        yPosition += 8;
-        pdf.text(`Fecha Inicio: ${evaluacion.evaluacion?.tratamiento.fechaInicio}`, 20, yPosition);
-        yPosition += 8;
-        pdf.text(`Fecha Fin: ${evaluacion.evaluacion?.tratamiento.fechaFin}`, 20, yPosition);
-        yPosition += 8;
-        pdf.text(`Presupuesto: ${evaluacion.evaluacion?.tratamiento.presupuesto}`, 20, yPosition);
-        yPosition += 15;
-      }
-
-      // Fecha de evaluación
+      // Pie de página
       pdf.setFontSize(10);
       pdf.setFont('helvetica', 'normal');
-      pdf.text(`Fecha de evaluación: ${new Date(evaluacion.fechaCompletada).toLocaleDateString()}`, 20, pageHeight - 20);
+      pdf.text(`Generado el: ${new Date().toLocaleDateString()}`, 20, pageHeight - 20);
+      pdf.text(`Sistema de Gestión de Riesgos de Información`, pageWidth - 20, pageHeight - 20, { align: 'right' });
 
       // Guardar el PDF
       pdf.save(`evaluacion-riesgo-${activo?.Nombre || activo?.nombre || 'activo'}.pdf`);
@@ -832,12 +1106,23 @@ const RiskAssessmentWizard: React.FC = () => {
     const activoId = activo.ID_Activo || activo.id;
     const evaluacionGuardada = evaluacionesCompletadas[activoId];
     
+    // Debug logging
+    console.log(`Evaluando activo ${activoId}:`, {
+      evaluacionGuardada: !!evaluacionGuardada,
+      evaluaciones: evaluacionGuardada?.evaluaciones?.length || 0
+    });
+    
     // Si hay una evaluación guardada para este activo
     if (evaluacionGuardada) {
       // Obtener la primera evaluación del activo
       const primeraEvaluacion = evaluacionGuardada.evaluaciones && evaluacionGuardada.evaluaciones.length > 0 
         ? evaluacionGuardada.evaluaciones[0] 
         : null;
+      
+      console.log(`Activo ${activoId} - Estado: COMPLETA`, {
+        evaluacion: !!primeraEvaluacion,
+        color: '#10B981'
+      });
       
       return { 
         estado: 'completa', 
@@ -852,8 +1137,15 @@ const RiskAssessmentWizard: React.FC = () => {
       let porcentajeParcial = 0;
       
       // Calcular progreso basado en los pasos completados
-      if (wizardData.newRiesgo.amenaza && wizardData.newRiesgo.vulnerabilidad) {
-        porcentajeParcial += 20; // Identificación de riesgo
+      // Requerir amenaza, vulnerabilidad, tipo de riesgo y descripción para considerar el paso completo
+      if (wizardData.newRiesgo.amenaza && wizardData.newRiesgo.vulnerabilidad && wizardData.newRiesgo.tipoRiesgo && wizardData.newRiesgo.descripcion) {
+        porcentajeParcial += 20; // Identificación de riesgo completa
+      } else if (wizardData.newRiesgo.amenaza && wizardData.newRiesgo.vulnerabilidad && wizardData.newRiesgo.tipoRiesgo) {
+        // Si tiene amenaza, vulnerabilidad y tipo, dar 18% (casi completo, falta descripción)
+        porcentajeParcial += 18;
+      } else if (wizardData.newRiesgo.amenaza && wizardData.newRiesgo.vulnerabilidad) {
+        // Si solo tiene amenaza y vulnerabilidad, dar 15% (parcial)
+        porcentajeParcial += 15;
       }
       if (wizardData.evaluacionInherente.probabilidad && wizardData.evaluacionInherente.impacto) {
         porcentajeParcial += 20; // Evaluación inherente
@@ -868,7 +1160,8 @@ const RiskAssessmentWizard: React.FC = () => {
         porcentajeParcial += 20; // Opciones de tratamiento
       }
       
-      if (porcentajeParcial > 0) {
+      // Solo mostrar como parcial si no está 100% completo
+      if (porcentajeParcial > 0 && porcentajeParcial < 100) {
         // Guardar automáticamente la evaluación parcial
         guardarEvaluacionParcial(activoId, porcentajeParcial);
         
@@ -879,6 +1172,16 @@ const RiskAssessmentWizard: React.FC = () => {
           puedeContinuar: true
         };
       }
+      
+      // Si está 100% completo, tratarlo como evaluación completa
+      if (porcentajeParcial === 100) {
+        return { 
+          estado: 'completa', 
+          porcentaje: 100, 
+          color: '#10B981',
+          evaluacion: wizardData
+        };
+      }
     }
     
     // Verificar si hay evaluación parcial guardada
@@ -886,9 +1189,21 @@ const RiskAssessmentWizard: React.FC = () => {
     if (evaluacionParcialGuardada) {
       try {
         const datosParciales = JSON.parse(evaluacionParcialGuardada);
+        const porcentaje = datosParciales.progreso || 0;
+        
+        // Si está 100% completo, tratarlo como evaluación completa
+        if (porcentaje === 100) {
+          return {
+            estado: 'completa',
+            porcentaje: 100,
+            color: '#10B981',
+            evaluacion: datosParciales.wizard_data || datosParciales.wizardData
+          };
+        }
+        
         return {
           estado: 'parcial',
-          porcentaje: datosParciales.progreso || 0,
+          porcentaje: porcentaje,
           color: '#F59E0B',
           puedeContinuar: true,
           datosParciales: datosParciales
@@ -998,6 +1313,12 @@ const RiskAssessmentWizard: React.FC = () => {
                 fullWidth
                 freeSolo
                 options={activos}
+                isOptionEqualToValue={(option, value) => {
+                  if (!option || !value) return false;
+                  const optionId = option.ID_Activo || option.id;
+                  const valueId = value.ID_Activo || value.id;
+                  return optionId === valueId;
+                }}
                 getOptionLabel={(option) => {
                   if (!option) return '';
                   if (typeof option === 'string') return option;
@@ -1047,8 +1368,10 @@ const RiskAssessmentWizard: React.FC = () => {
                 )}
                 renderOption={(props, option) => {
                   if (!option) return null;
+                  // Material-UI maneja las keys automáticamente a través de props
+                  const optionId = option.ID_Activo || option.id;
                   return (
-                    <Box component="li" {...props} sx={{ py: 1.5, px: 2 }}>
+                    <Box component="li" {...props} data-option-id={optionId} sx={{ py: 1.5, px: 2 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                         <Avatar sx={{ 
                           width: 32, 
@@ -1105,10 +1428,11 @@ const RiskAssessmentWizard: React.FC = () => {
             </Box>
 
             <Grid container spacing={2}>
-              {filteredActivos.map((activo) => {
+              {filteredActivos.map((activo, activoIndex) => {
                 const evaluacionEstado = getEvaluacionEstado(activo);
+                const activoKey = activo.ID_Activo || activo.id || `activo-${activoIndex}`;
                 return (
-                  <Grid item xs={12} sm={6} md={4} key={activo.ID_Activo}>
+                  <Grid item xs={12} sm={6} md={4} key={`activo-card-${activoKey}-${activoIndex}`}>
                     <Card
                       className="card"
                       sx={{
@@ -1257,9 +1581,14 @@ const RiskAssessmentWizard: React.FC = () => {
       case 1:
         return (
           <Box>
-            <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', mb: 3 }}>
-              Identifica el riesgo a evaluar
-            </Typography>
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', mb: 1 }}>
+                Identifica el riesgo a evaluar
+              </Typography>
+              <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280', fontSize: '0.875rem' }}>
+                Completa todos los campos marcados con <span style={{ color: '#EF4444' }}>*</span> para continuar. El tipo de riesgo es obligatorio.
+              </Typography>
+            </Box>
             
             <Grid container spacing={3}>
               {/* Columna izquierda - Formulario principal */}
@@ -1309,8 +1638,10 @@ const RiskAssessmentWizard: React.FC = () => {
                       )}
                       renderOption={(props, option) => {
                         if (!option) return null;
+                        // Material-UI maneja las keys automáticamente a través de props
+                        const optionId = typeof option === 'string' ? option : (option.ID_Riesgo || option.id);
                         return (
-                          <Box component="li" {...props} sx={{ py: 1.5, px: 2 }}>
+                          <Box component="li" {...props} data-option-id={optionId} sx={{ py: 1.5, px: 2 }}>
                             <Typography variant="body1" className="font-roboto" sx={{ color: '#374151' }}>
                               {option}
                             </Typography>
@@ -1369,23 +1700,30 @@ const RiskAssessmentWizard: React.FC = () => {
                 {/* Detalles del Riesgo */}
                 <Card className="card">
               <CardContent sx={{ p: 4 }}>
-                <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', mb: 3 }}>
-                  Detalles del Riesgo
-                </Typography>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', mb: 1 }}>
+                    Detalles del Riesgo
+                  </Typography>
+                  <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280', fontSize: '0.875rem' }}>
+                    Los campos marcados con <span style={{ color: '#EF4444' }}>*</span> son obligatorios
+                  </Typography>
+                </Box>
                 <Grid container spacing={3}>
                   <Grid item xs={12} md={6}>
-                    <FormControl fullWidth>
-                      <InputLabel>Amenaza</InputLabel>
+                    <FormControl fullWidth required>
+                      <InputLabel>Amenaza *</InputLabel>
                       <Select
                         value={wizardData.newRiesgo.amenaza}
                         onChange={(e) => setWizardData({
                           ...wizardData,
                           newRiesgo: { ...wizardData.newRiesgo, amenaza: e.target.value }
                         })}
-                        label="Amenaza"
+                        label="Amenaza *"
                         sx={{ borderRadius: '12px' }}
                       >
-                        <MenuItem value="">Seleccionar amenaza...</MenuItem>
+                        <MenuItem value="">
+                          <em>Seleccionar amenaza...</em>
+                        </MenuItem>
                         <MenuItem value="Malware">Malware</MenuItem>
                         <MenuItem value="Ataques de Phishing">Ataques de Phishing</MenuItem>
                         <MenuItem value="Acceso No Autorizado">Acceso No Autorizado</MenuItem>
@@ -1398,18 +1736,20 @@ const RiskAssessmentWizard: React.FC = () => {
                     </FormControl>
                   </Grid>
                   <Grid item xs={12} md={6}>
-                    <FormControl fullWidth>
-                      <InputLabel>Vulnerabilidad</InputLabel>
+                    <FormControl fullWidth required>
+                      <InputLabel>Vulnerabilidad *</InputLabel>
                       <Select
                         value={wizardData.newRiesgo.vulnerabilidad}
                         onChange={(e) => setWizardData({
                           ...wizardData,
                           newRiesgo: { ...wizardData.newRiesgo, vulnerabilidad: e.target.value }
                         })}
-                        label="Vulnerabilidad"
+                        label="Vulnerabilidad *"
                         sx={{ borderRadius: '12px' }}
                       >
-                        <MenuItem value="">Seleccionar vulnerabilidad...</MenuItem>
+                        <MenuItem value="">
+                          <em>Seleccionar vulnerabilidad...</em>
+                        </MenuItem>
                         <MenuItem value="Configuración Insegura">Configuración Insegura</MenuItem>
                         <MenuItem value="Software Desactualizado">Software Desactualizado</MenuItem>
                         <MenuItem value="Falta de Autenticación">Falta de Autenticación</MenuItem>
@@ -1421,7 +1761,45 @@ const RiskAssessmentWizard: React.FC = () => {
                       </Select>
                     </FormControl>
                   </Grid>
-                  <Grid item xs={12}>
+                  <Grid item xs={12} md={6}>
+                    <FormControl fullWidth required>
+                      <InputLabel>Tipo de Riesgo *</InputLabel>
+                      <Select
+                        value={wizardData.newRiesgo.tipoRiesgo}
+                        onChange={(e) => setWizardData({
+                          ...wizardData,
+                          newRiesgo: { ...wizardData.newRiesgo, tipoRiesgo: e.target.value }
+                        })}
+                        label="Tipo de Riesgo *"
+                        error={!wizardData.newRiesgo.tipoRiesgo && wizardData.newRiesgo.amenaza !== ''}
+                        sx={{ borderRadius: '12px' }}
+                      >
+                        <MenuItem value="">
+                          <em>Seleccionar tipo de riesgo...</em>
+                        </MenuItem>
+                        {tiposRiesgo.length > 0 ? (
+                          tiposRiesgo.map((tipo) => (
+                            <MenuItem key={tipo} value={tipo}>{tipo}</MenuItem>
+                          ))
+                        ) : (
+                          <>
+                            <MenuItem value="Operacional">Operacional</MenuItem>
+                            <MenuItem value="Tecnológico">Tecnológico</MenuItem>
+                            <MenuItem value="Legal">Legal</MenuItem>
+                            <MenuItem value="Estratégico">Estratégico</MenuItem>
+                            <MenuItem value="Financiero">Financiero</MenuItem>
+                            <MenuItem value="Reputacional">Reputacional</MenuItem>
+                          </>
+                        )}
+                      </Select>
+                      {!wizardData.newRiesgo.tipoRiesgo && wizardData.newRiesgo.amenaza !== '' && (
+                        <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.75 }}>
+                          El tipo de riesgo es obligatorio
+                        </Typography>
+                      )}
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
                     <TextField
                       fullWidth
                       multiline
@@ -1570,10 +1948,12 @@ const RiskAssessmentWizard: React.FC = () => {
             {/* Evaluación Inherente */}
             <InherentEvaluationStep
               data={wizardData.evaluacionInherente}
-              onUpdate={(data) => setWizardData({
-                ...wizardData,
-                evaluacionInherente: data
-              })}
+              onUpdate={(data) => {
+                setWizardData((prev) => ({
+                  ...prev,
+                  evaluacionInherente: data
+                }));
+              }}
             />
           </Box>
         );
@@ -1581,89 +1961,183 @@ const RiskAssessmentWizard: React.FC = () => {
       case 3:
         return (
           <Box>
+            <Alert severity="warning" sx={{ mb: 3 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                ⚠️ Es obligatorio seleccionar al menos un control antes de continuar. 
+                Puedes elegir controles de la base de datos, sugerencias ISO 27001/27002/27005, o agregar uno manualmente.
+              </Typography>
+            </Alert>
+            
             <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', mb: 2 }}>
               Selecciona los controles que mitigarán el riesgo
             </Typography>
             
             <Grid container spacing={3}>
-              {/* Columna izquierda - Controles tradicionales */}
+              {/* Columna izquierda - Controles de BD y Manual */}
               <Grid item xs={12} md={6}>
                 <Card className="card" sx={{ height: '100%' }}>
                   <CardContent sx={{ p: 3 }}>
-                    <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', mb: 3 }}>
-                      Controles Disponibles
-                    </Typography>
-                <FormGroup>
-                  {[
-                    'Firewall',
-                    'Antivirus',
-                    'Monitoreo de Red',
-                    'Copia de Seguridad',
-                    'Seguridad en la Nube',
-                    'Autenticación Multifactor',
-                    'Encriptación de Datos',
-                    'Control de Acceso Físico',
-                    'Auditoría de Seguridad',
-                    'Capacitación en Seguridad'
-                  ].map((control) => (
-                    <FormControlLabel
-                      key={control}
-                      control={
-                        <Checkbox
-                          checked={wizardData.controles.seleccionados.includes(control)}
-                          onChange={(e) => {
-                            const seleccionados = e.target.checked
-                              ? [...wizardData.controles.seleccionados, control]
-                              : wizardData.controles.seleccionados.filter(c => c !== control);
-                            setWizardData({
-                              ...wizardData,
-                              controles: { ...wizardData.controles, seleccionados }
-                            });
-                          }}
-                          sx={{
-                            color: '#1E3A8A',
-                            '&.Mui-checked': {
-                              color: '#1E3A8A',
-                            },
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                      <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A' }}>
+                        Controles de la Base de Datos
+                      </Typography>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<AddIcon />}
+                        onClick={() => setMostrarInputManual(!mostrarInputManual)}
+                        sx={{ borderColor: '#1E3A8A', color: '#1E3A8A' }}
+                      >
+                        Agregar Manual
+                      </Button>
+                    </Box>
+                    
+                    {/* Input para agregar control manual */}
+                    {mostrarInputManual && (
+                      <Box sx={{ mb: 2, p: 2, backgroundColor: '#F9FAFB', borderRadius: 2 }}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Nombre del control"
+                          value={nuevoControlManual}
+                          onChange={(e) => setNuevoControlManual(e.target.value)}
+                          placeholder="Ej: Control de acceso basado en roles"
+                          InputProps={{
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => {
+                                    if (nuevoControlManual.trim()) {
+                                      const seleccionados = [...wizardData.controles.seleccionados, nuevoControlManual.trim()];
+                                      setWizardData({
+                                        ...wizardData,
+                                        controles: { ...wizardData.controles, seleccionados }
+                                      });
+                                      setNuevoControlManual('');
+                                      setMostrarInputManual(false);
+                                      toast.success('Control agregado');
+                                    }
+                                  }}
+                                  disabled={!nuevoControlManual.trim()}
+                                >
+                                  <AddIcon />
+                                </IconButton>
+                              </InputAdornment>
+                            )
                           }}
                         />
-                      }
-                      label={
-                        <Typography className="font-roboto" sx={{ color: '#374151' }}>
-                          {control}
-                        </Typography>
-                      }
-                    />
-                  ))}
-                    </FormGroup>
+                      </Box>
+                    )}
+
+                    {controlesBD && controlesBD.length > 0 ? (
+                      <Box sx={{ maxHeight: '400px', overflowY: 'auto' }}>
+                        <FormGroup>
+                          {controlesBD.map((control: any) => (
+                            <FormControlLabel
+                              key={`control-bd-${control.id}`}
+                              control={
+                                <Checkbox
+                                  checked={wizardData.controles.seleccionados.includes(control.nombre)}
+                                  onChange={(e) => {
+                                    const seleccionados = e.target.checked
+                                      ? [...wizardData.controles.seleccionados, control.nombre]
+                                      : wizardData.controles.seleccionados.filter(c => c !== control.nombre);
+                                    setWizardData({
+                                      ...wizardData,
+                                      controles: { ...wizardData.controles, seleccionados }
+                                    });
+                                  }}
+                                  sx={{
+                                    color: '#1E3A8A',
+                                    '&.Mui-checked': {
+                                      color: '#1E3A8A',
+                                    },
+                                  }}
+                                />
+                              }
+                              label={
+                                <Box>
+                                  <Typography className="font-roboto" sx={{ color: '#374151', fontWeight: 500 }}>
+                                    {control.nombre}
+                                  </Typography>
+                                  {control.descripcion && (
+                                    <Typography variant="caption" className="font-roboto" sx={{ color: '#6B7280', display: 'block' }}>
+                                      {control.descripcion.substring(0, 80)}...
+                                    </Typography>
+                                  )}
+                                  {control.categoria && (
+                                    <Chip label={control.categoria} size="small" sx={{ mt: 0.5, fontSize: '0.65rem' }} />
+                                  )}
+                                </Box>
+                              }
+                            />
+                          ))}
+                        </FormGroup>
+                      </Box>
+                    ) : (
+                      <Alert severity="info" sx={{ mt: 2 }}>
+                        No hay controles disponibles en la base de datos. Usa las sugerencias ISO o agrega controles manualmente.
+                      </Alert>
+                    )}
                   </CardContent>
                 </Card>
               </Grid>
 
-              {/* Columna derecha - Sugerencias ISO */}
+              {/* Columna derecha - Sugerencias ISO y Predictivas */}
               <Grid item xs={12} md={6}>
-                <ControlSuggestions
-                  assetType={wizardData.selectedActivo?.tipo || 'servidor'}
-                  threatType={wizardData.newRiesgo.amenaza}
-                  vulnerabilityType={wizardData.newRiesgo.vulnerabilidad}
-                  selectedControls={wizardData.controles.seleccionados}
-                  onControlSelect={(control) => {
-                    const seleccionados = wizardData.controles.seleccionados.includes(control.titulo)
-                      ? wizardData.controles.seleccionados.filter(c => c !== control.titulo)
-                      : [...wizardData.controles.seleccionados, control.titulo];
-                    
-                    setWizardData({
-                      ...wizardData,
-                      controles: { 
-                        ...wizardData.controles, 
-                        seleccionados,
-                        eficacia: control.eficacia >= 80 ? 'Muy Alta' : 
-                                 control.eficacia >= 60 ? 'Alta' : 
-                                 control.eficacia >= 40 ? 'Media' : 'Baja'
-                      }
-                    });
-                  }}
-                />
+                <Stack spacing={2}>
+                  {/* Sugerencias ISO */}
+                  <ISOSuggestions
+                    amenaza={wizardData.newRiesgo.amenaza}
+                    vulnerabilidad={wizardData.newRiesgo.vulnerabilidad}
+                    onSuggestionSelect={(suggestion) => {
+                      const seleccionados = wizardData.controles.seleccionados.includes(suggestion.nombre)
+                        ? wizardData.controles.seleccionados.filter(c => c !== suggestion.nombre)
+                        : [...wizardData.controles.seleccionados, suggestion.nombre];
+                      
+                      setWizardData({
+                        ...wizardData,
+                        controles: { 
+                          ...wizardData.controles, 
+                          seleccionados,
+                          eficacia: suggestion.eficacia === 'Crítica' ? 'Muy Alta' : 
+                                   suggestion.eficacia === 'Alta' ? 'Alta' : 
+                                   suggestion.eficacia === 'Media' ? 'Media' : 'Baja'
+                        }
+                      });
+                    }}
+                  />
+                  
+                  {/* Sugerencias Predictivas */}
+                  {wizardData.selectedActivo && (
+                    <ControlSuggestions
+                      assetType={wizardData.selectedActivo.tipo || wizardData.selectedActivo.Tipo_Activo || 'Hardware'}
+                      threatType={wizardData.newRiesgo.amenaza}
+                      vulnerabilityType={wizardData.newRiesgo.vulnerabilidad}
+                      selectedControls={wizardData.controles.seleccionados}
+                      onControlSelect={(control) => {
+                        const nombreControl = control.titulo || control.nombre;
+                        const seleccionados = wizardData.controles.seleccionados.includes(nombreControl)
+                          ? wizardData.controles.seleccionados.filter(c => c !== nombreControl)
+                          : [...wizardData.controles.seleccionados, nombreControl];
+                        
+                        setWizardData({
+                          ...wizardData,
+                          controles: { 
+                            ...wizardData.controles, 
+                            seleccionados,
+                            eficacia: control.eficacia ? 
+                              (control.eficacia >= 80 ? 'Muy Alta' : 
+                               control.eficacia >= 60 ? 'Alta' : 
+                               control.eficacia >= 40 ? 'Media' : 'Baja') : 
+                              wizardData.controles.eficacia
+                          }
+                        });
+                      }}
+                    />
+                  )}
+                </Stack>
               </Grid>
             </Grid>
 
@@ -1718,25 +2192,18 @@ const RiskAssessmentWizard: React.FC = () => {
                       alignItems: 'center'
                     }}>
                       {wizardData.controles.seleccionados.length === 0 ? (
-                        <Box sx={{ 
-                          display: 'flex', 
-                          flexDirection: 'column', 
-                          alignItems: 'center', 
-                          justifyContent: 'center',
-                          width: '100%',
-                          py: 2
-                        }}>
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                            No hay controles seleccionados
+                        <Alert severity="warning" sx={{ width: '100%' }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            ⚠️ Es obligatorio seleccionar al menos un control antes de continuar
                           </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            Selecciona controles de la lista o haz clic en las sugerencias ISO
+                          <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
+                            Selecciona controles de la base de datos, sugerencias ISO 27001/27002/27005, o agrega uno manualmente
                           </Typography>
-                        </Box>
+                        </Alert>
                       ) : (
-                        wizardData.controles.seleccionados.map((control) => (
+                        wizardData.controles.seleccionados.map((control, controlIndex) => (
                           <Chip
-                            key={control}
+                            key={`selected-control-chip-${control}-${controlIndex}`}
                             label={control}
                             color="primary"
                             sx={{ 
@@ -1777,15 +2244,15 @@ const RiskAssessmentWizard: React.FC = () => {
                       riskType={wizardData.newRiesgo.amenaza}
                       controls={wizardData.controles.seleccionados}
                       onJustificationSelect={(justification) => {
-                        setWizardData({
-                          ...wizardData,
+                        setWizardData((prev) => ({
+                          ...prev,
                           controles: { 
-                            ...wizardData.controles, 
-                            justificacion: wizardData.controles.justificacion 
-                              ? `${wizardData.controles.justificacion}\n\n${justification}`
+                            ...prev.controles, 
+                            justificacion: prev.controles.justificacion 
+                              ? `${prev.controles.justificacion}\n\n${justification}`
                               : justification
                           }
-                        });
+                        }));
                       }}
                     />
                   </Box>
@@ -1797,11 +2264,14 @@ const RiskAssessmentWizard: React.FC = () => {
                   rows={4}
                   label="Explica por qué los controles seleccionados son efectivos para mitigar este riesgo"
                   placeholder="Describe cómo los controles seleccionados reducen la probabilidad o impacto del riesgo identificado..."
-                  value={wizardData.controles.justificacion}
-                  onChange={(e) => setWizardData({
-                    ...wizardData,
-                    controles: { ...wizardData.controles, justificacion: e.target.value }
-                  })}
+                  value={wizardData.controles.justificacion || ''}
+                  onChange={(e) => {
+                    const newValue = e.target.value;
+                    setWizardData((prev) => ({
+                      ...prev,
+                      controles: { ...prev.controles, justificacion: newValue }
+                    }));
+                  }}
                   sx={{ 
                     borderRadius: '12px',
                     '& .MuiOutlinedInput-root': {
@@ -1904,11 +2374,11 @@ const RiskAssessmentWizard: React.FC = () => {
                           label="Probabilidad Residual"
                           sx={{ borderRadius: '12px' }}
                         >
-                          <MenuItem value="Muy Baja">Muy Baja</MenuItem>
-                          <MenuItem value="Baja">Baja</MenuItem>
-                          <MenuItem value="Media">Media</MenuItem>
-                          <MenuItem value="Alta">Alta</MenuItem>
-                          <MenuItem value="Muy Alta">Muy Alta</MenuItem>
+                          <MenuItem value="Improbable">Improbable</MenuItem>
+                          <MenuItem value="Posible">Posible</MenuItem>
+                          <MenuItem value="Ocasional">Ocasional</MenuItem>
+                          <MenuItem value="Probable">Probable</MenuItem>
+                          <MenuItem value="Frecuente">Frecuente</MenuItem>
                         </Select>
                       </FormControl>
                       
@@ -1932,11 +2402,11 @@ const RiskAssessmentWizard: React.FC = () => {
                           label="Impacto Residual"
                           sx={{ borderRadius: '12px' }}
                         >
-                          <MenuItem value="Muy Bajo">Muy Bajo</MenuItem>
-                          <MenuItem value="Bajo">Bajo</MenuItem>
-                          <MenuItem value="Medio">Medio</MenuItem>
-                          <MenuItem value="Alto">Alto</MenuItem>
-                          <MenuItem value="Muy Alto">Muy Alto</MenuItem>
+                          <MenuItem value="Insignificante">Insignificante</MenuItem>
+                          <MenuItem value="Menor">Menor</MenuItem>
+                          <MenuItem value="Moderado">Moderado</MenuItem>
+                          <MenuItem value="Mayor">Mayor</MenuItem>
+                          <MenuItem value="Catastrófico">Catastrófico</MenuItem>
                         </Select>
                       </FormControl>
                     </Stack>
@@ -2022,11 +2492,14 @@ const RiskAssessmentWizard: React.FC = () => {
                   multiline
                   rows={3}
                   label="Justificación de la Evaluación Residual"
-                  value={wizardData.evaluacionResidual.justificacion}
-                  onChange={(e) => setWizardData({
-                    ...wizardData,
-                    evaluacionResidual: { ...wizardData.evaluacionResidual, justificacion: e.target.value }
-                  })}
+                  value={wizardData.evaluacionResidual.justificacion || ''}
+                  onChange={(e) => {
+                    const newValue = e.target.value;
+                    setWizardData((prev) => ({
+                      ...prev,
+                      evaluacionResidual: { ...prev.evaluacionResidual, justificacion: newValue }
+                    }));
+                  }}
                   sx={{ borderRadius: '12px' }}
                 />
               </CardContent>
@@ -2102,8 +2575,8 @@ const RiskAssessmentWizard: React.FC = () => {
                       color: '#EF4444',
                       bgColor: '#FEF2F2'
                     }
-                  ].map((opcion) => (
-                    <Grid item xs={12} sm={6} key={opcion.value}>
+                  ].map((opcion, opcionIndex) => (
+                    <Grid item xs={12} sm={6} key={`tratamiento-opcion-${opcion.value}-${opcionIndex}`}>
                       <Card
                         className="card"
                         sx={{
@@ -2227,22 +2700,12 @@ const RiskAssessmentWizard: React.FC = () => {
                   Activo Evaluado
                 </Typography>
                 {wizardData.selectedActivo ? (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Avatar sx={{ 
-                      background: 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)',
-                      color: '#FFFFFF'
-                    }}>
-                      <SecurityIcon />
-                    </Avatar>
-                    <Box>
-                      <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', fontWeight: 600 }}>
-                        {wizardData.selectedActivo.Nombre}
-                      </Typography>
-                      <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280' }}>
-                        {wizardData.selectedActivo.Tipo_Activo} • Criticidad: {wizardData.selectedActivo.nivel_criticidad_negocio}
-                      </Typography>
-                    </Box>
-                  </Box>
+                  <EvaluationAvatar
+                    activo={wizardData.selectedActivo}
+                    progreso={getEvaluacionEstado(wizardData.selectedActivo).porcentaje}
+                    estado={getEvaluacionEstado(wizardData.selectedActivo).estado}
+                    showDetails={true}
+                  />
                 ) : (
                   <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280' }}>
                     No se ha seleccionado un activo
@@ -2334,9 +2797,9 @@ const RiskAssessmentWizard: React.FC = () => {
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                      {wizardData.controles.seleccionados.map((control) => (
+                      {wizardData.controles.seleccionados.map((control, controlIndex) => (
                         <Chip
-                          key={control}
+                          key={`summary-control-chip-${control}-${controlIndex}`}
                           label={control}
                           size="small"
                           sx={{
@@ -2388,8 +2851,8 @@ const RiskAssessmentWizard: React.FC = () => {
                       <strong>Total de acciones:</strong> {wizardData.planAccion.acciones.length}
                     </Typography>
                     <List>
-                      {wizardData.planAccion.acciones.map((accion) => (
-                        <ListItem key={accion.id} sx={{ px: 0 }}>
+                      {wizardData.planAccion.acciones.map((accion, accionIndex) => (
+                        <ListItem key={accion.id || `accion-${accionIndex}-${accion.descripcion}`} sx={{ px: 0 }}>
                           <ListItemText
                             primary={
                               <Typography variant="body1" className="font-roboto" sx={{ color: '#374151', fontWeight: 500 }}>
@@ -2529,7 +2992,7 @@ const RiskAssessmentWizard: React.FC = () => {
                     onClick={() => {
                         setWizardData({
                           selectedActivo: null,
-                          newRiesgo: { amenaza: '', vulnerabilidad: '', descripcion: '' },
+                          newRiesgo: { amenaza: '', vulnerabilidad: '', descripcion: '', tipoRiesgo: '' },
                           evaluacionInherente: { probabilidad: '', impacto: '', nivelRiesgo: '', justificacion: '' },
                           controlesExistentes: { controles: [], eficacia: '', justificacion: '' },
                           evaluacionResidual: { probabilidad: '', impacto: '', nivelRiesgo: '', justificacion: '' },
@@ -2673,7 +3136,7 @@ const RiskAssessmentWizard: React.FC = () => {
               const isEvaluationStep = [2, 3, 5].includes(index); // Identificación de Riesgo, Evaluación Inherente, Evaluación Residual
               
               return (
-                <Step key={label}>
+                <Step key={`step-${index}-${label}`}>
                   <StepLabel
                     sx={{
                       '& .MuiStepLabel-label': {
@@ -2903,13 +3366,16 @@ const RiskAssessmentWizard: React.FC = () => {
       </Snackbar>
 
       {/* Diálogo para crear activo */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
+      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="lg" fullWidth>
         <DialogTitle sx={{ 
           backgroundColor: '#1E3A8A', 
           color: 'white',
           display: 'flex',
           alignItems: 'center',
-          gap: 2
+          gap: 2,
+          pb: 3,
+          pt: 3,
+          px: 3
         }}>
           <SecurityIcon />
           <Box>
@@ -2921,8 +3387,8 @@ const RiskAssessmentWizard: React.FC = () => {
             </Typography>
           </Box>
         </DialogTitle>
-        <DialogContent sx={{ p: 4 }}>
-          <Grid container spacing={3}>
+        <DialogContent sx={{ pt: 6, px: 4, pb: 4, mt: 3 }}>
+          <Grid container spacing={4}>
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -2933,14 +3399,24 @@ const RiskAssessmentWizard: React.FC = () => {
               />
             </Grid>
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Tipo de Activo *</InputLabel>
+              <FormControl fullWidth required>
+                <InputLabel id="wizard-tipo-activo-label" sx={{ mt: 0.5 }}>Tipo de Activo *</InputLabel>
                 <Select
+                  labelId="wizard-tipo-activo-label"
                   value={formData.tipo}
                   onChange={(e) => setFormData({ ...formData, tipo: e.target.value })}
                   label="Tipo de Activo *"
+                  sx={{ borderRadius: '12px', minWidth: '200px' }}
+                  MenuProps={{
+                    PaperProps: {
+                      style: {
+                        maxHeight: 300,
+                      },
+                    },
+                  }}
                 >
                   <MenuItem value="Hardware">Hardware</MenuItem>
+                  <MenuItem value="Sistema de Información">Sistema de Información</MenuItem>
                   <MenuItem value="Software">Software</MenuItem>
                   <MenuItem value="Infraestructura">Infraestructura</MenuItem>
                   <MenuItem value="Datos">Datos</MenuItem>
@@ -2961,11 +3437,20 @@ const RiskAssessmentWizard: React.FC = () => {
             </Grid>
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel>Estado del Activo</InputLabel>
+                <InputLabel id="wizard-estado-activo-label" sx={{ mt: 0.5 }}>Estado del Activo</InputLabel>
                 <Select
+                  labelId="wizard-estado-activo-label"
                   value={formData.estado}
                   onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
                   label="Estado del Activo"
+                  sx={{ borderRadius: '12px', minWidth: '200px' }}
+                  MenuProps={{
+                    PaperProps: {
+                      style: {
+                        maxHeight: 300,
+                      },
+                    },
+                  }}
                 >
                   <MenuItem value="Planificado">Planificado</MenuItem>
                   <MenuItem value="En desarrollo">En desarrollo</MenuItem>
@@ -2976,11 +3461,20 @@ const RiskAssessmentWizard: React.FC = () => {
             </Grid>
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel>Nivel de Criticidad</InputLabel>
+                <InputLabel id="wizard-criticidad-label" sx={{ mt: 0.5 }}>Nivel de Criticidad</InputLabel>
                 <Select
+                  labelId="wizard-criticidad-label"
                   value={formData.criticidad}
                   onChange={(e) => setFormData({ ...formData, criticidad: e.target.value })}
                   label="Nivel de Criticidad"
+                  sx={{ borderRadius: '12px', minWidth: '200px' }}
+                  MenuProps={{
+                    PaperProps: {
+                      style: {
+                        maxHeight: 300,
+                      },
+                    },
+                  }}
                 >
                   <MenuItem value="Bajo">Bajo</MenuItem>
                   <MenuItem value="Medio">Medio</MenuItem>
@@ -3016,92 +3510,199 @@ const RiskAssessmentWizard: React.FC = () => {
       </Dialog>
 
       {/* Diálogo para crear nuevo riesgo */}
-      <Dialog open={openRiesgoDialog} onClose={handleCloseRiesgoDialog} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ 
+      <Dialog 
+        open={openRiesgoDialog} 
+        onClose={handleCloseRiesgoDialog} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '16px',
+            boxShadow: '0 10px 40px rgba(0,0,0,0.15)'
+          }
+        }}
+      >
+        {/* Encabezado separado */}
+        <Box sx={{ 
           backgroundColor: '#1E3A8A', 
           color: 'white',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 2
+          p: 3,
+          borderTopLeftRadius: '16px',
+          borderTopRightRadius: '16px'
         }}>
-          <WarningIcon />
-          <Box>
-            <Typography variant="h6" className="font-poppins">
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+            <WarningIcon sx={{ fontSize: 28 }} />
+            <Typography variant="h5" className="font-poppins" sx={{ fontWeight: 600 }}>
               Crear Nuevo Riesgo
             </Typography>
-            <Typography variant="body2" sx={{ opacity: 0.9 }}>
-              Define un nuevo riesgo específico para este activo
-            </Typography>
           </Box>
-        </DialogTitle>
-        <DialogContent sx={{ p: 4 }}>
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Nombre del Riesgo *"
-                value={riesgoFormData.nombre}
-                onChange={(e) => setRiesgoFormData({ ...riesgoFormData, nombre: e.target.value })}
-                className="input"
-              />
+          <Typography variant="body2" sx={{ opacity: 0.9, ml: 5 }}>
+            Define un nuevo riesgo específico para este activo
+          </Typography>
+        </Box>
+
+        {/* Contenido del formulario */}
+        <DialogContent sx={{ p: 0 }}>
+          <Box sx={{ p: 4, pt: 3 }}>
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Nombre del Riesgo *"
+                  value={riesgoFormData.nombre}
+                  onChange={(e) => setRiesgoFormData({ ...riesgoFormData, nombre: e.target.value })}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: '12px',
+                      backgroundColor: '#F9FAFB',
+                      '& fieldset': {
+                        borderColor: '#E5E7EB',
+                        borderWidth: '2px'
+                      },
+                      '&:hover fieldset': {
+                        borderColor: '#1E3A8A',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#1E3A8A',
+                        borderWidth: '2px'
+                      }
+                    },
+                    '& .MuiInputLabel-root.Mui-focused': {
+                      color: '#1E3A8A'
+                    }
+                  }}
+                  placeholder="Ej: Pérdida de datos por acceso no autorizado"
+                />
+              </Grid>
+              
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel sx={{ 
+                    '&.Mui-focused': { color: '#1E3A8A' }
+                  }}>Amenaza *</InputLabel>
+                  <Select
+                    value={riesgoFormData.amenaza}
+                    onChange={(e) => setRiesgoFormData({ ...riesgoFormData, amenaza: e.target.value })}
+                    label="Amenaza *"
+                    sx={{
+                      borderRadius: '12px',
+                      backgroundColor: '#F9FAFB',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#E5E7EB',
+                        borderWidth: '2px'
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#1E3A8A'
+                      },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#1E3A8A',
+                        borderWidth: '2px'
+                      }
+                    }}
+                  >
+                    <MenuItem value="Malware">Malware</MenuItem>
+                    <MenuItem value="Ataques de Phishing">Ataques de Phishing</MenuItem>
+                    <MenuItem value="Acceso No Autorizado">Acceso No Autorizado</MenuItem>
+                    <MenuItem value="Pérdida de Datos">Pérdida de Datos</MenuItem>
+                    <MenuItem value="Interrupción del Servicio">Interrupción del Servicio</MenuItem>
+                    <MenuItem value="Acceso Físico No Controlado">Acceso Físico No Controlado</MenuItem>
+                    <MenuItem value="Ingeniería Social">Ingeniería Social</MenuItem>
+                    <MenuItem value="Ataques DDoS">Ataques DDoS</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel sx={{ 
+                    '&.Mui-focused': { color: '#1E3A8A' }
+                  }}>Vulnerabilidad *</InputLabel>
+                  <Select
+                    value={riesgoFormData.vulnerabilidad}
+                    onChange={(e) => setRiesgoFormData({ ...riesgoFormData, vulnerabilidad: e.target.value })}
+                    label="Vulnerabilidad *"
+                    sx={{
+                      borderRadius: '12px',
+                      backgroundColor: '#F9FAFB',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#E5E7EB',
+                        borderWidth: '2px'
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#1E3A8A'
+                      },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#1E3A8A',
+                        borderWidth: '2px'
+                      }
+                    }}
+                  >
+                    <MenuItem value="Configuración Insegura">Configuración Insegura</MenuItem>
+                    <MenuItem value="Software Desactualizado">Software Desactualizado</MenuItem>
+                    <MenuItem value="Falta de Autenticación">Falta de Autenticación</MenuItem>
+                    <MenuItem value="Acceso Físico No Controlado">Acceso Físico No Controlado</MenuItem>
+                    <MenuItem value="Falta de Respaldo">Falta de Respaldo</MenuItem>
+                    <MenuItem value="Contraseñas Débiles">Contraseñas Débiles</MenuItem>
+                    <MenuItem value="Falta de Cifrado">Falta de Cifrado</MenuItem>
+                    <MenuItem value="Ausencia de Monitoreo">Ausencia de Monitoreo</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Descripción del Riesgo"
+                  multiline
+                  rows={5}
+                  placeholder="Describe detalladamente el riesgo identificado, sus causas, consecuencias y contexto..."
+                  value={riesgoFormData.descripcion}
+                  onChange={(e) => setRiesgoFormData({ ...riesgoFormData, descripcion: e.target.value })}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: '12px',
+                      backgroundColor: '#F9FAFB',
+                      '& fieldset': {
+                        borderColor: '#E5E7EB',
+                        borderWidth: '2px'
+                      },
+                      '&:hover fieldset': {
+                        borderColor: '#1E3A8A',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#1E3A8A',
+                        borderWidth: '2px'
+                      }
+                    },
+                    '& .MuiInputLabel-root.Mui-focused': {
+                      color: '#1E3A8A'
+                    }
+                  }}
+                />
+              </Grid>
             </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Amenaza *</InputLabel>
-                <Select
-                  value={riesgoFormData.amenaza}
-                  onChange={(e) => setRiesgoFormData({ ...riesgoFormData, amenaza: e.target.value })}
-                  label="Amenaza *"
-                >
-                  <MenuItem value="Malware">Malware</MenuItem>
-                  <MenuItem value="Ataques de Phishing">Ataques de Phishing</MenuItem>
-                  <MenuItem value="Acceso No Autorizado">Acceso No Autorizado</MenuItem>
-                  <MenuItem value="Pérdida de Datos">Pérdida de Datos</MenuItem>
-                  <MenuItem value="Interrupción del Servicio">Interrupción del Servicio</MenuItem>
-                  <MenuItem value="Acceso Físico No Controlado">Acceso Físico No Controlado</MenuItem>
-                  <MenuItem value="Ingeniería Social">Ingeniería Social</MenuItem>
-                  <MenuItem value="Ataques DDoS">Ataques DDoS</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Vulnerabilidad *</InputLabel>
-                <Select
-                  value={riesgoFormData.vulnerabilidad}
-                  onChange={(e) => setRiesgoFormData({ ...riesgoFormData, vulnerabilidad: e.target.value })}
-                  label="Vulnerabilidad *"
-                >
-                  <MenuItem value="Configuración Insegura">Configuración Insegura</MenuItem>
-                  <MenuItem value="Software Desactualizado">Software Desactualizado</MenuItem>
-                  <MenuItem value="Falta de Autenticación">Falta de Autenticación</MenuItem>
-                  <MenuItem value="Acceso Físico No Controlado">Acceso Físico No Controlado</MenuItem>
-                  <MenuItem value="Falta de Respaldo">Falta de Respaldo</MenuItem>
-                  <MenuItem value="Contraseñas Débiles">Contraseñas Débiles</MenuItem>
-                  <MenuItem value="Falta de Cifrado">Falta de Cifrado</MenuItem>
-                  <MenuItem value="Ausencia de Monitoreo">Ausencia de Monitoreo</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Descripción del Riesgo"
-                multiline
-                rows={4}
-                placeholder="Describe detalladamente el riesgo identificado..."
-                value={riesgoFormData.descripcion}
-                onChange={(e) => setRiesgoFormData({ ...riesgoFormData, descripcion: e.target.value })}
-                className="input"
-              />
-            </Grid>
-          </Grid>
+          </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 3, gap: 2 }}>
+
+        {/* Acciones separadas */}
+        <Divider />
+        <DialogActions sx={{ p: 3, gap: 2, backgroundColor: '#F9FAFB' }}>
           <Button 
             onClick={handleCloseRiesgoDialog}
             variant="outlined"
-            sx={{ borderRadius: '8px' }}
+            sx={{ 
+              borderRadius: '10px',
+              px: 3,
+              py: 1.5,
+              borderColor: '#D1D5DB',
+              color: '#374151',
+              textTransform: 'none',
+              fontWeight: 500,
+              '&:hover': {
+                borderColor: '#9CA3AF',
+                backgroundColor: '#F3F4F6'
+              }
+            }}
           >
             Cancelar
           </Button>
@@ -3110,10 +3711,20 @@ const RiskAssessmentWizard: React.FC = () => {
             variant="contained"
             disabled={!riesgoFormData.nombre || !riesgoFormData.amenaza || !riesgoFormData.vulnerabilidad}
             sx={{ 
-              borderRadius: '8px',
+              borderRadius: '10px',
+              px: 4,
+              py: 1.5,
               backgroundColor: '#1E3A8A',
+              textTransform: 'none',
+              fontWeight: 600,
+              boxShadow: '0 4px 12px rgba(30, 58, 138, 0.3)',
               '&:hover': {
                 backgroundColor: '#1E40AF',
+                boxShadow: '0 6px 16px rgba(30, 58, 138, 0.4)'
+              },
+              '&:disabled': {
+                backgroundColor: '#9CA3AF',
+                color: '#FFFFFF'
               }
             }}
           >
@@ -3197,7 +3808,11 @@ const RiskAssessmentWizard: React.FC = () => {
                       </Grid>
                       <Grid item xs={12} sm={6}>
                         <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280' }}>
-                          <strong>Fecha de Evaluación:</strong> {new Date(evaluacion.fechaCompletada).toLocaleDateString()}
+                          <strong>Fecha de Evaluación:</strong> {
+                            evaluacion?.fechaCompletada 
+                              ? new Date(evaluacion.fechaCompletada).toLocaleDateString()
+                              : new Date().toLocaleDateString()
+                          }
                         </Typography>
                       </Grid>
                     </Grid>
@@ -3346,7 +3961,7 @@ const RiskAssessmentWizard: React.FC = () => {
                         Plan de Acción
                       </Typography>
                       {evaluacion.evaluacion?.planAccion.acciones.map((accion, index) => (
-                        <Box key={accion.id} sx={{ mb: 3, p: 2, border: '1px solid #F3F4F6', borderRadius: '8px' }}>
+                        <Box key={accion.id || `accion-${index}-${accion.descripcion}`} sx={{ mb: 3, p: 2, border: '1px solid #F3F4F6', borderRadius: '8px' }}>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                             <Typography variant="subtitle1" className="font-poppins" sx={{ color: '#1E3A8A', fontWeight: 600 }}>
                               Acción {index + 1}: {accion.descripcion}
@@ -3393,8 +4008,8 @@ const RiskAssessmentWizard: React.FC = () => {
                                 Documentos de Evidencia ({accion.documentos.length})
                               </Typography>
                               <List dense sx={{ bgcolor: '#F9FAFB', borderRadius: '4px', p: 1 }}>
-                                {accion.documentos.map((documento) => (
-                                  <ListItem key={documento.id} sx={{ py: 0.5 }}>
+                                {accion.documentos.map((documento, docIndex) => (
+                                  <ListItem key={documento.id || `doc-${docIndex}-${documento.nombre}`} sx={{ py: 0.5 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
                                       {documento.tipo.includes('pdf') ? <PdfIcon sx={{ color: '#DC2626', fontSize: 20 }} /> :
                                        documento.tipo.includes('word') ? <WordIcon sx={{ color: '#2563EB', fontSize: 20 }} /> :
@@ -3416,20 +4031,34 @@ const RiskAssessmentWizard: React.FC = () => {
                                         </Typography>
                                       }
                                     />
-                                    <IconButton
-                                      size="small"
-                                      onClick={() => {
-                                        const link = document.createElement('a');
-                                        link.href = documento.url;
-                                        link.download = documento.nombre;
-                                        document.body.appendChild(link);
-                                        link.click();
-                                        document.body.removeChild(link);
-                                      }}
-                                      sx={{ color: '#1E3A8A' }}
-                                    >
-                                      <DownloadIcon />
-                                    </IconButton>
+                                    <Box>
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => {
+                                          // Abrir en nueva ventana para visualizar
+                                          window.open(documento.url, '_blank');
+                                        }}
+                                        sx={{ color: '#1E3A8A', mr: 0.5 }}
+                                        title="Ver documento"
+                                      >
+                                        <VisibilityIcon />
+                                      </IconButton>
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => {
+                                          const link = document.createElement('a');
+                                          link.href = documento.url;
+                                          link.download = documento.nombre;
+                                          document.body.appendChild(link);
+                                          link.click();
+                                          document.body.removeChild(link);
+                                        }}
+                                        sx={{ color: '#1E3A8A' }}
+                                        title="Descargar documento"
+                                      >
+                                        <DownloadIcon />
+                                      </IconButton>
+                                    </Box>
                                   </ListItem>
                                 ))}
                               </List>

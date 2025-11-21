@@ -16,7 +16,9 @@ import {
 import {
   Lightbulb as LightbulbIcon,
   CheckCircle as CheckCircleIcon,
-  Refresh as RefreshIcon
+  Refresh as RefreshIcon,
+  Check as CheckIcon,
+  Close as CloseIcon
 } from '@mui/icons-material';
 import { apiRequest } from '../../services/api';
 
@@ -44,77 +46,69 @@ const JustificationSuggestions: React.FC<JustificationSuggestionsProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hoveredSuggestion, setHoveredSuggestion] = useState<string | null>(null);
+  const [acceptedSuggestions, setAcceptedSuggestions] = useState<Set<string>>(new Set());
+  const [rejectedSuggestions, setRejectedSuggestions] = useState<Set<string>>(new Set());
 
   const loadJustificationSuggestions = async () => {
     setIsLoading(true);
     setError(null);
     
     try {
-      // Simular sugerencias basadas en controles seleccionados
-      const mockSuggestions: JustificationSuggestion[] = [
-        {
-          id: '1',
-          titulo: 'Control de Acceso',
-          descripcion: 'Los controles de acceso restringen el acceso no autorizado a los sistemas y datos, reduciendo la probabilidad de exposición de información confidencial.',
-          norma: 'ISO 27002',
-          articulo: 'A.9.1.1',
-          confianza: 0.9
+      // Obtener sugerencias reales del backend basadas en controles seleccionados
+      const response = await apiRequest('/predictive/suggestions/justifications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        {
-          id: '2',
-          titulo: 'Cifrado de Datos',
-          descripcion: 'El cifrado protege la confidencialidad e integridad de los datos, incluso en caso de acceso no autorizado, minimizando el impacto del riesgo.',
-          norma: 'ISO 27002',
-          articulo: 'A.10.1.1',
-          confianza: 0.85
-        },
-        {
-          id: '3',
-          titulo: 'Monitoreo Continuo',
-          descripcion: 'El monitoreo continuo permite detectar y responder rápidamente a incidentes de seguridad, reduciendo el tiempo de exposición.',
-          norma: 'ISO 27002',
-          articulo: 'A.12.4.1',
-          confianza: 0.8
-        },
-        {
-          id: '4',
-          titulo: 'Capacitación en Seguridad',
-          descripcion: 'La capacitación reduce el factor humano en los incidentes de seguridad, disminuyendo la probabilidad de errores que generen riesgos.',
-          norma: 'ISO 27002',
-          articulo: 'A.7.2.2',
-          confianza: 0.75
-        },
-        {
-          id: '5',
-          titulo: 'Respaldos Regulares',
-          descripcion: 'Los respaldos regulares permiten la recuperación rápida de datos en caso de pérdida, minimizando el impacto operacional.',
-          norma: 'ISO 27002',
-          articulo: 'A.12.3.1',
-          confianza: 0.9
-        }
-      ];
+        body: JSON.stringify({
+          controls: controls,
+          risk_type: riskType
+        })
+      });
 
-      // Filtrar sugerencias basadas en controles seleccionados
-      const filteredSuggestions = mockSuggestions.filter(suggestion => 
-        controls.some(control => 
-          control.toLowerCase().includes(suggestion.titulo.toLowerCase().split(' ')[0]) ||
-          suggestion.titulo.toLowerCase().includes(control.toLowerCase().split(' ')[0])
-        )
-      );
-
-      setSuggestions(filteredSuggestions);
+      if (response.success && response.suggestions) {
+        setSuggestions(response.suggestions);
+      } else {
+        // Si no hay sugerencias, no mostrar error, solo lista vacía
+        setSuggestions([]);
+      }
     } catch (err) {
       console.error('Error loading justification suggestions:', err);
-      setError('Error al cargar sugerencias de justificación');
+      // No mostrar error si no hay sugerencias, solo lista vacía
+      setSuggestions([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleJustificationClick = (suggestion: JustificationSuggestion) => {
+  const handleAccept = (suggestion: JustificationSuggestion) => {
     if (onJustificationSelect) {
       onJustificationSelect(suggestion.descripcion);
     }
+    setAcceptedSuggestions(prev => new Set(prev).add(suggestion.id));
+    setRejectedSuggestions(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(suggestion.id);
+      return newSet;
+    });
+  };
+
+  const handleReject = (suggestionId: string) => {
+    setRejectedSuggestions(prev => new Set(prev).add(suggestionId));
+    setAcceptedSuggestions(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(suggestionId);
+      return newSet;
+    });
+  };
+
+  const handleJustificationClick = (suggestion: JustificationSuggestion) => {
+    // Si ya fue aceptada o rechazada, no hacer nada
+    if (acceptedSuggestions.has(suggestion.id) || rejectedSuggestions.has(suggestion.id)) {
+      return;
+    }
+    // Por defecto, aceptar al hacer clic
+    handleAccept(suggestion);
   };
 
   const getConfidenceColor = (confidence: number) => {
@@ -127,7 +121,8 @@ const JustificationSuggestions: React.FC<JustificationSuggestionsProps> = ({
     if (controls.length > 0) {
       loadJustificationSuggestions();
     }
-  }, [controls]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [controls.length]);
 
   if (isLoading) {
     return (
@@ -174,7 +169,7 @@ const JustificationSuggestions: React.FC<JustificationSuggestionsProps> = ({
       <Box display="flex" flexWrap="wrap" gap={1.5}>
         {suggestions.map((suggestion, index) => (
           <Zoom
-            key={suggestion.id}
+            key={`justification-suggestion-${suggestion.id}-${index}`}
             in={true}
             timeout={300 + index * 100}
             style={{ transitionDelay: `${index * 100}ms` }}
@@ -217,14 +212,30 @@ const JustificationSuggestions: React.FC<JustificationSuggestionsProps> = ({
                 elevation={hoveredSuggestion === suggestion.id ? 8 : 2}
                 sx={{
                   p: 2,
-                  cursor: 'pointer',
-                  backgroundColor: '#FFF8E1',
-                  border: '2px solid transparent',
+                  cursor: acceptedSuggestions.has(suggestion.id) || rejectedSuggestions.has(suggestion.id) ? 'default' : 'pointer',
+                  backgroundColor: acceptedSuggestions.has(suggestion.id) 
+                    ? '#E8F5E9' 
+                    : rejectedSuggestions.has(suggestion.id)
+                    ? '#FFEBEE'
+                    : '#FFF8E1',
+                  border: acceptedSuggestions.has(suggestion.id)
+                    ? '2px solid #4CAF50'
+                    : rejectedSuggestions.has(suggestion.id)
+                    ? '2px solid #F44336'
+                    : '2px solid transparent',
                   transition: 'all 0.3s ease',
                   transform: hoveredSuggestion === suggestion.id ? 'scale(1.05)' : 'scale(1)',
                   '&:hover': {
-                    borderColor: '#FF9800',
-                    backgroundColor: '#FFF3E0',
+                    borderColor: acceptedSuggestions.has(suggestion.id)
+                      ? '#4CAF50'
+                      : rejectedSuggestions.has(suggestion.id)
+                      ? '#F44336'
+                      : '#FF9800',
+                    backgroundColor: acceptedSuggestions.has(suggestion.id)
+                      ? '#E8F5E9'
+                      : rejectedSuggestions.has(suggestion.id)
+                      ? '#FFEBEE'
+                      : '#FFF3E0',
                   },
                   minWidth: '120px',
                   textAlign: 'center',
@@ -233,7 +244,7 @@ const JustificationSuggestions: React.FC<JustificationSuggestionsProps> = ({
                 }}
                 onMouseEnter={() => setHoveredSuggestion(suggestion.id)}
                 onMouseLeave={() => setHoveredSuggestion(null)}
-                onClick={() => handleJustificationClick(suggestion)}
+                onClick={() => !acceptedSuggestions.has(suggestion.id) && !rejectedSuggestions.has(suggestion.id) && handleJustificationClick(suggestion)}
               >
                 <Box display="flex" flexDirection="column" alignItems="center">
                   <Box
@@ -266,7 +277,7 @@ const JustificationSuggestions: React.FC<JustificationSuggestionsProps> = ({
                     {suggestion.titulo}
                   </Typography>
                   
-                  <Box display="flex" gap={0.5} justifyContent="center">
+                  <Box display="flex" gap={0.5} justifyContent="center" alignItems="center" mb={1}>
                     <Box
                       sx={{
                         width: 8,
@@ -285,6 +296,74 @@ const JustificationSuggestions: React.FC<JustificationSuggestionsProps> = ({
                       {suggestion.norma}
                     </Typography>
                   </Box>
+                  
+                  {/* Botones de aceptar/rechazar */}
+                  {!acceptedSuggestions.has(suggestion.id) && !rejectedSuggestions.has(suggestion.id) && (
+                    <Box display="flex" gap={0.5} justifyContent="center" mt={1}>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        startIcon={<CheckIcon />}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAccept(suggestion);
+                        }}
+                        sx={{
+                          backgroundColor: '#4CAF50',
+                          color: 'white',
+                          fontSize: '0.7rem',
+                          padding: '2px 8px',
+                          minWidth: 'auto',
+                          '&:hover': {
+                            backgroundColor: '#45A049'
+                          }
+                        }}
+                      >
+                        Aceptar
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<CloseIcon />}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleReject(suggestion.id);
+                        }}
+                        sx={{
+                          borderColor: '#F44336',
+                          color: '#F44336',
+                          fontSize: '0.7rem',
+                          padding: '2px 8px',
+                          minWidth: 'auto',
+                          '&:hover': {
+                            borderColor: '#D32F2F',
+                            backgroundColor: '#FFEBEE'
+                          }
+                        }}
+                      >
+                        Rechazar
+                      </Button>
+                    </Box>
+                  )}
+                  
+                  {/* Indicador de estado */}
+                  {acceptedSuggestions.has(suggestion.id) && (
+                    <Box display="flex" alignItems="center" justifyContent="center" mt={1}>
+                      <CheckCircleIcon sx={{ color: '#4CAF50', fontSize: 20 }} />
+                      <Typography variant="caption" sx={{ color: '#4CAF50', ml: 0.5, fontWeight: 'bold' }}>
+                        Aceptada
+                      </Typography>
+                    </Box>
+                  )}
+                  
+                  {rejectedSuggestions.has(suggestion.id) && (
+                    <Box display="flex" alignItems="center" justifyContent="center" mt={1}>
+                      <CloseIcon sx={{ color: '#F44336', fontSize: 20 }} />
+                      <Typography variant="caption" sx={{ color: '#F44336', ml: 0.5, fontWeight: 'bold' }}>
+                        Rechazada
+                      </Typography>
+                    </Box>
+                  )}
                 </Box>
               </Paper>
             </Tooltip>
@@ -296,5 +375,8 @@ const JustificationSuggestions: React.FC<JustificationSuggestionsProps> = ({
 };
 
 export default JustificationSuggestions;
+
+
+
 
 

@@ -47,23 +47,86 @@ def create_riesgo():
         if not data.get('Nombre'):
             return jsonify({'error': 'El nombre del riesgo es obligatorio'}), 400
         
+        # Validar que no exista un riesgo con el mismo nombre (antes de insertar)
+        nombre_riesgo = data.get('Nombre').strip()
+        riesgo_existente = Riesgo.query.filter_by(Nombre=nombre_riesgo).first()
+        if riesgo_existente:
+            return jsonify({
+                'error': f'Ya existe un riesgo con el nombre "{nombre_riesgo}"',
+                'type': 'duplicate_error',
+                'existing_id': riesgo_existente.ID_Riesgo
+            }), 409  # 409 Conflict es el código HTTP apropiado para duplicados
+        
+        # Log para debugging
+        print(f"Creando riesgo con datos: {data}")
+        
+        # Validar y ajustar tipo_riesgo si es necesario
+        tipo_riesgo = data.get('tipo_riesgo')
+        # Si tipo_riesgo es muy largo, truncarlo
+        if tipo_riesgo:
+            # Limitar a 50 caracteres por si la BD tiene restricción
+            tipo_riesgo = tipo_riesgo[:50] if len(tipo_riesgo) > 50 else tipo_riesgo
+        # Si no se proporciona tipo_riesgo, intentar usar un valor por defecto válido
+        # basado en los tipos existentes en la BD
+        if not tipo_riesgo:
+            try:
+                # Intentar obtener un tipo de riesgo existente como fallback
+                tipo_existente = db.session.query(Riesgo.tipo_riesgo).filter(
+                    Riesgo.tipo_riesgo.isnot(None)
+                ).first()
+                if tipo_existente and tipo_existente[0]:
+                    tipo_riesgo = tipo_existente[0]
+                else:
+                    # Si no hay tipos en la BD, usar un valor corto por defecto
+                    tipo_riesgo = 'Operacional'  # Valor corto que debería funcionar
+            except Exception as e:
+                print(f"Error obteniendo tipo de riesgo por defecto: {e}")
+                tipo_riesgo = 'Operacional'  # Fallback
+        
         riesgo = Riesgo(
-            Nombre=data.get('Nombre'),
+            Nombre=nombre_riesgo,  # Usar el nombre ya validado y limpiado
             Descripcion=data.get('Descripcion'),
-            tipo_riesgo=data.get('tipo_riesgo'),
-            Estado_Riesgo_General=data.get('Estado_Riesgo_General', 'Identificado')
+            tipo_riesgo=tipo_riesgo,
+            Estado_Riesgo_General=data.get('Estado_Riesgo_General', 'Identificado'),
+            Fecha_Identificacion=datetime.now().date()  # Agregar fecha de identificación
         )
         
         db.session.add(riesgo)
         db.session.commit()
         
+        print(f"Riesgo creado exitosamente con ID: {riesgo.ID_Riesgo}")
         return jsonify(riesgo.to_dict()), 201
     except SQLAlchemyError as e:
         db.session.rollback()
-        return jsonify({'error': f'Error de base de datos: {str(e)}'}), 500
+        error_str = str(e)
+        
+        # Detectar específicamente errores de duplicado
+        if 'Duplicate entry' in error_str and 'idx_nombre_riesgo' in error_str:
+            # Extraer el nombre del error si es posible
+            import re
+            match = re.search(r"Duplicate entry '([^']+)'", error_str)
+            nombre_duplicado = match.group(1) if match else 'desconocido'
+            
+            # Buscar el riesgo existente
+            riesgo_existente = Riesgo.query.filter_by(Nombre=nombre_duplicado).first()
+            return jsonify({
+                'error': f'Ya existe un riesgo con el nombre "{nombre_duplicado}"',
+                'type': 'duplicate_error',
+                'existing_id': riesgo_existente.ID_Riesgo if riesgo_existente else None
+            }), 409  # 409 Conflict
+        
+        error_msg = f'Error de base de datos: {error_str}'
+        print(f"Error SQLAlchemy: {error_msg}")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({'error': error_msg, 'type': 'database_error'}), 500
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        error_msg = str(e)
+        print(f"Error general: {error_msg}")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({'error': error_msg, 'type': 'general_error', 'details': traceback.format_exc()}), 500
 
 @riesgos_bp.route('/<int:riesgo_id>', methods=['PUT'])
 def update_riesgo(riesgo_id):
