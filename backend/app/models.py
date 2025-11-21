@@ -83,7 +83,7 @@ class Activo(db.Model):
 class Riesgo(db.Model):
     __tablename__ = 'riesgos'
     ID_Riesgo = db.Column(db.Integer, primary_key=True)
-    Nombre = db.Column(db.String(255), nullable=False)
+    Nombre = db.Column(db.Text, nullable=False)  # Cambiado de String(255) a Text para permitir textos largos
     Descripcion = db.Column(db.Text)
     ID_Amenaza_General = db.Column(db.Integer)
     ID_Vulnerabilidad_General = db.Column(db.Integer)

@@ -64,6 +64,7 @@ import {
   InsertDriveFile as FileIcon,
   TrendingUp as TrendingUpIcon,
   Visibility as VisibilityIcon,
+  AttachFile as AttachFileIcon,
 } from '@mui/icons-material';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -83,6 +84,7 @@ import InteractiveSuggestions from '../../components/predictive/InteractiveSugge
 import ControlSuggestions from '../../components/predictive/ControlSuggestions';
 import JustificationSuggestions from '../../components/predictive/JustificationSuggestions';
 import ResidualRiskSuggestions from '../../components/predictive/ResidualRiskSuggestions';
+import ResidualJustificationSuggestions from '../../components/predictive/ResidualJustificationSuggestions';
 import CurrencyInput from '../../components/common/CurrencyInput';
 import DateRangeInput from '../../components/common/DateRangeInput';
 import CriticityCalculator from '../../components/common/CriticityCalculator';
@@ -169,18 +171,13 @@ const RiskAssessmentWizard: React.FC = () => {
     amenaza: '',
     vulnerabilidad: '',
     descripcion: '',
+    tipoRiesgo: '',
   });
   const [tiposRiesgo, setTiposRiesgo] = useState<string[]>([]);
-  const [riesgosExistentes, setRiesgosExistentes] = useState([
-    'Malware en servidores críticos',
-    'Ataques de phishing a usuarios',
-    'Acceso no autorizado a bases de datos',
-    'Pérdida de datos por fallos de hardware',
-    'Interrupción del servicio por ataques DDoS',
-    'Vulnerabilidades en software desactualizado',
-    'Acceso físico no controlado a equipos',
-    'Falta de respaldo de información crítica'
-  ]);
+  const [amenazasDisponibles, setAmenazasDisponibles] = useState<string[]>([]);
+  const [vulnerabilidadesDisponibles, setVulnerabilidadesDisponibles] = useState<any[]>([]);
+  const [riesgosExistentes, setRiesgosExistentes] = useState<any[]>([]);
+  const [isCreatingRiesgo, setIsCreatingRiesgo] = useState(false);
 
   const [actionPlanItems, setActionPlanItems] = useState<any[]>([]);
   const [criticityData, setCriticityData] = useState({
@@ -207,6 +204,8 @@ const RiskAssessmentWizard: React.FC = () => {
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [showExportMessage, setShowExportMessage] = useState(false);
   const [openSummaryDialog, setOpenSummaryDialog] = useState(false);
+  const [openExportDialog, setOpenExportDialog] = useState(false);
+  const [incluirAnexos, setIncluirAnexos] = useState(true);
   const [evaluacionesCompletadas, setEvaluacionesCompletadas] = useState<{[key: string]: any}>({});
   const [exportMessage, setExportMessage] = useState('');
 
@@ -225,6 +224,58 @@ const RiskAssessmentWizard: React.FC = () => {
     };
     
     cargarTiposRiesgo();
+  }, []);
+
+  // Cargar amenazas desde la base de datos
+  useEffect(() => {
+    const cargarAmenazas = async () => {
+      try {
+        const { apiRequest } = await import('../../services/api');
+        const amenazas = await apiRequest<Array<{nombre: string}>>('/amenazas/');
+        const nombresAmenazas = amenazas.map((a: any) => a.nombre || a);
+        setAmenazasDisponibles(nombresAmenazas);
+        console.log(`✅ Cargadas ${nombresAmenazas.length} amenazas desde la BD`);
+      } catch (error) {
+        console.error('Error cargando amenazas:', error);
+        setAmenazasDisponibles([]);
+      }
+    };
+    
+    cargarAmenazas();
+  }, []);
+
+  // Cargar vulnerabilidades desde la base de datos
+  useEffect(() => {
+    const cargarVulnerabilidades = async () => {
+      try {
+        const { apiRequest } = await import('../../services/api');
+        // Cargar todas las vulnerabilidades (sin límite o con límite alto)
+        const vulnerabilidades = await apiRequest<any[]>('/vulnerabilidades/?limit=1000');
+        setVulnerabilidadesDisponibles(vulnerabilidades || []);
+        console.log(`✅ Cargadas ${vulnerabilidades?.length || 0} vulnerabilidades desde la BD`);
+      } catch (error) {
+        console.error('Error cargando vulnerabilidades:', error);
+        setVulnerabilidadesDisponibles([]);
+      }
+    };
+    
+    cargarVulnerabilidades();
+  }, []);
+
+  // Cargar riesgos existentes desde la base de datos
+  useEffect(() => {
+    const cargarRiesgosExistentes = async () => {
+      try {
+        const { apiRequest } = await import('../../services/api');
+        const riesgos = await apiRequest<any[]>('/riesgos/');
+        setRiesgosExistentes(riesgos || []);
+      } catch (error) {
+        console.error('Error cargando riesgos existentes:', error);
+        setRiesgosExistentes([]);
+      }
+    };
+    
+    cargarRiesgosExistentes();
   }, []);
 
   // Cargar evaluaciones completadas desde la base de datos
@@ -503,32 +554,109 @@ const RiskAssessmentWizard: React.FC = () => {
     });
   };
 
-  const handleCreateRiesgo = () => {
-    // Crear el nombre del riesgo combinando amenaza y vulnerabilidad
-    const nombreRiesgo = `${riesgoFormData.amenaza} - ${riesgoFormData.vulnerabilidad}`;
-    
-    // Agregar el nuevo riesgo a la lista de riesgos existentes
-    setRiesgosExistentes(prev => [...prev, nombreRiesgo]);
-    
-    // Actualizar el wizard data con el nuevo riesgo
-    setWizardData({
-      ...wizardData,
-      newRiesgo: {
-        amenaza: riesgoFormData.amenaza,
-        vulnerabilidad: riesgoFormData.vulnerabilidad,
-        descripcion: riesgoFormData.descripcion
+  const handleCreateRiesgo = async () => {
+    setIsCreatingRiesgo(true);
+    try {
+      const { apiRequest } = await import('../../services/api');
+      
+      // 1. Crear o verificar amenaza
+      let amenazaNombre = riesgoFormData.amenaza;
+      if (amenazaNombre && !amenazasDisponibles.includes(amenazaNombre)) {
+        try {
+          const amenazaResult = await apiRequest('/amenazas/crear', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              nombre: amenazaNombre,
+              descripcion: `Amenaza: ${amenazaNombre}`,
+              tipo_riesgo: riesgoFormData.tipoRiesgo || 'Tecnológico'
+            })
+          });
+          if (amenazaResult.success) {
+            setAmenazasDisponibles(prev => [...prev, amenazaNombre]);
+            toast.success(`Amenaza "${amenazaNombre}" creada exitosamente`);
+          }
+        } catch (error) {
+          console.warn('Error creando amenaza:', error);
+          // Continuar aunque falle
+        }
       }
-    });
-    
-    // Limpiar el formulario
-    setRiesgoFormData({
-      nombre: '',
-      amenaza: '',
-      vulnerabilidad: '',
-      descripcion: '',
-    });
-    
-    handleCloseRiesgoDialog();
+      
+      // 2. Crear o verificar vulnerabilidad
+      let vulnerabilidadNombre = riesgoFormData.vulnerabilidad;
+      if (vulnerabilidadNombre && !vulnerabilidadesDisponibles.find(v => v.nombre === vulnerabilidadNombre)) {
+        try {
+          const vulnResult = await apiRequest('/vulnerabilidades/crear', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              nombre: vulnerabilidadNombre,
+              descripcion: `Vulnerabilidad: ${vulnerabilidadNombre}`,
+              categoria: 'Tecnológica',
+              severidad: 'Media'
+            })
+          });
+          if (vulnResult.success) {
+            setVulnerabilidadesDisponibles(prev => [...prev, {
+              id_vulnerabilidad: vulnResult.id_vulnerabilidad,
+              nombre: vulnerabilidadNombre,
+              descripcion: vulnResult.descripcion || ''
+            }]);
+            toast.success(`Vulnerabilidad "${vulnerabilidadNombre}" creada exitosamente`);
+          }
+        } catch (error) {
+          console.warn('Error creando vulnerabilidad:', error);
+          // Continuar aunque falle
+        }
+      }
+      
+      // 3. Crear el riesgo en la base de datos
+      const nombreRiesgo = riesgoFormData.nombre || `${amenazaNombre} - ${vulnerabilidadNombre}`;
+      
+      const nuevoRiesgo = await apiRequest('/riesgos/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          Nombre: nombreRiesgo,
+          Descripcion: riesgoFormData.descripcion || `Riesgo asociado a la amenaza "${amenazaNombre}" y la vulnerabilidad "${vulnerabilidadNombre}"`,
+          tipo_riesgo: riesgoFormData.tipoRiesgo || 'Tecnológico',
+          Estado_Riesgo_General: 'Identificado'
+        })
+      });
+      
+      // 4. Actualizar el wizard data con el nuevo riesgo
+      setWizardData({
+        ...wizardData,
+        newRiesgo: {
+          amenaza: amenazaNombre,
+          vulnerabilidad: vulnerabilidadNombre,
+          descripcion: riesgoFormData.descripcion || nombreRiesgo,
+          tipoRiesgo: riesgoFormData.tipoRiesgo || 'Tecnológico'
+        }
+      });
+      
+      // 5. Actualizar lista de riesgos
+      setRiesgosExistentes(prev => [...prev, nuevoRiesgo]);
+      
+      // 6. Mostrar feedback visual
+      toast.success(`Riesgo "${nombreRiesgo}" creado exitosamente`);
+      
+      // 7. Limpiar el formulario
+      setRiesgoFormData({
+        nombre: '',
+        amenaza: '',
+        vulnerabilidad: '',
+        descripcion: '',
+        tipoRiesgo: '',
+      });
+      
+      handleCloseRiesgoDialog();
+    } catch (error: any) {
+      console.error('Error creando riesgo:', error);
+      toast.error(error?.message || 'Error al crear el riesgo');
+    } finally {
+      setIsCreatingRiesgo(false);
+    }
   };
 
   const calculateRiskLevel = (probabilidad: string, impacto: string) => {
@@ -867,17 +995,67 @@ const RiskAssessmentWizard: React.FC = () => {
         }
       }
 
-      // Guardar plan de acción con documentos si hay
-      if (wizardData.planAccion.acciones && wizardData.planAccion.acciones.length > 0) {
+      // Guardar tratamiento si hay
+      if (wizardData.tratamiento.opcion) {
         try {
           const { apiRequest } = await import('../../services/api');
-          await apiRequest('/evaluacion-riesgos/guardar-plan-accion', {
+          await apiRequest('/evaluacion-riesgos/guardar-tratamiento', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               id_evaluacion: idEvaluacion,
-              id_activo: activoId,
-              acciones: wizardData.planAccion.acciones.map((accion: any) => ({
+              tratamiento: wizardData.tratamiento
+            }),
+          });
+        } catch (tratamientoError) {
+          console.warn('Error guardando tratamiento:', tratamientoError);
+          // No fallar la evaluación completa si falla guardar tratamiento
+        }
+      }
+
+      // Guardar plan de acción con documentos si hay
+      if (wizardData.planAccion.acciones && wizardData.planAccion.acciones.length > 0) {
+        try {
+          const { apiRequest } = await import('../../services/api');
+          const { documentosService } = await import('../../services/documentos');
+          
+          // Procesar cada acción y subir documentos si son archivos
+          const accionesProcesadas = await Promise.all(
+            wizardData.planAccion.acciones.map(async (accion: any) => {
+              const documentosSubidos: any[] = [];
+              
+              // Si hay documentos, verificar si son archivos o ya están subidos
+              if (accion.documentos && accion.documentos.length > 0) {
+                for (const doc of accion.documentos) {
+                  // Si es un objeto File, subirlo al servidor
+                  if (doc instanceof File) {
+                    try {
+                      // Generar un accion_id temporal para la subida
+                      const accionIdTemp = `eval_${idEvaluacion}_activo_${activoId}_${accion.id || Date.now()}`;
+                      const documentoSubido = await documentosService.subirDocumento(
+                        doc,
+                        accionIdTemp,
+                        accion.descripcion || ''
+                      );
+                      documentosSubidos.push({
+                        id: documentoSubido.id,
+                        nombre: documentoSubido.nombre,
+                        url: documentoSubido.url,
+                        tipo: documentoSubido.tipo,
+                        tamaño: documentoSubido.tamaño
+                      });
+                    } catch (uploadError) {
+                      console.error('Error subiendo documento:', uploadError);
+                      // Continuar con otros documentos aunque uno falle
+                    }
+                  } else if (doc.id || doc.url) {
+                    // Si ya es un documento subido (tiene id o url), mantenerlo
+                    documentosSubidos.push(doc);
+                  }
+                }
+              }
+              
+              return {
                 id: accion.id,
                 titulo: accion.titulo || accion.descripcion,
                 descripcion: accion.descripcion,
@@ -886,8 +1064,19 @@ const RiskAssessmentWizard: React.FC = () => {
                 fechaFin: accion.fechaFin || wizardData.tratamiento.fechaFin,
                 estado: accion.estado || 'pendiente',
                 comentarios: accion.comentarios || '',
-                documentos: accion.documentos || []
-              }))
+                documentos: documentosSubidos
+              };
+            })
+          );
+          
+          await apiRequest('/evaluacion-riesgos/guardar-plan-accion', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id_evaluacion: idEvaluacion,
+              id_activo: activoId,
+              tratamiento: wizardData.tratamiento,
+              acciones: accionesProcesadas
             }),
           });
         } catch (planError) {
@@ -950,7 +1139,7 @@ const RiskAssessmentWizard: React.FC = () => {
   };
 
   // Función para exportar resumen a PDF
-  const exportarResumenPDF = async (evaluacion: any, activo: any) => {
+  const exportarResumenPDF = async (evaluacion: any, activo: any, incluirAnexos: boolean = false) => {
     setIsExportando(true);
     try {
       // Usar wizardData si no hay evaluación guardada
@@ -1055,6 +1244,27 @@ const RiskAssessmentWizard: React.FC = () => {
         yPosition += 10;
       }
 
+      // Opciones de Tratamiento
+      if (datosEvaluacion?.tratamiento?.opcion) {
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Opciones de Tratamiento:', 20, yPosition);
+        yPosition += 10;
+        
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`Opción: ${datosEvaluacion.tratamiento.opcion}`, 20, yPosition);
+        yPosition += 8;
+        pdf.text(`Responsable: ${datosEvaluacion.tratamiento.responsable || 'N/A'}`, 20, yPosition);
+        yPosition += 8;
+        pdf.text(`Presupuesto: ${datosEvaluacion.tratamiento.presupuesto || 'N/A'}`, 20, yPosition);
+        yPosition += 8;
+        pdf.text(`Fecha Inicio: ${datosEvaluacion.tratamiento.fechaInicio || 'N/A'}`, 20, yPosition);
+        yPosition += 8;
+        pdf.text(`Fecha Fin: ${datosEvaluacion.tratamiento.fechaFin || 'N/A'}`, 20, yPosition);
+        yPosition += 15;
+      }
+
       // Plan de acción
       if (datosEvaluacion?.planAccion?.acciones && datosEvaluacion.planAccion.acciones.length > 0) {
         pdf.setFontSize(14);
@@ -1067,8 +1277,79 @@ const RiskAssessmentWizard: React.FC = () => {
         datosEvaluacion.planAccion.acciones.forEach((accion: any) => {
           pdf.text(`• ${accion.titulo || accion.descripcion || 'Acción'}: ${accion.responsable || 'N/A'}`, 20, yPosition);
           yPosition += 8;
+          if (accion.documentos && accion.documentos.length > 0) {
+            pdf.setFontSize(10);
+            pdf.text(`  Documentos: ${accion.documentos.length} archivo(s)`, 25, yPosition);
+            yPosition += 6;
+            pdf.setFontSize(12);
+          }
         });
         yPosition += 10;
+      }
+
+      // Anexos - Documentos Adjuntos (solo si se solicita)
+      if (incluirAnexos) {
+        // Recopilar todos los documentos de todas las acciones
+        const todosDocumentos: any[] = [];
+        datosEvaluacion?.planAccion?.acciones?.forEach((accion: any) => {
+          if (accion.documentos && accion.documentos.length > 0) {
+            accion.documentos.forEach((doc: any) => {
+              todosDocumentos.push({
+                ...doc,
+                accion: accion.descripcion || accion.titulo || `Acción ${accion.id || ''}`
+              });
+            });
+          }
+        });
+
+        if (todosDocumentos.length > 0) {
+          // Verificar si necesitamos una nueva página
+          if (yPosition > pageHeight - 60) {
+            pdf.addPage();
+            yPosition = 20;
+          }
+
+          pdf.setFontSize(14);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text('Anexos - Documentos Adjuntos:', 20, yPosition);
+          yPosition += 10;
+          
+          pdf.setFontSize(12);
+          pdf.setFont('helvetica', 'normal');
+          pdf.text(`Total de documentos: ${todosDocumentos.length}`, 20, yPosition);
+          yPosition += 10;
+
+          todosDocumentos.forEach((documento, index) => {
+            // Verificar si necesitamos una nueva página
+            if (yPosition > pageHeight - 40) {
+              pdf.addPage();
+              yPosition = 20;
+            }
+
+            pdf.setFontSize(11);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text(`${index + 1}. ${documento.nombre}`, 20, yPosition);
+            yPosition += 7;
+
+            pdf.setFontSize(10);
+            pdf.setFont('helvetica', 'normal');
+            pdf.text(`   Acción: ${documento.accion}`, 25, yPosition);
+            yPosition += 6;
+            pdf.text(`   Tipo: ${documento.tipo}`, 25, yPosition);
+            yPosition += 6;
+            pdf.text(`   Tamaño: ${documentosService.formatearTamaño(documento.tamaño)}`, 25, yPosition);
+            yPosition += 6;
+            pdf.text(`   Fecha: ${new Date(documento.fechaSubida).toLocaleDateString()}`, 25, yPosition);
+            yPosition += 6;
+            if (documento.descripcion) {
+              const descripcionLines = pdf.splitTextToSize(`   Descripción: ${documento.descripcion}`, pageWidth - 50);
+              pdf.text(descripcionLines, 25, yPosition);
+              yPosition += descripcionLines.length * 6;
+            }
+            pdf.text(`   URL: ${documento.url}`, 25, yPosition);
+            yPosition += 10;
+          });
+        }
       }
 
       // Pie de página
@@ -1581,6 +1862,61 @@ const RiskAssessmentWizard: React.FC = () => {
       case 1:
         return (
           <Box>
+            {/* Banner del Activo en Evaluación */}
+            {wizardData.selectedActivo && (
+              <Alert 
+                severity="info" 
+                icon={<SecurityIcon />}
+                sx={{ 
+                  mb: 3,
+                  borderRadius: '12px',
+                  backgroundColor: '#EFF6FF',
+                  border: '1px solid #3B82F6',
+                  '& .MuiAlert-icon': {
+                    color: '#1E3A8A'
+                  }
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1E3A8A', mb: 0.5 }}>
+                      Activo en Evaluación
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#1E40AF' }}>
+                      <strong>{wizardData.selectedActivo.Nombre || wizardData.selectedActivo.nombre || 'Sin nombre'}</strong>
+                      {' • '}
+                      {wizardData.selectedActivo.Tipo_Activo || wizardData.selectedActivo.tipo || 'Sin tipo'}
+                      {wizardData.selectedActivo.nivel_criticidad_negocio && (
+                        <>
+                          {' • '}
+                          <Chip 
+                            label={wizardData.selectedActivo.nivel_criticidad_negocio} 
+                            size="small" 
+                            sx={{ 
+                              height: 20,
+                              fontSize: '0.7rem',
+                              backgroundColor: wizardData.selectedActivo.nivel_criticidad_negocio === 'Crítico' ? '#FEE2E2' :
+                                             wizardData.selectedActivo.nivel_criticidad_negocio === 'Alto' ? '#FEF3C7' :
+                                             wizardData.selectedActivo.nivel_criticidad_negocio === 'Medio' ? '#DBEAFE' : '#F3F4F6',
+                              color: wizardData.selectedActivo.nivel_criticidad_negocio === 'Crítico' ? '#DC2626' :
+                                     wizardData.selectedActivo.nivel_criticidad_negocio === 'Alto' ? '#D97706' :
+                                     wizardData.selectedActivo.nivel_criticidad_negocio === 'Medio' ? '#2563EB' : '#6B7280',
+                            }} 
+                          />
+                        </>
+                      )}
+                    </Typography>
+                  </Box>
+                  <Chip 
+                    label={wizardData.newRiesgo.amenaza && wizardData.newRiesgo.vulnerabilidad ? "Riesgo Identificado" : "Sin Riesgo"} 
+                    color={wizardData.newRiesgo.amenaza && wizardData.newRiesgo.vulnerabilidad ? "success" : "default"}
+                    icon={wizardData.newRiesgo.amenaza && wizardData.newRiesgo.vulnerabilidad ? <CheckCircleIcon /> : <WarningIcon />}
+                    sx={{ fontWeight: 500 }}
+                  />
+                </Box>
+              </Alert>
+            )}
+
             <Box sx={{ mb: 3 }}>
               <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', mb: 1 }}>
                 Identifica el riesgo a evaluar
@@ -1608,10 +1944,134 @@ const RiskAssessmentWizard: React.FC = () => {
                       fullWidth
                       freeSolo
                       options={riesgosExistentes}
+                      getOptionLabel={(option) => {
+                        // Si es un string, devolverlo directamente
+                        if (typeof option === 'string') {
+                          return option;
+                        }
+                        // Si es un objeto, extraer el Nombre
+                        if (option && typeof option === 'object') {
+                          return option.Nombre || option.nombre || option.Descripcion || option.descripcion || '';
+                        }
+                        return '';
+                      }}
+                      isOptionEqualToValue={(option, value) => {
+                        // Comparar por ID si ambos son objetos
+                        if (option && value && typeof option === 'object' && typeof value === 'object') {
+                          return (option.ID_Riesgo || option.id) === (value.ID_Riesgo || value.id);
+                        }
+                        // Comparar strings directamente
+                        if (typeof option === 'string' && typeof value === 'string') {
+                          return option === value;
+                        }
+                        // Comparar nombres si uno es objeto y otro string
+                        if (typeof option === 'object' && typeof value === 'string') {
+                          return (option.Nombre || option.nombre || '') === value;
+                        }
+                        if (typeof option === 'string' && typeof value === 'object') {
+                          return option === (value.Nombre || value.nombre || '');
+                        }
+                        return false;
+                      }}
+                      onChange={(event, newValue) => {
+                        if (newValue) {
+                          // Si es un objeto, extraer la información del riesgo
+                          if (typeof newValue === 'object' && newValue !== null) {
+                            const riesgo = newValue as any;
+                            const nombreRiesgo = riesgo.Nombre || riesgo.nombre || '';
+                            const descripcionRiesgo = riesgo.Descripcion || riesgo.descripcion || '';
+                            const tipoRiesgo = riesgo.tipo_riesgo || riesgo.tipoRiesgo || '';
+                            
+                            // Intentar extraer amenaza y vulnerabilidad de la descripción o nombre
+                            // Si el nombre contiene " + " o " - ", puede tener amenaza y vulnerabilidad
+                            let amenazaExtraida = '';
+                            let vulnerabilidadExtraida = '';
+                            
+                            if (nombreRiesgo.includes(' + ') || nombreRiesgo.includes(' - ')) {
+                              const separador = nombreRiesgo.includes(' + ') ? ' + ' : ' - ';
+                              const partes = nombreRiesgo.split(separador);
+                              if (partes.length >= 2) {
+                                amenazaExtraida = partes[0].trim();
+                                vulnerabilidadExtraida = partes.slice(1).join(separador).trim();
+                              }
+                            } else if (descripcionRiesgo) {
+                              // Intentar extraer de la descripción si menciona "amenaza" y "vulnerabilidad"
+                              const amenazaMatch = descripcionRiesgo.match(/amenaza[:\s]+([^,\.]+)/i);
+                              const vulnMatch = descripcionRiesgo.match(/vulnerabilidad[:\s]+([^,\.]+)/i);
+                              if (amenazaMatch) amenazaExtraida = amenazaMatch[1].trim();
+                              if (vulnMatch) vulnerabilidadExtraida = vulnMatch[1].trim();
+                            }
+                            
+                            // Actualizar wizardData con el riesgo seleccionado
+                            setWizardData({
+                              ...wizardData,
+                              newRiesgo: {
+                                amenaza: amenazaExtraida || riesgo.amenaza || '',
+                                vulnerabilidad: vulnerabilidadExtraida || riesgo.vulnerabilidad || '',
+                                descripcion: descripcionRiesgo || nombreRiesgo,
+                                tipoRiesgo: tipoRiesgo
+                              }
+                            });
+                            
+                            if (amenazaExtraida && vulnerabilidadExtraida) {
+                              toast.success(`Riesgo "${nombreRiesgo}" seleccionado. Amenaza y vulnerabilidad extraídas automáticamente.`);
+                            } else {
+                              toast.success(`Riesgo "${nombreRiesgo}" seleccionado. Por favor, completa la amenaza y vulnerabilidad manualmente.`);
+                            }
+                          } else if (typeof newValue === 'string' && newValue.trim()) {
+                            // Si es un string libre, buscar en la lista
+                            const riesgoEncontrado = riesgosExistentes.find(
+                              (r: any) => (r.Nombre || r.nombre || '').toLowerCase() === newValue.toLowerCase()
+                            );
+                            
+                            if (riesgoEncontrado) {
+                              const riesgo = riesgoEncontrado as any;
+                              const nombreRiesgo = riesgo.Nombre || riesgo.nombre || '';
+                              const descripcionRiesgo = riesgo.Descripcion || riesgo.descripcion || '';
+                              
+                              // Intentar extraer amenaza y vulnerabilidad
+                              let amenazaExtraida = '';
+                              let vulnerabilidadExtraida = '';
+                              
+                              if (nombreRiesgo.includes(' + ') || nombreRiesgo.includes(' - ')) {
+                                const separador = nombreRiesgo.includes(' + ') ? ' + ' : ' - ';
+                                const partes = nombreRiesgo.split(separador);
+                                if (partes.length >= 2) {
+                                  amenazaExtraida = partes[0].trim();
+                                  vulnerabilidadExtraida = partes.slice(1).join(separador).trim();
+                                }
+                              }
+                              
+                              setWizardData({
+                                ...wizardData,
+                                newRiesgo: {
+                                  amenaza: amenazaExtraida || riesgo.amenaza || '',
+                                  vulnerabilidad: vulnerabilidadExtraida || riesgo.vulnerabilidad || '',
+                                  descripcion: descripcionRiesgo || nombreRiesgo,
+                                  tipoRiesgo: riesgo.tipo_riesgo || riesgo.tipoRiesgo || ''
+                                }
+                              });
+                              toast.success(`Riesgo "${newValue}" seleccionado`);
+                            }
+                          }
+                        }
+                      }}
+                      filterOptions={(options, params) => {
+                        const filtered = options.filter((option) => {
+                          const label = typeof option === 'string' 
+                            ? option 
+                            : (option as any).Nombre || (option as any).nombre || (option as any).Descripcion || (option as any).descripcion || '';
+                          return label.toLowerCase().includes(params.inputValue.toLowerCase());
+                        });
+                        return filtered;
+                      }}
                       renderInput={(params) => (
                         <TextField
                           {...params}
                           placeholder="Buscar riesgo existente..."
+                          helperText={riesgosExistentes.length > 0 
+                            ? `${riesgosExistentes.length} riesgo${riesgosExistentes.length !== 1 ? 's' : ''} disponible${riesgosExistentes.length !== 1 ? 's' : ''} en la base de datos`
+                            : "Cargando riesgos desde la base de datos..."}
                           InputProps={{
                             ...params.InputProps,
                             startAdornment: (
@@ -1637,24 +2097,62 @@ const RiskAssessmentWizard: React.FC = () => {
                         </Paper>
                       )}
                       renderOption={(props, option) => {
-                        if (!option) return null;
-                        // Material-UI maneja las keys automáticamente a través de props
-                        const optionId = typeof option === 'string' ? option : (option.ID_Riesgo || option.id);
+                        const riesgo = typeof option === 'object' ? option as any : null;
+                        const nombre = riesgo ? (riesgo.Nombre || riesgo.nombre || 'Sin nombre') : (typeof option === 'string' ? option : '');
+                        const descripcion = riesgo ? (riesgo.Descripcion || riesgo.descripcion || '') : '';
+                        const tipo = riesgo ? (riesgo.tipo_riesgo || riesgo.tipoRiesgo || '') : '';
+                        
                         return (
-                          <Box component="li" {...props} data-option-id={optionId} sx={{ py: 1.5, px: 2 }}>
-                            <Typography variant="body1" className="font-roboto" sx={{ color: '#374151' }}>
-                              {option}
-                            </Typography>
+                          <Box
+                            component="li"
+                            {...props}
+                            key={riesgo ? (riesgo.ID_Riesgo || riesgo.id) : nombre}
+                            sx={{
+                              py: 1.5,
+                              px: 2,
+                              '&:hover': {
+                                backgroundColor: '#F3F4F6'
+                              }
+                            }}
+                          >
+                            <Box>
+                              <Typography variant="body1" sx={{ fontWeight: 500, color: '#1E3A8A' }}>
+                                {nombre}
+                              </Typography>
+                              {descripcion && (
+                                <Typography variant="body2" sx={{ color: '#6B7280', mt: 0.5 }}>
+                                  {descripcion.length > 100 ? `${descripcion.substring(0, 100)}...` : descripcion}
+                                </Typography>
+                              )}
+                              {tipo && (
+                                <Chip 
+                                  label={tipo} 
+                                  size="small" 
+                                  sx={{ 
+                                    mt: 0.5, 
+                                    height: 20,
+                                    fontSize: '0.7rem',
+                                    backgroundColor: '#E0E7FF',
+                                    color: '#1E3A8A'
+                                  }} 
+                                />
+                              )}
+                            </Box>
                           </Box>
                         );
                       }}
                       noOptionsText={
-                        <Box sx={{ textAlign: 'center', py: 2 }}>
-                          <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280' }}>
-                            No se encontraron riesgos
+                        <Box sx={{ py: 2, px: 2 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            No se encontraron riesgos. Puedes crear uno nuevo usando el botón "Crear Nuevo Riesgo"
                           </Typography>
                         </Box>
                       }
+                      ListboxProps={{
+                        style: {
+                          maxHeight: '400px',
+                        }
+                      }}
                     />
                   </CardContent>
                 </Card>
@@ -1700,66 +2198,100 @@ const RiskAssessmentWizard: React.FC = () => {
                 {/* Detalles del Riesgo */}
                 <Card className="card">
               <CardContent sx={{ p: 4 }}>
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', mb: 1 }}>
-                    Detalles del Riesgo
-                  </Typography>
-                  <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280', fontSize: '0.875rem' }}>
-                    Los campos marcados con <span style={{ color: '#EF4444' }}>*</span> son obligatorios
-                  </Typography>
+                <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', mb: 1 }}>
+                      Detalles del Riesgo
+                    </Typography>
+                    <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280', fontSize: '0.875rem' }}>
+                      Los campos marcados con <span style={{ color: '#EF4444' }}>*</span> son obligatorios
+                    </Typography>
+                  </Box>
+                  {wizardData.newRiesgo.amenaza && wizardData.newRiesgo.vulnerabilidad && (
+                    <Chip 
+                      label="Riesgo Completo" 
+                      color="success" 
+                      icon={<CheckCircleIcon />}
+                      sx={{ fontWeight: 500 }}
+                    />
+                  )}
                 </Box>
                 <Grid container spacing={3}>
                   <Grid item xs={12} md={6}>
-                    <FormControl fullWidth required>
-                      <InputLabel>Amenaza *</InputLabel>
-                      <Select
-                        value={wizardData.newRiesgo.amenaza}
-                        onChange={(e) => setWizardData({
+                    <Autocomplete
+                      freeSolo
+                      options={amenazasDisponibles}
+                      value={wizardData.newRiesgo.amenaza}
+                      onInputChange={(event, newValue) => {
+                        setWizardData({
                           ...wizardData,
-                          newRiesgo: { ...wizardData.newRiesgo, amenaza: e.target.value }
-                        })}
-                        label="Amenaza *"
-                        sx={{ borderRadius: '12px' }}
-                      >
-                        <MenuItem value="">
-                          <em>Seleccionar amenaza...</em>
-                        </MenuItem>
-                        <MenuItem value="Malware">Malware</MenuItem>
-                        <MenuItem value="Ataques de Phishing">Ataques de Phishing</MenuItem>
-                        <MenuItem value="Acceso No Autorizado">Acceso No Autorizado</MenuItem>
-                        <MenuItem value="Pérdida de Datos">Pérdida de Datos</MenuItem>
-                        <MenuItem value="Interrupción del Servicio">Interrupción del Servicio</MenuItem>
-                        <MenuItem value="Acceso Físico No Controlado">Acceso Físico No Controlado</MenuItem>
-                        <MenuItem value="Ingeniería Social">Ingeniería Social</MenuItem>
-                        <MenuItem value="Ataques DDoS">Ataques DDoS</MenuItem>
-                      </Select>
-                    </FormControl>
+                          newRiesgo: { ...wizardData.newRiesgo, amenaza: newValue || '' }
+                        });
+                      }}
+                      onChange={(event, newValue) => {
+                        setWizardData({
+                          ...wizardData,
+                          newRiesgo: { ...wizardData.newRiesgo, amenaza: newValue || '' }
+                        });
+                      }}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Amenaza *"
+                          required
+                          helperText={amenazasDisponibles.length > 0 
+                            ? `${amenazasDisponibles.length} amenazas disponibles. Escribe para buscar o crear una nueva.`
+                            : "Cargando amenazas desde la base de datos..."}
+                          sx={{ borderRadius: '12px' }}
+                        />
+                      )}
+                      renderOption={(props, option) => (
+                        <Box component="li" {...props} sx={{ py: 1.5, px: 2 }}>
+                          <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                            {option}
+                          </Typography>
+                        </Box>
+                      )}
+                      noOptionsText="Escribe para crear una nueva amenaza"
+                    />
                   </Grid>
                   <Grid item xs={12} md={6}>
-                    <FormControl fullWidth required>
-                      <InputLabel>Vulnerabilidad *</InputLabel>
-                      <Select
-                        value={wizardData.newRiesgo.vulnerabilidad}
-                        onChange={(e) => setWizardData({
+                    <Autocomplete
+                      freeSolo
+                      options={vulnerabilidadesDisponibles.map(v => v.nombre || v)}
+                      value={wizardData.newRiesgo.vulnerabilidad}
+                      onInputChange={(event, newValue) => {
+                        setWizardData({
                           ...wizardData,
-                          newRiesgo: { ...wizardData.newRiesgo, vulnerabilidad: e.target.value }
-                        })}
-                        label="Vulnerabilidad *"
-                        sx={{ borderRadius: '12px' }}
-                      >
-                        <MenuItem value="">
-                          <em>Seleccionar vulnerabilidad...</em>
-                        </MenuItem>
-                        <MenuItem value="Configuración Insegura">Configuración Insegura</MenuItem>
-                        <MenuItem value="Software Desactualizado">Software Desactualizado</MenuItem>
-                        <MenuItem value="Falta de Autenticación">Falta de Autenticación</MenuItem>
-                        <MenuItem value="Acceso Físico No Controlado">Acceso Físico No Controlado</MenuItem>
-                        <MenuItem value="Falta de Respaldo">Falta de Respaldo</MenuItem>
-                        <MenuItem value="Contraseñas Débiles">Contraseñas Débiles</MenuItem>
-                        <MenuItem value="Falta de Cifrado">Falta de Cifrado</MenuItem>
-                        <MenuItem value="Ausencia de Monitoreo">Ausencia de Monitoreo</MenuItem>
-                      </Select>
-                    </FormControl>
+                          newRiesgo: { ...wizardData.newRiesgo, vulnerabilidad: newValue || '' }
+                        });
+                      }}
+                      onChange={(event, newValue) => {
+                        setWizardData({
+                          ...wizardData,
+                          newRiesgo: { ...wizardData.newRiesgo, vulnerabilidad: newValue || '' }
+                        });
+                      }}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Vulnerabilidad *"
+                          required
+                          helperText={vulnerabilidadesDisponibles.length > 0 
+                            ? `${vulnerabilidadesDisponibles.length} vulnerabilidades disponibles. Escribe para buscar o crear una nueva.`
+                            : "Cargando vulnerabilidades desde la base de datos..."}
+                          sx={{ borderRadius: '12px' }}
+                        />
+                      )}
+                      renderOption={(props, option) => (
+                        <Box component="li" {...props} sx={{ py: 1.5, px: 2 }}>
+                          <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                            {option}
+                          </Typography>
+                        </Box>
+                      )}
+                      noOptionsText="Escribe para crear una nueva vulnerabilidad"
+                    />
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <FormControl fullWidth required>
@@ -1831,7 +2363,89 @@ const RiskAssessmentWizard: React.FC = () => {
               </CardContent>
             </Card>
 
-            {/* Vinculación de Amenaza y Vulnerabilidad */}
+            {/* Resumen del Riesgo Identificado - Solo se muestra cuando hay amenaza y vulnerabilidad */}
+            {wizardData.newRiesgo.amenaza && wizardData.newRiesgo.vulnerabilidad && (
+              <Card className="card" sx={{ mt: 3, border: '2px solid #10B981', backgroundColor: '#F0FDF4' }}>
+                <CardContent sx={{ p: 3 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CheckCircleIcon sx={{ color: '#10B981', fontSize: 28 }} />
+                      <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', fontWeight: 600 }}>
+                        Riesgo Identificado y Registrado
+                      </Typography>
+                    </Box>
+                    <Chip 
+                      label="Listo para Evaluar" 
+                      color="success" 
+                      sx={{ fontWeight: 600 }}
+                    />
+                  </Box>
+                  
+                  <Divider sx={{ my: 2 }} />
+                  
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={6}>
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem' }}>
+                          Amenaza Identificada
+                        </Typography>
+                        <Typography variant="body1" sx={{ color: '#1E3A8A', fontWeight: 500, mt: 0.5 }}>
+                          {wizardData.newRiesgo.amenaza}
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem' }}>
+                          Vulnerabilidad Identificada
+                        </Typography>
+                        <Typography variant="body1" sx={{ color: '#1E3A8A', fontWeight: 500, mt: 0.5 }}>
+                          {wizardData.newRiesgo.vulnerabilidad}
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    {wizardData.newRiesgo.descripcion && (
+                      <Grid item xs={12}>
+                        <Box>
+                          <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem' }}>
+                            Descripción del Riesgo
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: '#374151', mt: 0.5 }}>
+                            {wizardData.newRiesgo.descripcion}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                    )}
+                    {wizardData.newRiesgo.tipoRiesgo && (
+                      <Grid item xs={12}>
+                        <Box>
+                          <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem' }}>
+                            Tipo de Riesgo
+                          </Typography>
+                          <Chip 
+                            label={wizardData.newRiesgo.tipoRiesgo} 
+                            sx={{ 
+                              mt: 0.5,
+                              backgroundColor: '#E0E7FF',
+                              color: '#1E3A8A',
+                              fontWeight: 500
+                            }} 
+                          />
+                        </Box>
+                      </Grid>
+                    )}
+                  </Grid>
+                  
+                  <Alert severity="success" sx={{ mt: 2, borderRadius: '8px' }}>
+                    <Typography variant="body2">
+                      <strong>✓ Riesgo registrado correctamente.</strong> Puedes continuar al siguiente paso para evaluar la probabilidad e impacto.
+                    </Typography>
+                  </Alert>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Vinculación Visual de Amenaza y Vulnerabilidad - Solo si hay datos */}
             {wizardData.newRiesgo.amenaza && wizardData.newRiesgo.vulnerabilidad && (
               <Box sx={{ mt: 3 }}>
                 <ThreatVulnerabilityLink
@@ -1839,8 +2453,8 @@ const RiskAssessmentWizard: React.FC = () => {
                   vulnerability={wizardData.newRiesgo.vulnerabilidad}
                   riskDescription={wizardData.newRiesgo.descripcion}
                   onEdit={() => {
-                    // Lógica para editar la vinculación
-                    console.log('Editar vinculación');
+                    // Scroll a los campos de amenaza y vulnerabilidad
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                 />
               </Box>
@@ -1851,25 +2465,37 @@ const RiskAssessmentWizard: React.FC = () => {
               <Box sx={{ mt: 3 }}>
                 <TwinAssetSuggestion
                   currentAsset={{
+                    ...wizardData.selectedActivo,
                     nombre: wizardData.selectedActivo.nombre || wizardData.selectedActivo.Nombre || 'Sin nombre',
-                    tipo: wizardData.selectedActivo.tipo || 'servidor',
+                    tipo: wizardData.selectedActivo.tipo || wizardData.selectedActivo.Tipo_Activo || 'servidor',
                     descripcion: wizardData.selectedActivo.descripcion || wizardData.selectedActivo.Descripcion || 'Sin descripción'
                   }}
                   onCloneEvaluation={(twinAsset) => {
-                    // Clonar la evaluación del activo gemelo
+                    // Clonar la evaluación del activo gemelo con todos los datos
                     setWizardData({
                       ...wizardData,
                       newRiesgo: {
-                        amenaza: twinAsset.evaluacionExistente.amenaza,
-                        vulnerabilidad: twinAsset.evaluacionExistente.vulnerabilidad,
-                        descripcion: twinAsset.evaluacionExistente.justificacion
+                        amenaza: twinAsset.evaluacionExistente.amenaza || '',
+                        vulnerabilidad: twinAsset.evaluacionExistente.vulnerabilidad || '',
+                        descripcion: twinAsset.evaluacionExistente.justificacion || '',
+                        tipoRiesgo: 'Tecnológico' // Por defecto, puede ajustarse
+                      },
+                      evaluacionInherente: {
+                        ...wizardData.evaluacionInherente,
+                        probabilidad: twinAsset.evaluacionExistente.probabilidad || wizardData.evaluacionInherente.probabilidad,
+                        impacto: twinAsset.evaluacionExistente.impacto || wizardData.evaluacionInherente.impacto,
+                        nivelRiesgo: twinAsset.evaluacionExistente.nivelRiesgo || wizardData.evaluacionInherente.nivelRiesgo,
+                        justificacion: twinAsset.evaluacionExistente.justificacion || wizardData.evaluacionInherente.justificacion
                       },
                       controles: {
                         ...wizardData.controles,
-                        seleccionados: twinAsset.evaluacionExistente.controles,
-                        justificacion: twinAsset.evaluacionExistente.justificacion
+                        seleccionados: twinAsset.evaluacionExistente.controles || [],
+                        justificacion: twinAsset.evaluacionExistente.justificacion || wizardData.controles.justificacion
                       }
                     });
+                    
+                    // Mostrar mensaje de éxito
+                    toast.success(`Evaluación clonada de "${twinAsset.nombre}" exitosamente`);
                   }}
                 />
               </Box>
@@ -1881,8 +2507,8 @@ const RiskAssessmentWizard: React.FC = () => {
               <Grid item xs={12} md={4}>
                 {wizardData.selectedActivo ? (
                   <InteractiveSuggestions
-                    assetType={wizardData.selectedActivo.tipo || 'servidor'}
-                    context={`Activo: ${wizardData.selectedActivo.nombre || wizardData.selectedActivo.Nombre || 'Sin nombre'}`}
+                    assetType={wizardData.selectedActivo}
+                    context={`Activo: ${wizardData.selectedActivo.nombre || wizardData.selectedActivo.Nombre || 'Sin nombre'} - ${wizardData.selectedActivo.descripcion || wizardData.selectedActivo.Descripcion || ''}`}
                     selectedThreat={wizardData.newRiesgo.amenaza}
                     selectedVulnerability={wizardData.newRiesgo.vulnerabilidad}
                     onSuggestionSelect={(suggestion) => {
@@ -1954,6 +2580,8 @@ const RiskAssessmentWizard: React.FC = () => {
                   evaluacionInherente: data
                 }));
               }}
+              amenaza={wizardData.newRiesgo.amenaza}
+              controles={wizardData.controles.seleccionados || []}
             />
           </Box>
         );
@@ -2112,6 +2740,9 @@ const RiskAssessmentWizard: React.FC = () => {
                   {/* Sugerencias Predictivas */}
                   {wizardData.selectedActivo && (
                     <ControlSuggestions
+                      threatName={wizardData.newRiesgo.amenaza}
+                      vulnerabilityName={wizardData.newRiesgo.vulnerabilidad}
+                      riskDescription={wizardData.newRiesgo.descripcion}
                       assetType={wizardData.selectedActivo.tipo || wizardData.selectedActivo.Tipo_Activo || 'Hardware'}
                       threatType={wizardData.newRiesgo.amenaza}
                       vulnerabilityType={wizardData.newRiesgo.vulnerabilidad}
@@ -2298,10 +2929,11 @@ const RiskAssessmentWizard: React.FC = () => {
             
             <Grid container spacing={3}>
               {/* Evaluación Inherente */}
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12} md={4}>
                 <Card className="card" sx={{ 
                   background: 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)',
-                  border: '2px solid #F59E0B'
+                  border: '2px solid #F59E0B',
+                  height: '100%'
                 }}>
                   <CardContent sx={{ p: 3 }}>
                     <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', mb: 2, textAlign: 'center' }}>
@@ -2344,10 +2976,11 @@ const RiskAssessmentWizard: React.FC = () => {
               </Grid>
 
               {/* Evaluación Residual */}
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12} md={4}>
                 <Card className="card" sx={{ 
                   background: 'linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%)',
-                  border: '2px solid #3B82F6'
+                  border: '2px solid #3B82F6',
+                  height: '100%'
                 }}>
                   <CardContent sx={{ p: 3 }}>
                     <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', mb: 2, textAlign: 'center' }}>
@@ -2440,6 +3073,55 @@ const RiskAssessmentWizard: React.FC = () => {
                   </CardContent>
                 </Card>
               </Grid>
+
+              {/* Sugerencias de Justificación Residual - A la derecha */}
+              <Grid item xs={12} md={4}>
+                <Card className="card" sx={{ 
+                  border: '2px solid #1E3A8A',
+                  height: '100%',
+                  maxHeight: '600px',
+                  overflow: 'auto'
+                }}>
+                  <CardContent sx={{ p: 2.5 }}>
+                    {wizardData.controles.seleccionados.length > 0 && 
+                     wizardData.evaluacionResidual.probabilidad && 
+                     wizardData.evaluacionResidual.impacto ? (
+                      <ResidualJustificationSuggestions
+                        inherentRisk={{
+                          probabilidad: wizardData.evaluacionInherente.probabilidad || '',
+                          impacto: wizardData.evaluacionInherente.impacto || '',
+                          nivel: wizardData.evaluacionInherente.nivelRiesgo || ''
+                        }}
+                        residualRisk={{
+                          probabilidad: wizardData.evaluacionResidual.probabilidad || '',
+                          impacto: wizardData.evaluacionResidual.impacto || '',
+                          nivel: wizardData.evaluacionResidual.nivelRiesgo || ''
+                        }}
+                        selectedControls={wizardData.controles.seleccionados}
+                        onJustificationSelect={(justificationText) => {
+                          setWizardData((prev) => ({
+                            ...prev,
+                            evaluacionResidual: {
+                              ...prev.evaluacionResidual,
+                              justificacion: prev.evaluacionResidual.justificacion
+                                ? `${prev.evaluacionResidual.justificacion}\n\n${justificationText}`
+                                : justificationText
+                            }
+                          }));
+                        }}
+                      />
+                    ) : (
+                      <Alert severity="info" sx={{ borderRadius: '8px' }}>
+                        <Typography variant="body2">
+                          {!wizardData.evaluacionResidual.probabilidad || !wizardData.evaluacionResidual.impacto
+                            ? 'Completa la evaluación residual para ver sugerencias de justificación basadas en normativa ISO 27005.'
+                            : 'Selecciona controles para ver sugerencias de justificación.'}
+                        </Typography>
+                      </Alert>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
             </Grid>
 
             {/* Comparación Visual */}
@@ -2485,13 +3167,24 @@ const RiskAssessmentWizard: React.FC = () => {
               </CardContent>
             </Card>
 
+            {/* Justificación de la Evaluación Residual */}
             <Card className="card" sx={{ mt: 3 }}>
               <CardContent sx={{ p: 3 }}>
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', mb: 1 }}>
+                    Justificación de la Evaluación Residual
+                  </Typography>
+                  <Alert severity="info" sx={{ borderRadius: '8px', mb: 2 }}>
+                    <Typography variant="body2">
+                      <strong>💡 Tip:</strong> Usa las sugerencias de normatividad ISO 27005 a la derecha. Al hacer clic en una sugerencia, se cargará automáticamente aquí. Puedes complementar o editar el texto según sea necesario.
+                    </Typography>
+                  </Alert>
+                </Box>
                 <TextField
                   fullWidth
                   multiline
-                  rows={3}
-                  label="Justificación de la Evaluación Residual"
+                  rows={6}
+                  placeholder="Explica cómo los controles implementados han reducido el riesgo desde el nivel inherente al residual. Incluye referencias a normativa ISO 27005 cuando sea relevante..."
                   value={wizardData.evaluacionResidual.justificacion || ''}
                   onChange={(e) => {
                     const newValue = e.target.value;
@@ -2500,36 +3193,26 @@ const RiskAssessmentWizard: React.FC = () => {
                       evaluacionResidual: { ...prev.evaluacionResidual, justificacion: newValue }
                     }));
                   }}
-                  sx={{ borderRadius: '12px' }}
+                  sx={{ 
+                    borderRadius: '12px',
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#1E3A8A',
+                      },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#1E3A8A',
+                        borderWidth: 2,
+                      },
+                    },
+                  }}
                 />
+                {wizardData.evaluacionResidual.justificacion && (
+                  <Typography variant="caption" className="font-roboto" sx={{ color: '#6B7280', mt: 1, display: 'block' }}>
+                    ✓ Puedes complementar o editar esta justificación según tus necesidades específicas.
+                  </Typography>
+                )}
               </CardContent>
             </Card>
-
-            {/* Sugerencias de Riesgo Residual */}
-            {wizardData.controles.seleccionados.length > 0 && (
-              <Box sx={{ mt: 3 }}>
-                <ResidualRiskSuggestions
-                  inherentRisk={{
-                    probabilidad: wizardData.evaluacionInherente.probabilidad || 'Media',
-                    impacto: wizardData.evaluacionInherente.impacto || 'Medio',
-                    nivel: wizardData.evaluacionInherente.nivelRiesgo || 'MEDIUM'
-                  }}
-                  selectedControls={wizardData.controles.seleccionados}
-                  onSuggestionSelect={(suggestion) => {
-                    setWizardData({
-                      ...wizardData,
-                      evaluacionResidual: {
-                        ...wizardData.evaluacionResidual,
-                        probabilidad: suggestion.probabilidad,
-                        impacto: suggestion.impacto,
-                        nivelRiesgo: suggestion.nivel,
-                        justificacion: suggestion.justificacion
-                      }
-                    });
-                  }}
-                />
-              </Box>
-            )}
           </Box>
         );
 
@@ -2852,19 +3535,126 @@ const RiskAssessmentWizard: React.FC = () => {
                     </Typography>
                     <List>
                       {wizardData.planAccion.acciones.map((accion, accionIndex) => (
-                        <ListItem key={accion.id || `accion-${accionIndex}-${accion.descripcion}`} sx={{ px: 0 }}>
-                          <ListItemText
-                            primary={
-                              <Typography variant="body1" className="font-roboto" sx={{ color: '#374151', fontWeight: 500 }}>
-                                {accion.descripcion}
+                        <ListItem key={accion.id || `accion-${accionIndex}-${accion.descripcion}`} sx={{ px: 0, flexDirection: 'column', alignItems: 'flex-start' }}>
+                          <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <ListItemText
+                              primary={
+                                <Typography variant="body1" className="font-roboto" sx={{ color: '#374151', fontWeight: 500 }}>
+                                  {accion.descripcion || accion.titulo}
+                                </Typography>
+                              }
+                              secondary={
+                                <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280' }}>
+                                  {accion.responsable} • {accion.estado}
+                                  {accion.fechaInicio && accion.fechaFin && ` • ${accion.fechaInicio} - ${accion.fechaFin}`}
+                                </Typography>
+                              }
+                            />
+                          </Box>
+                          {/* Documentos adjuntos de esta acción */}
+                          {accion.documentos && accion.documentos.length > 0 && (
+                            <Box sx={{ width: '100%', mt: 1, pl: 2, borderLeft: '3px solid #1E3A8A' }}>
+                              <Typography variant="caption" className="font-roboto" sx={{ color: '#6B7280', fontWeight: 500, display: 'block', mb: 1 }}>
+                                📎 Documentos: {accion.documentos.length} archivo(s)
                               </Typography>
-                            }
-                            secondary={
-                              <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280' }}>
-                                {accion.responsable} • {accion.estado}
-                              </Typography>
-                            }
-                          />
+                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                {accion.documentos.map((doc: any, docIndex: number) => {
+                                  const docUrl = doc.url || doc.id 
+                                    ? (doc.url?.startsWith('http') 
+                                        ? doc.url 
+                                        : `${window.location.origin}${doc.url || `/api/documentos/descargar/${doc.id}`}`)
+                                    : null;
+                                  const docNombre = doc.nombre || doc.nombre_original || doc.name || `Documento ${docIndex + 1}`;
+                                  
+                                  return (
+                                    <Box 
+                                      key={doc.id || `doc-${accionIndex}-${docIndex}`}
+                                      sx={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: 1,
+                                        p: 1,
+                                        borderRadius: '4px',
+                                        '&:hover': { backgroundColor: '#F3F4F6' }
+                                      }}
+                                    >
+                                      {doc.tipo?.includes('pdf') ? <PdfIcon sx={{ color: '#DC2626', fontSize: 20 }} /> :
+                                       doc.tipo?.includes('word') || doc.nombre?.includes('.doc') ? <WordIcon sx={{ color: '#2563EB', fontSize: 20 }} /> :
+                                       doc.tipo?.includes('excel') || doc.nombre?.includes('.xls') ? <ExcelIcon sx={{ color: '#059669', fontSize: 20 }} /> :
+                                       doc.tipo?.includes('image') ? <ImageIcon sx={{ color: '#7C3AED', fontSize: 20 }} /> :
+                                       <FileIcon sx={{ color: '#6B7280', fontSize: 20 }} />}
+                                      <Typography 
+                                        variant="body2" 
+                                        className="font-roboto" 
+                                        sx={{ 
+                                          color: '#1E3A8A', 
+                                          cursor: 'pointer',
+                                          textDecoration: 'underline',
+                                          flex: 1,
+                                          '&:hover': { color: '#0F172A' }
+                                        }}
+                                        onClick={() => {
+                                          if (docUrl) {
+                                            window.open(docUrl, '_blank');
+                                          } else {
+                                            toast.error('URL del documento no disponible');
+                                          }
+                                        }}
+                                      >
+                                        {docNombre}
+                                      </Typography>
+                                      {docUrl && (
+                                        <>
+                                          <IconButton
+                                            size="small"
+                                            onClick={() => window.open(docUrl, '_blank')}
+                                            sx={{ color: '#1E3A8A' }}
+                                            title="Ver en ventana emergente"
+                                          >
+                                            <VisibilityIcon fontSize="small" />
+                                          </IconButton>
+                                          <IconButton
+                                            size="small"
+                                            onClick={async () => {
+                                              try {
+                                                const response = await fetch(docUrl, {
+                                                  method: 'GET',
+                                                  headers: {
+                                                    'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+                                                  }
+                                                });
+                                                if (response.ok) {
+                                                  const blob = await response.blob();
+                                                  const downloadUrl = window.URL.createObjectURL(blob);
+                                                  const link = document.createElement('a');
+                                                  link.href = downloadUrl;
+                                                  link.download = docNombre;
+                                                  document.body.appendChild(link);
+                                                  link.click();
+                                                  document.body.removeChild(link);
+                                                  window.URL.revokeObjectURL(downloadUrl);
+                                                  toast.success('Documento descargado');
+                                                } else {
+                                                  window.open(docUrl, '_blank');
+                                                }
+                                              } catch (error) {
+                                                console.error('Error descargando:', error);
+                                                window.open(docUrl, '_blank');
+                                              }
+                                            }}
+                                            sx={{ color: '#1E3A8A' }}
+                                            title="Descargar documento"
+                                          >
+                                            <DownloadIcon fontSize="small" />
+                                          </IconButton>
+                                        </>
+                                      )}
+                                    </Box>
+                                  );
+                                })}
+                              </Box>
+                            </Box>
+                          )}
                         </ListItem>
                       ))}
                     </List>
@@ -2876,6 +3666,152 @@ const RiskAssessmentWizard: React.FC = () => {
                 )}
               </CardContent>
             </Card>
+
+            {/* Documentos Adjuntos - Resumen Completo */}
+            {(() => {
+              // Recopilar todos los documentos de todas las acciones
+              const todosDocumentos: any[] = [];
+              wizardData.planAccion.acciones.forEach((accion: any) => {
+                if (accion.documentos && accion.documentos.length > 0) {
+                  accion.documentos.forEach((doc: any) => {
+                    todosDocumentos.push({
+                      ...doc,
+                      accion: accion.descripcion || accion.titulo || `Acción ${accion.id || ''}`
+                    });
+                  });
+                }
+              });
+              
+              return todosDocumentos.length > 0 ? (
+                <Card className="card" sx={{ mb: 3, border: '2px solid #1E3A8A' }}>
+                  <CardContent sx={{ p: 3 }}>
+                    <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <AttachFileIcon /> Documentos Adjuntos ({todosDocumentos.length})
+                    </Typography>
+                    <List dense sx={{ bgcolor: '#F9FAFB', borderRadius: '8px', p: 1 }}>
+                      {todosDocumentos.map((documento, docIndex) => {
+                        const docUrl = documento.url || documento.id 
+                          ? (documento.url?.startsWith('http') 
+                              ? documento.url 
+                              : `${window.location.origin}${documento.url || `/api/documentos/descargar/${documento.id}`}`)
+                          : null;
+                        const docNombre = documento.nombre || documento.nombre_original || documento.name || `Documento ${docIndex + 1}`;
+                        
+                        return (
+                          <ListItem 
+                            key={documento.id || `doc-summary-${docIndex}-${docNombre}`} 
+                            sx={{ 
+                              py: 1.5,
+                              borderBottom: docIndex < todosDocumentos.length - 1 ? '1px solid #E5E7EB' : 'none',
+                              '&:hover': { backgroundColor: '#F3F4F6' }
+                            }}
+                          >
+                            <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
+                              {documento.tipo?.includes('pdf') || docNombre.includes('.pdf') ? <PdfIcon sx={{ color: '#DC2626', fontSize: 28 }} /> :
+                               documento.tipo?.includes('word') || docNombre.includes('.doc') ? <WordIcon sx={{ color: '#2563EB', fontSize: 28 }} /> :
+                               documento.tipo?.includes('excel') || docNombre.includes('.xls') ? <ExcelIcon sx={{ color: '#059669', fontSize: 28 }} /> :
+                               documento.tipo?.includes('image') ? <ImageIcon sx={{ color: '#7C3AED', fontSize: 28 }} /> :
+                               <FileIcon sx={{ color: '#6B7280', fontSize: 28 }} />}
+                            </Box>
+                            <ListItemText
+                              primary={
+                                <Box>
+                                  <Typography 
+                                    variant="body2" 
+                                    className="font-roboto" 
+                                    sx={{ 
+                                      fontWeight: 500, 
+                                      color: docUrl ? '#1E3A8A' : '#6B7280', 
+                                      cursor: docUrl ? 'pointer' : 'default',
+                                      textDecoration: docUrl ? 'underline' : 'none',
+                                      '&:hover': docUrl ? { color: '#0F172A' } : {}
+                                    }}
+                                    onClick={() => {
+                                      if (docUrl) {
+                                        window.open(docUrl, '_blank');
+                                      } else {
+                                        toast.error('URL del documento no disponible');
+                                      }
+                                    }}
+                                  >
+                                    {docNombre}
+                                  </Typography>
+                                  <Typography variant="caption" className="font-roboto" sx={{ color: '#6B7280', display: 'block', mt: 0.5 }}>
+                                    📋 Acción: {documento.accion}
+                                  </Typography>
+                                </Box>
+                              }
+                              secondary={
+                                <Typography variant="caption" className="font-roboto" sx={{ color: '#6B7280', display: 'block', mt: 0.5 }}>
+                                  {documento.tamaño || documento.tamaño_bytes 
+                                    ? documentosService.formatearTamaño(documento.tamaño || documento.tamaño_bytes) 
+                                    : 'Tamaño no disponible'} • 
+                                  {documento.fechaSubida || documento.fecha_subida 
+                                    ? new Date(documento.fechaSubida || documento.fecha_subida).toLocaleDateString('es-ES', { 
+                                        year: 'numeric', 
+                                        month: 'long', 
+                                        day: 'numeric' 
+                                      })
+                                    : 'Fecha no disponible'}
+                                  {documento.descripcion && ` • ${documento.descripcion}`}
+                                </Typography>
+                              }
+                            />
+                            {docUrl && (
+                              <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => window.open(docUrl, '_blank')}
+                                  sx={{ color: '#1E3A8A', '&:hover': { backgroundColor: '#E0E7FF' } }}
+                                  title="Ver en ventana emergente"
+                                >
+                                  <VisibilityIcon />
+                                </IconButton>
+                                <IconButton
+                                  size="small"
+                                  onClick={async () => {
+                                    try {
+                                      const response = await fetch(docUrl, {
+                                        method: 'GET',
+                                        headers: {
+                                          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+                                        }
+                                      });
+                                      if (response.ok) {
+                                        const blob = await response.blob();
+                                        const downloadUrl = window.URL.createObjectURL(blob);
+                                        const link = document.createElement('a');
+                                        link.href = downloadUrl;
+                                        link.download = docNombre;
+                                        document.body.appendChild(link);
+                                        link.click();
+                                        document.body.removeChild(link);
+                                        window.URL.revokeObjectURL(downloadUrl);
+                                        toast.success('Documento descargado exitosamente');
+                                      } else {
+                                        window.open(docUrl, '_blank');
+                                      }
+                                    } catch (error) {
+                                      console.error('Error descargando documento:', error);
+                                      toast.error('Error al descargar. Abriendo en nueva ventana...');
+                                      window.open(docUrl, '_blank');
+                                    }
+                                  }}
+                                  sx={{ color: '#1E3A8A', '&:hover': { backgroundColor: '#E0E7FF' } }}
+                                  title="Descargar documento"
+                                >
+                                  <DownloadIcon />
+                                </IconButton>
+                              </Box>
+                            )}
+                          </ListItem>
+                        );
+                      })}
+                    </List>
+                  </CardContent>
+                </Card>
+              ) : null;
+            })()}
 
             {/* Recomendaciones */}
             <Card className="card" sx={{ mb: 3 }}>
@@ -3544,143 +4480,283 @@ const RiskAssessmentWizard: React.FC = () => {
         {/* Contenido del formulario */}
         <DialogContent sx={{ p: 0 }}>
           <Box sx={{ p: 4, pt: 3 }}>
-            <Grid container spacing={3}>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Nombre del Riesgo *"
-                  value={riesgoFormData.nombre}
-                  onChange={(e) => setRiesgoFormData({ ...riesgoFormData, nombre: e.target.value })}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: '12px',
-                      backgroundColor: '#F9FAFB',
-                      '& fieldset': {
-                        borderColor: '#E5E7EB',
-                        borderWidth: '2px'
-                      },
-                      '&:hover fieldset': {
-                        borderColor: '#1E3A8A',
-                      },
-                      '&.Mui-focused fieldset': {
-                        borderColor: '#1E3A8A',
-                        borderWidth: '2px'
-                      }
+            <Stack spacing={3}>
+              {/* Nombre del Riesgo */}
+              <TextField
+                fullWidth
+                label="Nombre del Riesgo *"
+                value={riesgoFormData.nombre}
+                onChange={(e) => setRiesgoFormData({ ...riesgoFormData, nombre: e.target.value })}
+                helperText="Ingresa un nombre descriptivo para el riesgo"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '12px',
+                    backgroundColor: '#F9FAFB',
+                    '& fieldset': {
+                      borderColor: '#E5E7EB',
+                      borderWidth: '2px'
                     },
-                    '& .MuiInputLabel-root.Mui-focused': {
-                      color: '#1E3A8A'
+                    '&:hover fieldset': {
+                      borderColor: '#1E3A8A',
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: '#1E3A8A',
+                      borderWidth: '2px'
                     }
-                  }}
-                  placeholder="Ej: Pérdida de datos por acceso no autorizado"
-                />
-              </Grid>
+                  },
+                  '& .MuiInputLabel-root.Mui-focused': {
+                    color: '#1E3A8A'
+                  }
+                }}
+                placeholder="Ej: Pérdida de datos por acceso no autorizado"
+              />
               
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel sx={{ 
-                    '&.Mui-focused': { color: '#1E3A8A' }
-                  }}>Amenaza *</InputLabel>
-                  <Select
-                    value={riesgoFormData.amenaza}
-                    onChange={(e) => setRiesgoFormData({ ...riesgoFormData, amenaza: e.target.value })}
+              {/* Amenaza con Autocomplete mejorado */}
+              <Autocomplete
+                freeSolo
+                options={amenazasDisponibles}
+                value={riesgoFormData.amenaza}
+                onInputChange={(event, newValue) => {
+                  setRiesgoFormData({ ...riesgoFormData, amenaza: newValue || '' });
+                }}
+                onChange={(event, newValue) => {
+                  setRiesgoFormData({ ...riesgoFormData, amenaza: newValue || '' });
+                }}
+                ListboxProps={{
+                  style: {
+                    maxHeight: '300px',
+                  }
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
                     label="Amenaza *"
+                    required
+                    helperText={
+                      amenazasDisponibles.length > 0 
+                        ? `${amenazasDisponibles.length} amenaza${amenazasDisponibles.length !== 1 ? 's' : ''} disponible${amenazasDisponibles.length !== 1 ? 's' : ''} en la base de datos. Escribe para buscar o crear una nueva.`
+                        : "Cargando amenazas desde la base de datos..."
+                    }
                     sx={{
-                      borderRadius: '12px',
-                      backgroundColor: '#F9FAFB',
-                      '& .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#E5E7EB',
-                        borderWidth: '2px'
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: '12px',
+                        backgroundColor: '#F9FAFB',
+                        '& fieldset': {
+                          borderColor: '#E5E7EB',
+                          borderWidth: '2px'
+                        },
+                        '&:hover fieldset': {
+                          borderColor: '#1E3A8A'
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: '#1E3A8A',
+                          borderWidth: '2px'
+                        }
                       },
-                      '&:hover .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#1E3A8A'
-                      },
-                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#1E3A8A',
-                        borderWidth: '2px'
+                      '& .MuiInputLabel-root.Mui-focused': {
+                        color: '#1E3A8A'
+                      }
+                    }}
+                    placeholder="Escribe o selecciona una amenaza de la lista"
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <Box
+                    component="li"
+                    {...props}
+                    key={option}
+                    sx={{
+                      py: 1.5,
+                      px: 2,
+                      '&:hover': {
+                        backgroundColor: '#F3F4F6'
                       }
                     }}
                   >
-                    <MenuItem value="Malware">Malware</MenuItem>
-                    <MenuItem value="Ataques de Phishing">Ataques de Phishing</MenuItem>
-                    <MenuItem value="Acceso No Autorizado">Acceso No Autorizado</MenuItem>
-                    <MenuItem value="Pérdida de Datos">Pérdida de Datos</MenuItem>
-                    <MenuItem value="Interrupción del Servicio">Interrupción del Servicio</MenuItem>
-                    <MenuItem value="Acceso Físico No Controlado">Acceso Físico No Controlado</MenuItem>
-                    <MenuItem value="Ingeniería Social">Ingeniería Social</MenuItem>
-                    <MenuItem value="Ataques DDoS">Ataques DDoS</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
+                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                      {option}
+                    </Typography>
+                  </Box>
+                )}
+                noOptionsText={
+                  <Box sx={{ py: 2, px: 2 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      No se encontraron amenazas. Presiona Enter para crear "{riesgoFormData.amenaza}"
+                    </Typography>
+                  </Box>
+                }
+                PaperComponent={({ children, ...other }) => (
+                  <Paper {...other} sx={{ 
+                    mt: 1,
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                    borderRadius: '12px',
+                    border: '1px solid #E5E7EB'
+                  }}>
+                    {children}
+                  </Paper>
+                )}
+              />
               
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel sx={{ 
-                    '&.Mui-focused': { color: '#1E3A8A' }
-                  }}>Vulnerabilidad *</InputLabel>
-                  <Select
-                    value={riesgoFormData.vulnerabilidad}
-                    onChange={(e) => setRiesgoFormData({ ...riesgoFormData, vulnerabilidad: e.target.value })}
+              {/* Vulnerabilidad con Autocomplete mejorado */}
+              <Autocomplete
+                freeSolo
+                options={vulnerabilidadesDisponibles.map(v => v.nombre || v)}
+                value={riesgoFormData.vulnerabilidad}
+                onInputChange={(event, newValue) => {
+                  setRiesgoFormData({ ...riesgoFormData, vulnerabilidad: newValue || '' });
+                }}
+                onChange={(event, newValue) => {
+                  setRiesgoFormData({ ...riesgoFormData, vulnerabilidad: newValue || '' });
+                }}
+                ListboxProps={{
+                  style: {
+                    maxHeight: '300px',
+                  }
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
                     label="Vulnerabilidad *"
+                    required
+                    helperText={
+                      vulnerabilidadesDisponibles.length > 0 
+                        ? `${vulnerabilidadesDisponibles.length} vulnerabilidad${vulnerabilidadesDisponibles.length !== 1 ? 'es' : ''} disponible${vulnerabilidadesDisponibles.length !== 1 ? 's' : ''} en la base de datos. Escribe para buscar o crear una nueva.`
+                        : "Cargando vulnerabilidades desde la base de datos..."
+                    }
                     sx={{
-                      borderRadius: '12px',
-                      backgroundColor: '#F9FAFB',
-                      '& .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#E5E7EB',
-                        borderWidth: '2px'
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: '12px',
+                        backgroundColor: '#F9FAFB',
+                        '& fieldset': {
+                          borderColor: '#E5E7EB',
+                          borderWidth: '2px'
+                        },
+                        '&:hover fieldset': {
+                          borderColor: '#1E3A8A'
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: '#1E3A8A',
+                          borderWidth: '2px'
+                        }
                       },
-                      '&:hover .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#1E3A8A'
-                      },
-                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#1E3A8A',
-                        borderWidth: '2px'
+                      '& .MuiInputLabel-root.Mui-focused': {
+                        color: '#1E3A8A'
+                      }
+                    }}
+                    placeholder="Escribe o selecciona una vulnerabilidad de la lista"
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <Box
+                    component="li"
+                    {...props}
+                    key={option}
+                    sx={{
+                      py: 1.5,
+                      px: 2,
+                      '&:hover': {
+                        backgroundColor: '#F3F4F6'
                       }
                     }}
                   >
-                    <MenuItem value="Configuración Insegura">Configuración Insegura</MenuItem>
-                    <MenuItem value="Software Desactualizado">Software Desactualizado</MenuItem>
-                    <MenuItem value="Falta de Autenticación">Falta de Autenticación</MenuItem>
-                    <MenuItem value="Acceso Físico No Controlado">Acceso Físico No Controlado</MenuItem>
-                    <MenuItem value="Falta de Respaldo">Falta de Respaldo</MenuItem>
-                    <MenuItem value="Contraseñas Débiles">Contraseñas Débiles</MenuItem>
-                    <MenuItem value="Falta de Cifrado">Falta de Cifrado</MenuItem>
-                    <MenuItem value="Ausencia de Monitoreo">Ausencia de Monitoreo</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
+                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                      {option}
+                    </Typography>
+                  </Box>
+                )}
+                noOptionsText={
+                  <Box sx={{ py: 2, px: 2 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      No se encontraron vulnerabilidades. Presiona Enter para crear "{riesgoFormData.vulnerabilidad}"
+                    </Typography>
+                  </Box>
+                }
+                PaperComponent={({ children, ...other }) => (
+                  <Paper {...other} sx={{ 
+                    mt: 1,
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                    borderRadius: '12px',
+                    border: '1px solid #E5E7EB'
+                  }}>
+                    {children}
+                  </Paper>
+                )}
+              />
               
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Descripción del Riesgo"
-                  multiline
-                  rows={5}
-                  placeholder="Describe detalladamente el riesgo identificado, sus causas, consecuencias y contexto..."
-                  value={riesgoFormData.descripcion}
-                  onChange={(e) => setRiesgoFormData({ ...riesgoFormData, descripcion: e.target.value })}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: '12px',
-                      backgroundColor: '#F9FAFB',
-                      '& fieldset': {
-                        borderColor: '#E5E7EB',
-                        borderWidth: '2px'
-                      },
-                      '&:hover fieldset': {
-                        borderColor: '#1E3A8A',
-                      },
-                      '&.Mui-focused fieldset': {
-                        borderColor: '#1E3A8A',
-                        borderWidth: '2px'
+              {/* Tipo de Riesgo */}
+              <FormControl fullWidth>
+                <InputLabel sx={{ 
+                  '&.Mui-focused': { color: '#1E3A8A' }
+                }}>Tipo de Riesgo *</InputLabel>
+                <Select
+                  value={riesgoFormData.tipoRiesgo}
+                  onChange={(e) => setRiesgoFormData({ ...riesgoFormData, tipoRiesgo: e.target.value })}
+                  label="Tipo de Riesgo *"
+                  MenuProps={{
+                    PaperProps: {
+                      sx: {
+                        maxHeight: '300px',
+                        borderRadius: '12px',
+                        mt: 1
                       }
-                    },
-                    '& .MuiInputLabel-root.Mui-focused': {
-                      color: '#1E3A8A'
                     }
                   }}
-                />
-              </Grid>
-            </Grid>
+                  sx={{
+                    borderRadius: '12px',
+                    backgroundColor: '#F9FAFB',
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#E5E7EB',
+                      borderWidth: '2px'
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#1E3A8A'
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#1E3A8A',
+                      borderWidth: '2px'
+                    }
+                  }}
+                >
+                  {tiposRiesgo.map((tipo) => (
+                    <MenuItem key={tipo} value={tipo} sx={{ py: 1.5 }}>
+                      <Typography variant="body1">{tipo}</Typography>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              
+              {/* Descripción del Riesgo */}
+              <TextField
+                fullWidth
+                label="Descripción del Riesgo"
+                multiline
+                rows={5}
+                helperText="Describe detalladamente el riesgo identificado, sus causas, consecuencias y contexto"
+                placeholder="Describe detalladamente el riesgo identificado, sus causas, consecuencias y contexto..."
+                value={riesgoFormData.descripcion}
+                onChange={(e) => setRiesgoFormData({ ...riesgoFormData, descripcion: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '12px',
+                    backgroundColor: '#F9FAFB',
+                    '& fieldset': {
+                      borderColor: '#E5E7EB',
+                      borderWidth: '2px'
+                    },
+                    '&:hover fieldset': {
+                      borderColor: '#1E3A8A',
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: '#1E3A8A',
+                      borderWidth: '2px'
+                    }
+                  },
+                  '& .MuiInputLabel-root.Mui-focused': {
+                    color: '#1E3A8A'
+                  }
+                }}
+              />
+            </Stack>
           </Box>
         </DialogContent>
 
@@ -3709,7 +4785,7 @@ const RiskAssessmentWizard: React.FC = () => {
           <Button 
             onClick={handleCreateRiesgo}
             variant="contained"
-            disabled={!riesgoFormData.nombre || !riesgoFormData.amenaza || !riesgoFormData.vulnerabilidad}
+            disabled={isCreatingRiesgo || !riesgoFormData.amenaza || !riesgoFormData.vulnerabilidad || !riesgoFormData.tipoRiesgo}
             sx={{ 
               borderRadius: '10px',
               px: 4,
@@ -3728,7 +4804,7 @@ const RiskAssessmentWizard: React.FC = () => {
               }
             }}
           >
-            Crear Riesgo
+            {isCreatingRiesgo ? 'Creando...' : 'Crear Riesgo'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -3953,6 +5029,143 @@ const RiskAssessmentWizard: React.FC = () => {
                   </Card>
                 )}
 
+                {/* Documentos Adjuntos de la Evaluación */}
+                {(() => {
+                  // Recopilar todos los documentos de todas las acciones
+                  const todosDocumentos: any[] = [];
+                  evaluacion.evaluacion?.planAccion?.acciones?.forEach((accion: any) => {
+                    if (accion.documentos && accion.documentos.length > 0) {
+                      accion.documentos.forEach((doc: any) => {
+                        todosDocumentos.push({
+                          ...doc,
+                          accion: accion.descripcion || accion.titulo || `Acción ${accion.id || ''}`
+                        });
+                      });
+                    }
+                  });
+                  
+                  return todosDocumentos.length > 0 ? (
+                    <Card sx={{ mb: 3, border: '1px solid #E5E7EB' }}>
+                      <CardContent>
+                        <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', mb: 2 }}>
+                          Documentos Adjuntos ({todosDocumentos.length})
+                        </Typography>
+                        <List dense sx={{ bgcolor: '#F9FAFB', borderRadius: '4px', p: 1 }}>
+                          {todosDocumentos.map((documento, docIndex) => (
+                            <ListItem 
+                              key={documento.id || `doc-${docIndex}-${documento.nombre}`} 
+                              sx={{ 
+                                py: 1,
+                                borderBottom: docIndex < todosDocumentos.length - 1 ? '1px solid #E5E7EB' : 'none',
+                                '&:hover': { backgroundColor: '#F3F4F6' }
+                              }}
+                            >
+                              <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
+                                {documento.tipo.includes('pdf') ? <PdfIcon sx={{ color: '#DC2626', fontSize: 24 }} /> :
+                                 documento.tipo.includes('word') ? <WordIcon sx={{ color: '#2563EB', fontSize: 24 }} /> :
+                                 documento.tipo.includes('excel') ? <ExcelIcon sx={{ color: '#059669', fontSize: 24 }} /> :
+                                 documento.tipo.includes('image') ? <ImageIcon sx={{ color: '#7C3AED', fontSize: 24 }} /> :
+                                 <FileIcon sx={{ color: '#6B7280', fontSize: 24 }} />}
+                              </Box>
+                              <ListItemText
+                                primary={
+                                  <Box>
+                                    <Typography 
+                                      variant="body2" 
+                                      className="font-roboto" 
+                                      sx={{ fontWeight: 500, color: '#1E3A8A', cursor: 'pointer' }}
+                                      onClick={() => {
+                                        // Construir URL completa si es relativa
+                                        const url = documento.url?.startsWith('http') 
+                                          ? documento.url 
+                                          : `${window.location.origin}${documento.url || `/api/documentos/descargar/${documento.id}`}`;
+                                        window.open(url, '_blank');
+                                      }}
+                                    >
+                                      {documento.nombre}
+                                    </Typography>
+                                    <Typography variant="caption" className="font-roboto" sx={{ color: '#6B7280', display: 'block', mt: 0.5 }}>
+                                      {documento.accion}
+                                    </Typography>
+                                  </Box>
+                                }
+                                secondary={
+                                  <Typography variant="caption" className="font-roboto" sx={{ color: '#6B7280' }}>
+                                    {documentosService.formatearTamaño(documento.tamaño || documento.tamaño_bytes || 0)} • 
+                                    {documento.fechaSubida ? new Date(documento.fechaSubida).toLocaleDateString() : 'Fecha no disponible'}
+                                    {documento.descripcion && ` • ${documento.descripcion}`}
+                                  </Typography>
+                                }
+                              />
+                              <Box>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => {
+                                    // Construir URL completa si es relativa
+                                    const url = documento.url?.startsWith('http') 
+                                      ? documento.url 
+                                      : `${window.location.origin}${documento.url || `/api/documentos/descargar/${documento.id}`}`;
+                                    window.open(url, '_blank');
+                                  }}
+                                  sx={{ color: '#1E3A8A', mr: 0.5 }}
+                                  title="Ver documento"
+                                >
+                                  <VisibilityIcon />
+                                </IconButton>
+                                <IconButton
+                                  size="small"
+                                  onClick={async () => {
+                                    try {
+                                      // Construir URL completa si es relativa
+                                      const url = documento.url?.startsWith('http') 
+                                        ? documento.url 
+                                        : `${window.location.origin}${documento.url || `/api/documentos/descargar/${documento.id}`}`;
+                                      
+                                      // Descargar usando fetch para manejar autenticación
+                                      const response = await fetch(url, {
+                                        method: 'GET',
+                                        headers: {
+                                          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+                                        }
+                                      });
+                                      
+                                      if (response.ok) {
+                                        const blob = await response.blob();
+                                        const downloadUrl = window.URL.createObjectURL(blob);
+                                        const link = document.createElement('a');
+                                        link.href = downloadUrl;
+                                        link.download = documento.nombre;
+                                        document.body.appendChild(link);
+                                        link.click();
+                                        document.body.removeChild(link);
+                                        window.URL.revokeObjectURL(downloadUrl);
+                                      } else {
+                                        // Fallback: abrir en nueva ventana
+                                        window.open(url, '_blank');
+                                      }
+                                    } catch (error) {
+                                      console.error('Error descargando documento:', error);
+                                      // Fallback: abrir en nueva ventana
+                                      const url = documento.url?.startsWith('http') 
+                                        ? documento.url 
+                                        : `${window.location.origin}${documento.url || `/api/documentos/descargar/${documento.id}`}`;
+                                      window.open(url, '_blank');
+                                    }
+                                  }}
+                                  sx={{ color: '#1E3A8A' }}
+                                  title="Descargar documento"
+                                >
+                                  <DownloadIcon />
+                                </IconButton>
+                              </Box>
+                            </ListItem>
+                          ))}
+                        </List>
+                      </CardContent>
+                    </Card>
+                  ) : null;
+                })()}
+
                 {/* Plan de Acción con Documentos */}
                 {evaluacion.evaluacion?.planAccion.acciones.length > 0 && (
                   <Card sx={{ mb: 3, border: '1px solid #E5E7EB' }}>
@@ -4087,7 +5300,122 @@ const RiskAssessmentWizard: React.FC = () => {
               if (selectedActivoDetail) {
                 const evaluacionEstado = getEvaluacionEstado(selectedActivoDetail);
                 if (evaluacionEstado.evaluacion) {
-                  exportarResumenPDF(evaluacionEstado.evaluacion, selectedActivoDetail);
+                  // Mostrar diálogo para seleccionar si incluir anexos
+                  setOpenExportDialog(true);
+                }
+              }
+            }}
+            variant="contained"
+            startIcon={<DownloadIcon />}
+            disabled={isExportando}
+            sx={{ 
+              borderRadius: '8px',
+              backgroundColor: '#10B981',
+              '&:hover': {
+                backgroundColor: '#059669',
+              }
+            }}
+          >
+            {isExportando ? 'Exportando...' : 'Exportar PDF'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Diálogo de opciones de exportación PDF */}
+      <Dialog 
+        open={openExportDialog} 
+        onClose={() => setOpenExportDialog(false)} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: '16px' }
+        }}
+      >
+        <DialogTitle className="font-poppins" sx={{ color: '#1E3A8A', pb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <DownloadIcon sx={{ color: '#10B981', fontSize: 28 }} />
+            <Typography variant="h6" className="font-poppins">
+              Opciones de Exportación PDF
+            </Typography>
+          </Box>
+        </DialogTitle>
+        
+        <DialogContent sx={{ pt: 2 }}>
+          <Alert severity="info" sx={{ mb: 2, borderRadius: '8px' }}>
+            <Typography variant="body2">
+              Selecciona si deseas incluir los documentos adjuntos (anexos) en el PDF exportado.
+            </Typography>
+          </Alert>
+          
+          <FormGroup>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={incluirAnexos}
+                  onChange={(e) => setIncluirAnexos(e.target.checked)}
+                  sx={{ color: '#1E3A8A', '&.Mui-checked': { color: '#1E3A8A' } }}
+                />
+              }
+              label={
+                <Box>
+                  <Typography variant="body1" className="font-roboto" sx={{ fontWeight: 500 }}>
+                    Incluir documentos adjuntos (anexos)
+                  </Typography>
+                  <Typography variant="caption" className="font-roboto" sx={{ color: '#6B7280' }}>
+                    Si está marcado, se incluirá una lista de todos los documentos adjuntos con sus detalles en el PDF.
+                  </Typography>
+                </Box>
+              }
+            />
+          </FormGroup>
+
+          {selectedActivoDetail && (() => {
+            const evaluacionEstado = getEvaluacionEstado(selectedActivoDetail);
+            const evaluacion = evaluacionEstado.evaluacion;
+            if (!evaluacion) return null;
+            
+            // Contar documentos
+            const todosDocumentos: any[] = [];
+            evaluacion.evaluacion?.planAccion?.acciones?.forEach((accion: any) => {
+              if (accion.documentos && accion.documentos.length > 0) {
+                accion.documentos.forEach((doc: any) => {
+                  todosDocumentos.push(doc);
+                });
+              }
+            });
+
+            if (todosDocumentos.length > 0) {
+              return (
+                <Box sx={{ mt: 2, p: 2, bgcolor: '#F9FAFB', borderRadius: '8px' }}>
+                  <Typography variant="body2" className="font-roboto" sx={{ color: '#6B7280', mb: 1 }}>
+                    <strong>Documentos disponibles:</strong> {todosDocumentos.length}
+                  </Typography>
+                  <Typography variant="caption" className="font-roboto" sx={{ color: '#6B7280' }}>
+                    {todosDocumentos.slice(0, 3).map((doc, idx) => doc.nombre).join(', ')}
+                    {todosDocumentos.length > 3 && ` y ${todosDocumentos.length - 3} más...`}
+                  </Typography>
+                </Box>
+              );
+            }
+            return null;
+          })()}
+        </DialogContent>
+        
+        <DialogActions sx={{ p: 3, gap: 2 }}>
+          <Button 
+            onClick={() => setOpenExportDialog(false)}
+            variant="outlined"
+            sx={{ borderRadius: '8px' }}
+          >
+            Cancelar
+          </Button>
+          <Button 
+            onClick={() => {
+              if (selectedActivoDetail) {
+                const evaluacionEstado = getEvaluacionEstado(selectedActivoDetail);
+                if (evaluacionEstado.evaluacion) {
+                  exportarResumenPDF(evaluacionEstado.evaluacion, selectedActivoDetail, incluirAnexos);
+                  setOpenExportDialog(false);
                 }
               }
             }}

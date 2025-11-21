@@ -16,18 +16,18 @@ def init_roles():
         roles_data = [
             {
                 'nombre_rol': 'ADMIN',
-                'descripcion': 'Administrador del sistema con acceso completo',
-                'permisos': '["*"]'  # Todos los permisos
+                'descripcion': 'Administrador del sistema con acceso completo y control total',
+                'permisos': '["*"]'  # Todos los permisos - acceso completo
             },
             {
                 'nombre_rol': 'OPERADOR',
                 'descripcion': 'Operador con permisos de consulta, ingreso y actualización de datos',
-                'permisos': '["activos:read", "activos:write", "riesgos:read", "riesgos:write", "incidentes:read", "incidentes:write", "usuarios:read"]'
+                'permisos': '["activos:read", "activos:write", "riesgos:read", "riesgos:write", "incidentes:read", "incidentes:write", "usuarios:read", "usuarios:write", "dashboard:read", "vulnerabilidades:read", "vulnerabilidades:write", "evaluacion:read", "evaluacion:write"]'
             },
             {
                 'nombre_rol': 'CONSULTOR',
-                'descripcion': 'Consultor con permisos de solo lectura de activos calificados',
-                'permisos': '["activos:read", "usuarios:read"]'
+                'descripcion': 'Consultor con permisos de solo lectura (modo consulta) - Sin edición',
+                'permisos': '["activos:read", "riesgos:read", "incidentes:read", "usuarios:read", "dashboard:read", "vulnerabilidades:read", "evaluacion:read"]'
             }
         ]
         

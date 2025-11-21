@@ -38,16 +38,22 @@ class DocumentosService {
     }
 
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch(`${this.baseUrl}/subir`, {
         method: 'POST',
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error('Error al subir el documento');
+        const errorData = await response.json().catch(() => ({ error: 'Error al subir el documento' }));
+        throw new Error(errorData.error || 'Error al subir el documento');
       }
 
-      return await response.json();
+      const result = await response.json();
+      return result.documento || result;
     } catch (error) {
       console.error('Error al subir documento:', error);
       throw error;

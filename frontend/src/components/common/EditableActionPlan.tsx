@@ -32,7 +32,9 @@ import {
   Schedule as ScheduleIcon,
   Flag as FlagIcon,
   AttachFile as AttachFileIcon,
-  CloudUpload as CloudUploadIcon
+  CloudUpload as CloudUploadIcon,
+  Visibility as VisibilityIcon,
+  Download as DownloadIcon
 } from '@mui/icons-material';
 
 interface ActionItem {
@@ -306,22 +308,94 @@ const EditableActionPlan: React.FC<EditableActionPlanProps> = ({
                             <strong>Documentos:</strong> {item.documentos.length} archivo(s)
                           </Typography>
                         </Box>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                          {item.documentos.map((file, index) => (
-                            <Chip
-                              key={`doc-${item.id}-${file.name || file.id || index}`}
-                              label={file.name}
-                              size="small"
-                              icon={<AttachFileIcon />}
-                              sx={{
-                                backgroundColor: '#E3F2FD',
-                                color: '#1976D2',
-                                '& .MuiChip-icon': {
-                                  color: '#1976D2'
-                                }
-                              }}
-                            />
-                          ))}
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          {item.documentos.map((file: any, index: number) => {
+                            const docUrl = file.url || file.id 
+                              ? (file.url?.startsWith('http') 
+                                  ? file.url 
+                                  : `${window.location.origin}${file.url || `/api/documentos/descargar/${file.id}`}`)
+                              : null;
+                            const docNombre = file.nombre || file.nombre_original || file.name || `Documento ${index + 1}`;
+                            
+                            return (
+                              <Box 
+                                key={`doc-${item.id}-${file.id || file.name || index}`}
+                                sx={{ 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  gap: 1,
+                                  p: 1,
+                                  borderRadius: '4px',
+                                  border: '1px solid #E5E7EB',
+                                  '&:hover': { backgroundColor: '#F3F4F6' }
+                                }}
+                              >
+                                <AttachFileIcon sx={{ fontSize: 18, color: '#6B7280' }} />
+                                <Typography 
+                                  variant="body2" 
+                                  sx={{ 
+                                    flex: 1,
+                                    color: docUrl ? '#1E3A8A' : '#6B7280',
+                                    cursor: docUrl ? 'pointer' : 'default',
+                                    textDecoration: docUrl ? 'underline' : 'none',
+                                    '&:hover': docUrl ? { color: '#0F172A' } : {}
+                                  }}
+                                  onClick={() => {
+                                    if (docUrl) {
+                                      window.open(docUrl, '_blank');
+                                    }
+                                  }}
+                                >
+                                  {docNombre}
+                                </Typography>
+                                {docUrl && (
+                                  <>
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => window.open(docUrl, '_blank')}
+                                      sx={{ color: '#1E3A8A' }}
+                                      title="Ver en ventana emergente"
+                                    >
+                                      <VisibilityIcon fontSize="small" />
+                                    </IconButton>
+                                    <IconButton
+                                      size="small"
+                                      onClick={async () => {
+                                        try {
+                                          const response = await fetch(docUrl, {
+                                            method: 'GET',
+                                            headers: {
+                                              'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+                                            }
+                                          });
+                                          if (response.ok) {
+                                            const blob = await response.blob();
+                                            const downloadUrl = window.URL.createObjectURL(blob);
+                                            const link = document.createElement('a');
+                                            link.href = downloadUrl;
+                                            link.download = docNombre;
+                                            document.body.appendChild(link);
+                                            link.click();
+                                            document.body.removeChild(link);
+                                            window.URL.revokeObjectURL(downloadUrl);
+                                          } else {
+                                            window.open(docUrl, '_blank');
+                                          }
+                                        } catch (error) {
+                                          console.error('Error descargando:', error);
+                                          window.open(docUrl, '_blank');
+                                        }
+                                      }}
+                                      sx={{ color: '#1E3A8A' }}
+                                      title="Descargar documento"
+                                    >
+                                      <DownloadIcon fontSize="small" />
+                                    </IconButton>
+                                  </>
+                                )}
+                              </Box>
+                            );
+                          })}
                         </Box>
                       </Grid>
                     )}

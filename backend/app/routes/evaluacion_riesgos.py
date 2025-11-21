@@ -6,8 +6,49 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import func, text
 from datetime import datetime
 import math
+import json
+import re
 
 evaluacion_riesgos_bp = Blueprint('evaluacion_riesgos', __name__)
+
+def _obtener_tratamiento_evaluacion(eval):
+    """Obtener tratamiento de la evaluación desde la justificación residual o valores por defecto"""
+    try:
+        # Intentar extraer tratamiento desde justificacion_evaluacion_residual
+        justificacion = eval.justificacion_evaluacion_residual or ''
+        
+        # Buscar patrón TRATAMIENTO:{...}
+        match = re.search(r'TRATAMIENTO:(\{.*?\})', justificacion)
+        if match:
+            try:
+                tratamiento_data = json.loads(match.group(1))
+                return {
+                    'opcion': tratamiento_data.get('opcion', 'Mitigar'),
+                    'responsable': tratamiento_data.get('responsable', 'Equipo de Seguridad'),
+                    'fechaInicio': tratamiento_data.get('fechaInicio', str(eval.fecha_evaluacion_inherente) if eval.fecha_evaluacion_inherente else ''),
+                    'fechaFin': tratamiento_data.get('fechaFin', str(eval.fecha_evaluacion_residual) if eval.fecha_evaluacion_residual else ''),
+                    'presupuesto': tratamiento_data.get('presupuesto', 'Por definir')
+                }
+            except json.JSONDecodeError:
+                pass
+        
+        # Si no se encuentra, usar valores por defecto basados en la evaluación
+        return {
+            'opcion': 'Mitigar',
+            'responsable': 'Equipo de Seguridad',
+            'fechaInicio': str(eval.fecha_evaluacion_inherente) if eval.fecha_evaluacion_inherente else '',
+            'fechaFin': str(eval.fecha_evaluacion_residual) if eval.fecha_evaluacion_residual else '',
+            'presupuesto': 'Por definir'
+        }
+    except Exception as e:
+        print(f"Error obteniendo tratamiento para evaluación {eval.id_evaluacion_riesgo_activo}: {e}")
+        return {
+            'opcion': 'Mitigar',
+            'responsable': 'Equipo de Seguridad',
+            'fechaInicio': str(eval.fecha_evaluacion_inherente) if eval.fecha_evaluacion_inherente else '',
+            'fechaFin': str(eval.fecha_evaluacion_residual) if eval.fecha_evaluacion_residual else '',
+            'presupuesto': 'Por definir'
+        }
 
 def _obtener_documentos_evaluacion(activo_id):
     """Obtener documentos asociados a una evaluación de activo"""
@@ -21,6 +62,73 @@ def _obtener_documentos_evaluacion(activo_id):
         return [doc.to_dict() for doc in documentos]
     except Exception as e:
         print(f"Error obteniendo documentos para activo {activo_id}: {e}")
+        return []
+
+def _obtener_acciones_con_documentos(id_evaluacion, activo_id):
+    """Obtener acciones del plan de acción con sus documentos asociados"""
+    try:
+        # Buscar todos los documentos que pertenecen a esta evaluación
+        patron_accion_id = f'eval_{id_evaluacion}_activo_{activo_id}_%'
+        documentos = DocumentoAdjunto.query.filter(
+            DocumentoAdjunto.accion_id.like(patron_accion_id),
+            DocumentoAdjunto.activo == True
+        ).order_by(DocumentoAdjunto.fecha_subida).all()
+        
+        # Agrupar documentos por accion_id
+        acciones_dict = {}
+        for doc in documentos:
+            accion_id = doc.accion_id
+            if accion_id not in acciones_dict:
+                # Extraer información de la acción desde el accion_id
+                # Formato: eval_{id_evaluacion}_activo_{id_activo}_{accion_id}
+                partes = accion_id.split('_')
+                accion_numero = partes[-1] if len(partes) > 4 else '1'
+                
+                # Intentar extraer más información del accion_id o usar valores por defecto
+                # Si el accion_id tiene un timestamp, usar el primer documento para obtener fechas
+                fecha_subida = doc.fecha_subida.strftime('%Y-%m-%d') if doc.fecha_subida else datetime.now().strftime('%Y-%m-%d')
+                
+                acciones_dict[accion_id] = {
+                    'id': accion_numero,
+                    'accion_id': accion_id,
+                    'titulo': f'Acción {accion_numero}',
+                    'descripcion': doc.descripcion or f'Acción {accion_numero} del plan de acción',
+                    'responsable': 'Equipo de Seguridad',
+                    'fechaInicio': fecha_subida,
+                    'fechaFin': fecha_subida,
+                    'estado': 'Pendiente',
+                    'comentarios': doc.descripcion or 'Acción del plan de acción',
+                    'documentos': []
+                }
+            
+            # Agregar documento a la acción
+            acciones_dict[accion_id]['documentos'].append(doc.to_dict())
+        
+        # Convertir a lista y ordenar por fecha
+        acciones = list(acciones_dict.values())
+        acciones.sort(key=lambda x: x['fechaInicio'])
+        
+        # Si no hay acciones con documentos, buscar documentos genéricos del activo
+        if len(acciones) == 0:
+            documentos_genericos = _obtener_documentos_evaluacion(activo_id)
+            if len(documentos_genericos) > 0:
+                acciones = [{
+                    'id': '1',
+                    'titulo': 'Implementar controles de seguridad',
+                    'descripcion': 'Implementar controles de seguridad',
+                    'responsable': 'Equipo de Seguridad',
+                    'fechaInicio': datetime.now().strftime('%Y-%m-%d'),
+                    'fechaFin': datetime.now().strftime('%Y-%m-%d'),
+                    'estado': 'Completado',
+                    'comentarios': 'Evaluación completada',
+                    'documentos': documentos_genericos
+                }]
+        
+        return acciones
+    except Exception as e:
+        print(f"Error obteniendo acciones con documentos para evaluación {id_evaluacion}: {e}")
+        import traceback
+        traceback.print_exc()
         return []
 
 def calcular_nivel_riesgo(probabilidad_valor, impacto_valor):
@@ -68,16 +176,28 @@ def get_niveles_impacto():
 def get_controles():
     """Obtener todos los controles de seguridad"""
     try:
-        controles = controles_seguridad.query.all()
-        return jsonify([{
-            'id': control.ID_Control,
-            'nombre': control.Nombre,
-            'descripcion': control.Descripcion,
-            'categoria': control.Categoria,
-            'tipo': control.Tipo,
-            'eficacia_esperada': control.Eficacia_Esperada
-        } for control in controles]), 200
+        controles = controles_seguridad.query.filter(
+            controles_seguridad.activo == True
+        ).all()
+        controles_list = []
+        for control in controles:
+            try:
+                controles_list.append({
+                    'id': control.ID_Control,
+                    'nombre': control.Nombre,
+                    'descripcion': getattr(control, 'Descripcion', '') or '',
+                    'categoria': getattr(control, 'Categoria', '') or getattr(control, 'categoria_control_iso', '') or '',
+                    'tipo': getattr(control, 'Tipo_Control', '') or getattr(control, 'Tipo', '') or '',
+                    'eficacia_esperada': getattr(control, 'Eficacia_Esperada', '') or ''
+                })
+            except Exception as e:
+                # Si hay error con un control específico, continuar con los demás
+                print(f"Error procesando control {control.ID_Control}: {e}")
+                continue
+        return jsonify(controles_list), 200
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @evaluacion_riesgos_bp.route('/riesgos-pendientes', methods=['GET'])
@@ -166,6 +286,62 @@ def crear_evaluacion():
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
+@evaluacion_riesgos_bp.route('/guardar-tratamiento', methods=['POST'])
+def guardar_tratamiento():
+    """Guardar opciones de tratamiento de la evaluación"""
+    try:
+        data = request.get_json()
+        
+        if 'id_evaluacion' not in data:
+            return jsonify({'error': 'id_evaluacion es requerido'}), 400
+        
+        id_evaluacion = data['id_evaluacion']
+        tratamiento = data.get('tratamiento', {})
+        
+        # Guardar tratamiento en la tabla evaluacion_riesgo_activo como JSON en un campo de texto
+        # O crear una tabla separada si es necesario
+        # Por ahora, guardamos en un campo de texto JSON en la evaluación
+        tratamiento_json = json.dumps({
+            'opcion': tratamiento.get('opcion', ''),
+            'responsable': tratamiento.get('responsable', ''),
+            'fechaInicio': tratamiento.get('fechaInicio', ''),
+            'fechaFin': tratamiento.get('fechaFin', ''),
+            'presupuesto': tratamiento.get('presupuesto', '')
+        })
+        
+        db.session.execute(
+            text("""
+                UPDATE evaluacion_riesgo_activo 
+                SET justificacion_evaluacion_residual = COALESCE(
+                    CONCAT(COALESCE(justificacion_evaluacion_residual, ''), 
+                           CASE WHEN justificacion_evaluacion_residual IS NOT NULL THEN '|TRATAMIENTO:' ELSE 'TRATAMIENTO:' END,
+                           :tratamiento_json
+                    ), 
+                    CONCAT('TRATAMIENTO:', :tratamiento_json)
+                )
+                WHERE id_evaluacion_riesgo_activo = :id_eval
+            """),
+            {
+                'tratamiento_json': tratamiento_json,
+                'id_eval': id_evaluacion
+            }
+        )
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Tratamiento guardado exitosamente',
+            'tratamiento': tratamiento
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Error en guardar_tratamiento: {str(e)}")
+        print(f"Traceback: {error_trace}")
+        return jsonify({'error': str(e)}), 500
+
 @evaluacion_riesgos_bp.route('/guardar-plan-accion', methods=['POST'])
 def guardar_plan_accion():
     """Guardar acciones del plan de acción con documentos asociados al responsable"""
@@ -179,6 +355,7 @@ def guardar_plan_accion():
         id_evaluacion = data['id_evaluacion']
         acciones = data['acciones']
         id_activo = data.get('id_activo')
+        tratamiento = data.get('tratamiento')  # También recibir tratamiento si viene
         
         # Verificar que la evaluación existe
         evaluacion = db.session.execute(
@@ -273,6 +450,36 @@ def guardar_plan_accion():
                 'accion_id': accion_id,
                 'documentos_count': len(documentos_ids)
             })
+        
+        # Si viene tratamiento, guardarlo también
+        if tratamiento:
+            tratamiento_json = json.dumps({
+                'opcion': tratamiento.get('opcion', ''),
+                'responsable': tratamiento.get('responsable', ''),
+                'fechaInicio': tratamiento.get('fechaInicio', ''),
+                'fechaFin': tratamiento.get('fechaFin', ''),
+                'presupuesto': tratamiento.get('presupuesto', '')
+            })
+            
+            db.session.execute(
+                text("""
+                    UPDATE evaluacion_riesgo_activo 
+                    SET justificacion_evaluacion_residual = COALESCE(
+                        CONCAT(COALESCE(justificacion_evaluacion_residual, ''), 
+                               CASE WHEN justificacion_evaluacion_residual IS NOT NULL AND justificacion_evaluacion_residual NOT LIKE '%TRATAMIENTO:%' THEN '|TRATAMIENTO:' ELSE 
+                                    CASE WHEN justificacion_evaluacion_residual IS NULL OR justificacion_evaluacion_residual NOT LIKE '%TRATAMIENTO:%' THEN 'TRATAMIENTO:' ELSE '' END
+                               END,
+                               :tratamiento_json
+                        ), 
+                        CONCAT('TRATAMIENTO:', :tratamiento_json)
+                    )
+                    WHERE id_evaluacion_riesgo_activo = :id_eval
+                """),
+                {
+                    'tratamiento_json': tratamiento_json,
+                    'id_eval': id_evaluacion
+                }
+            )
         
         db.session.commit()
         
@@ -430,26 +637,9 @@ def get_evaluaciones_completadas():
                         'nivelRiesgo': f'Nivel {eval.id_nivel_riesgo_residual_calculado}',
                         'justificacion': eval.justificacion_evaluacion_residual or 'Evaluación residual completada'
                     },
-                    'tratamiento': {
-                        'opcion': 'Mitigar',
-                        'responsable': 'Equipo de Seguridad',
-                        'fechaInicio': str(eval.fecha_evaluacion_inherente),
-                        'fechaFin': str(eval.fecha_evaluacion_residual),
-                        'presupuesto': 'Por definir'
-                    },
+                    'tratamiento': _obtener_tratamiento_evaluacion(eval),
                     'planAccion': {
-                        'acciones': [
-                            {
-                                'id': '1',
-                                'descripcion': 'Implementar controles de seguridad',
-                                'responsable': 'Equipo de Seguridad',
-                                'fechaInicio': str(eval.fecha_evaluacion_inherente),
-                                'fechaFin': str(eval.fecha_evaluacion_residual),
-                                'estado': 'Completado',
-                                'comentarios': 'Evaluación completada',
-                                'documentos': _obtener_documentos_evaluacion(activo_id)
-                            }
-                        ]
+                        'acciones': _obtener_acciones_con_documentos(eval.id_evaluacion_riesgo_activo, activo_id)
                     }
                 },
                 'fechaCompletada': str(eval.fecha_evaluacion_residual or eval.fecha_evaluacion_inherente),
@@ -600,4 +790,117 @@ def get_evaluaciones():
         } for eval in evaluaciones]), 200
         
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@evaluacion_riesgos_bp.route('/activos-similares', methods=['POST'])
+def get_activos_similares():
+    """Obtener activos similares con evaluaciones previas para clonación"""
+    try:
+        data = request.get_json()
+        activo_actual_id = data.get('activo_id')
+        tipo_activo = data.get('tipo_activo', '')
+        nombre_activo = data.get('nombre_activo', '')
+        
+        # Convertir activo_id a int si es string
+        try:
+            activo_actual_id = int(activo_actual_id) if activo_actual_id else None
+        except (ValueError, TypeError):
+            return jsonify({'error': 'ID de activo inválido'}), 400
+        
+        if not activo_actual_id:
+            return jsonify({'error': 'ID de activo es requerido'}), 400
+        
+        # Buscar activos similares (mismo tipo, excluyendo el actual)
+        activos_similares = db.session.query(
+            Activo,
+            evaluacion_riesgo_activo,
+            Riesgo,
+            niveles_probabilidad,
+            niveles_impacto,
+            nivelesriesgo
+        ).join(
+            evaluacion_riesgo_activo, Activo.ID_Activo == evaluacion_riesgo_activo.ID_Activo
+        ).join(
+            Riesgo, evaluacion_riesgo_activo.ID_Riesgo == Riesgo.ID_Riesgo
+        ).outerjoin(
+            niveles_probabilidad, evaluacion_riesgo_activo.id_nivel_probabilidad_inherente == niveles_probabilidad.ID_NivelProbabilidad
+        ).outerjoin(
+            niveles_impacto, evaluacion_riesgo_activo.id_nivel_impacto_inherente == niveles_impacto.ID_NivelImpacto
+        ).outerjoin(
+            nivelesriesgo, evaluacion_riesgo_activo.id_nivel_riesgo_inherente_calculado == nivelesriesgo.ID_NivelRiesgo
+        ).filter(
+            Activo.ID_Activo != activo_actual_id,
+            evaluacion_riesgo_activo.id_nivel_probabilidad_inherente.isnot(None),
+            evaluacion_riesgo_activo.id_nivel_impacto_inherente.isnot(None)
+        )
+        
+        # Filtrar por tipo si se proporciona
+        if tipo_activo:
+            activos_similares = activos_similares.filter(
+                Activo.Tipo_Activo.ilike(f'%{tipo_activo}%')
+            )
+        
+        resultados = activos_similares.order_by(
+            evaluacion_riesgo_activo.fecha_evaluacion_inherente.desc()
+        ).limit(5).all()
+        
+        # Obtener controles aplicados para cada evaluación
+        activos_con_evaluaciones = []
+        for activo, eval, riesgo, prob, impacto, nivel_riesgo in resultados:
+            # Obtener controles aplicados
+            controles_result = db.session.execute(
+                text("""
+                    SELECT DISTINCT c.Nombre
+                    FROM riesgocontrolaplicado rca
+                    JOIN controles c ON rca.ID_Control = c.ID_Control
+                    WHERE rca.id_evaluacion_riesgo_activo = :eval_id
+                """),
+                {'eval_id': eval.id_evaluacion_riesgo_activo}
+            ).fetchall()
+            
+            controles_nombres = [ctrl[0] for ctrl in controles_result]
+            
+            # Calcular similitud básica (por tipo y nombre)
+            similitud = 0.5  # Base
+            if tipo_activo and activo.Tipo_Activo:
+                if tipo_activo.lower() in activo.Tipo_Activo.lower():
+                    similitud += 0.3
+            if nombre_activo and activo.Nombre:
+                palabras_comunes = set(nombre_activo.lower().split()) & set(activo.Nombre.lower().split())
+                if palabras_comunes:
+                    similitud += min(0.2, len(palabras_comunes) * 0.1)
+            
+            activos_con_evaluaciones.append({
+                'id': str(activo.ID_Activo),
+                'nombre': activo.Nombre,
+                'tipo': activo.Tipo_Activo or 'N/A',
+                'descripcion': activo.Descripcion or 'Sin descripción',
+                'criticidad': activo.nivel_criticidad_negocio or 'Media',
+                'ultimaEvaluacion': eval.fecha_evaluacion_inherente.strftime('%Y-%m-%d') if eval.fecha_evaluacion_inherente else datetime.now().strftime('%Y-%m-%d'),
+                'nivelRiesgo': nivel_riesgo.Nombre if nivel_riesgo else 'MEDIUM',
+                'similitud': round(similitud, 2),
+                'evaluacionExistente': {
+                    'amenaza': riesgo.Nombre,
+                    'vulnerabilidad': riesgo.Descripcion or 'Vulnerabilidad identificada',
+                    'controles': controles_nombres,
+                    'justificacion': eval.justificacion_evaluacion_inherente or 'Evaluación previa completada',
+                    'probabilidad': prob.Nombre if prob else 'Media',
+                    'impacto': impacto.Nombre if impacto else 'Medio',
+                    'nivelRiesgo': nivel_riesgo.Nombre if nivel_riesgo else 'MEDIUM'
+                }
+            })
+        
+        # Ordenar por similitud descendente
+        activos_con_evaluaciones.sort(key=lambda x: x['similitud'], reverse=True)
+        
+        return jsonify({
+            'success': True,
+            'activos': activos_con_evaluaciones
+        }), 200
+        
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Error en get_activos_similares: {str(e)}")
+        print(f"Traceback: {error_trace}")
         return jsonify({'error': str(e)}), 500

@@ -68,67 +68,53 @@ const TwinAssetSuggestion: React.FC<TwinAssetSuggestionProps> = ({
     setIsLoading(true);
     
     try {
-      // Simular búsqueda de activos gemelos
-      const mockTwinAssets: TwinAsset[] = [
-        {
-          id: '1',
-          nombre: 'Servidor Web Principal',
-          tipo: 'Servidor',
-          descripcion: 'Servidor web para aplicaciones críticas',
-          criticidad: 'Alta',
-          ultimaEvaluacion: '2024-01-15',
-          nivelRiesgo: 'MEDIUM',
-          similitud: 0.95,
-          evaluacionExistente: {
-            amenaza: 'Malware',
-            vulnerabilidad: 'Software Desactualizado',
-            controles: ['Antivirus', 'Actualizaciones Automáticas', 'Monitoreo de Red'],
-            justificacion: 'El servidor web es vulnerable a ataques de malware debido a software desactualizado. Se implementaron controles de antivirus y actualizaciones automáticas.'
-          }
-        },
-        {
-          id: '2',
-          nombre: 'Base de Datos de Usuarios',
-          tipo: 'Base de Datos',
-          descripcion: 'Base de datos principal del sistema',
-          criticidad: 'Crítica',
-          ultimaEvaluacion: '2024-01-10',
-          nivelRiesgo: 'HIGH',
-          similitud: 0.88,
-          evaluacionExistente: {
-            amenaza: 'Acceso No Autorizado',
-            vulnerabilidad: 'Falta de Autenticación',
-            controles: ['Autenticación Multifactor', 'Cifrado de Datos', 'Auditoría de Acceso'],
-            justificacion: 'La base de datos requiere autenticación robusta y cifrado para proteger información sensible de usuarios.'
-          }
-        },
-        {
-          id: '3',
-          nombre: 'Servidor de Archivos',
-          tipo: 'Servidor',
-          descripcion: 'Servidor para almacenamiento de documentos',
-          criticidad: 'Media',
-          ultimaEvaluacion: '2024-01-05',
-          nivelRiesgo: 'LOW',
-          similitud: 0.82,
-          evaluacionExistente: {
-            amenaza: 'Pérdida de Datos',
-            vulnerabilidad: 'Falta de Respaldo',
-            controles: ['Respaldos Regulares', 'Replicación de Datos', 'Monitoreo de Integridad'],
-            justificacion: 'Se implementaron respaldos automáticos y replicación para prevenir pérdida de datos críticos.'
-          }
-        }
-      ];
+      // Obtener ID del activo actual si está disponible
+      const activoId = (currentAsset as any).ID_Activo || (currentAsset as any).id;
+      
+      if (!activoId) {
+        console.warn('No se pudo obtener ID del activo para buscar similares');
+        setTwinAssets([]);
+        setIsLoading(false);
+        return;
+      }
 
-      // Filtrar activos similares (similitud > 0.8)
-      const similarAssets = mockTwinAssets.filter(asset => 
-        asset.similitud >= 0.8 && 
-        asset.tipo.toLowerCase() === currentAsset.tipo.toLowerCase()
-      );
+      // Llamar al endpoint real del backend
+      const { apiRequest } = await import('../../services/api');
+      const response = await apiRequest('/evaluacion-riesgos/activos-similares', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          activo_id: activoId,
+          tipo_activo: currentAsset.tipo,
+          nombre_activo: currentAsset.nombre
+        })
+      });
 
-      setTwinAssets(similarAssets);
+      if (response.success && response.activos) {
+        // Filtrar activos con similitud > 0.5 y convertir al formato esperado
+        const similarAssets: TwinAsset[] = response.activos
+          .filter((asset: any) => asset.similitud >= 0.5)
+          .map((asset: any) => ({
+            id: asset.id,
+            nombre: asset.nombre,
+            tipo: asset.tipo,
+            descripcion: asset.descripcion,
+            criticidad: asset.criticidad,
+            ultimaEvaluacion: asset.ultimaEvaluacion,
+            nivelRiesgo: asset.nivelRiesgo,
+            similitud: asset.similitud,
+            evaluacionExistente: asset.evaluacionExistente
+          }));
+
+        setTwinAssets(similarAssets);
+      } else {
+        setTwinAssets([]);
+      }
     } catch (error) {
       console.error('Error loading twin assets:', error);
+      setTwinAssets([]);
     } finally {
       setIsLoading(false);
     }

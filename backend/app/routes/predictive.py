@@ -86,13 +86,14 @@ def suggest_controls():
         threat_name = data.get('threat_name', '')  # Nombre de la amenaza
         vulnerability_id = data.get('vulnerability_id', '')
         vulnerability_name = data.get('vulnerability_name', '')  # Nombre de la vulnerabilidad
+        risk_description = data.get('risk_description', '')  # Descripción completa del riesgo
         asset_type = data.get('asset_type', '')
         
         suggestions = []
         
         # Primero intentar obtener controles de la base de datos real
         try:
-            # Buscar controles relevantes basados en palabras clave de amenaza y vulnerabilidad
+            # Buscar controles relevantes basados en palabras clave de amenaza, vulnerabilidad y descripción del riesgo
             keywords = []
             if threat_name:
                 # Extraer palabras clave de la amenaza
@@ -102,6 +103,10 @@ def suggest_controls():
                 # Extraer palabras clave de la vulnerabilidad
                 vuln_words = vulnerability_name.lower().split()
                 keywords.extend([w for w in vuln_words if len(w) > 3])
+            if risk_description:
+                # Extraer palabras clave de la descripción del riesgo
+                desc_words = risk_description.lower().split()
+                keywords.extend([w for w in desc_words if len(w) > 4])  # Palabras más largas de la descripción
             
             # Buscar controles que coincidan con las palabras clave
             if keywords:
@@ -203,6 +208,303 @@ def suggest_controls():
         logger.error(f"Error al sugerir controles: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
 
+@predictive_bp.route('/suggestions/residual-justifications', methods=['POST'])
+def suggest_residual_justifications():
+    """Sugerir justificaciones residuales basadas en normativa ISO 27005 y controles reales de la BD"""
+    try:
+        from ..models import controles_seguridad, db
+        from sqlalchemy import or_, text
+        from sqlalchemy.sql import func
+        
+        data = request.get_json()
+        inherent_risk = data.get('inherent_risk', {})
+        residual_risk = data.get('residual_risk', {})
+        controls = data.get('controls', [])  # Lista de nombres de controles
+        
+        if not inherent_risk or not residual_risk:
+            return jsonify({
+                'success': True,
+                'suggestions': []
+            }), 200
+        
+        inherent_prob = inherent_risk.get('probabilidad', '')
+        inherent_impact = inherent_risk.get('impacto', '')
+        inherent_level = inherent_risk.get('nivel', '')
+        
+        residual_prob = residual_risk.get('probabilidad', '')
+        residual_impact = residual_risk.get('impacto', '')
+        residual_level = residual_risk.get('nivel', '')
+        
+        # Obtener controles reales de la BD con sus códigos ISO
+        controles_reales = []
+        for control_name in controls:
+            # Buscar control por nombre (puede ser parcial)
+            query = controles_seguridad.query.filter(
+                or_(
+                    controles_seguridad.Nombre.ilike(f'%{control_name}%'),
+                    controles_seguridad.Descripcion.ilike(f'%{control_name}%')
+                )
+            )
+            
+            # Filtrar por activo si el campo existe
+            if hasattr(controles_seguridad, 'activo'):
+                query = query.filter(controles_seguridad.activo == True)
+            
+            control = query.first()
+            
+            if control:
+                codigo_iso = getattr(control, 'codigo_control_iso', None) or getattr(control, 'codigo_iso', None)
+                categoria_iso = getattr(control, 'categoria_control_iso', None) or getattr(control, 'Categoria', None) or ''
+                descripcion = getattr(control, 'Descripcion', '') or ''
+                eficacia = getattr(control, 'Eficacia_Esperada', '') or ''
+                tipo = getattr(control, 'Tipo', '') or getattr(control, 'Tipo_Control', '') or ''
+                
+                controles_reales.append({
+                    'id': control.ID_Control,
+                    'nombre': control.Nombre,
+                    'descripcion': descripcion,
+                    'codigo_iso': codigo_iso,
+                    'categoria_iso': categoria_iso,
+                    'eficacia': eficacia,
+                    'tipo': tipo
+                })
+        
+        if not controles_reales:
+            # Si no se encontraron controles, retornar sugerencias básicas
+            return jsonify({
+                'success': True,
+                'suggestions': [{
+                    'id': 'no-controls',
+                    'titulo': 'Controles no encontrados',
+                    'descripcion': 'No se encontraron controles en la base de datos para los nombres proporcionados. Verifica que los controles estén correctamente registrados.',
+                    'norma': 'ISO 27005',
+                    'articulo': 'A.8.1',
+                    'confianza': 0.5,
+                    'relacion_inherente': 'Se requiere verificar los controles seleccionados.',
+                    'controles_mencionados': controls[:3]
+                }]
+            }), 200
+        
+        suggestions = []
+        level_map = {
+            'HIGH': 'Alto',
+            'MEDIUM': 'Medio',
+            'LOW': 'Bajo'
+        }
+        
+        # Sugerencia 1: Reducción de probabilidad con controles específicos
+        if inherent_prob and residual_prob and inherent_prob != residual_prob:
+            # Identificar controles que reducen probabilidad (preventivos)
+            controles_preventivos = [c for c in controles_reales if 
+                'prevención' in c['descripcion'].lower() or 
+                'preventivo' in c['tipo'].lower() or
+                'detección' in c['descripcion'].lower() or
+                'monitoreo' in c['descripcion'].lower() or
+                c['codigo_iso'] and ('A.6' in str(c['codigo_iso']) or 'A.7' in str(c['codigo_iso']) or 'A.9' in str(c['codigo_iso']))
+            ]
+            
+            if not controles_preventivos:
+                controles_preventivos = controles_reales[:2]
+            
+            prob_reduction_text = f"La probabilidad del riesgo se ha reducido de '{inherent_prob}' a '{residual_prob}' mediante la implementación de controles de seguridad preventivos y de detección."
+            
+            # Construir texto con controles y códigos ISO
+            controles_texto = []
+            for ctrl in controles_preventivos[:3]:
+                if ctrl['codigo_iso']:
+                    controles_texto.append(f"'{ctrl['nombre']}' (ISO 27002:{ctrl['codigo_iso']})")
+                else:
+                    controles_texto.append(f"'{ctrl['nombre']}'")
+            
+            if controles_texto:
+                prob_reduction_text += f" Los controles {', '.join(controles_texto)} han demostrado eficacia en la reducción de la probabilidad de materialización del riesgo."
+            
+            # Agregar descripción de controles si están disponibles
+            if controles_preventivos[0]['descripcion']:
+                prob_reduction_text += f" Específicamente, {controles_preventivos[0]['descripcion'][:150]}..."
+            
+            suggestions.append({
+                'id': 'prob-reduction',
+                'titulo': 'Reducción de Probabilidad',
+                'descripcion': prob_reduction_text,
+                'norma': 'ISO 27005',
+                'articulo': 'A.6.1.2 - Gestión de Riesgos',
+                'confianza': 0.90,
+                'relacion_inherente': f"El riesgo inherente tenía una probabilidad '{inherent_prob}', que ha sido mitigada a '{residual_prob}' mediante los controles implementados según ISO 27005.",
+                'controles_mencionados': [c['nombre'] for c in controles_preventivos[:3]]
+            })
+        
+        # Sugerencia 2: Reducción de impacto con controles de protección
+        if inherent_impact and residual_impact and inherent_impact != residual_impact:
+            # Identificar controles que reducen impacto (protección, recuperación)
+            controles_proteccion = [c for c in controles_reales if 
+                'protección' in c['descripcion'].lower() or 
+                'recuperación' in c['descripcion'].lower() or
+                'backup' in c['descripcion'].lower() or
+                'respaldo' in c['descripcion'].lower() or
+                'continuidad' in c['descripcion'].lower() or
+                c['codigo_iso'] and ('A.12' in str(c['codigo_iso']) or 'A.17' in str(c['codigo_iso']) or 'A.18' in str(c['codigo_iso']))
+            ]
+            
+            if not controles_proteccion:
+                controles_proteccion = controles_reales[:2]
+            
+            impact_reduction_text = f"El impacto del riesgo se ha reducido de '{inherent_impact}' a '{residual_impact}' gracias a los controles de protección, recuperación y continuidad implementados."
+            
+            # Construir texto con controles y códigos ISO
+            controles_texto = []
+            for ctrl in controles_proteccion[:2]:
+                if ctrl['codigo_iso']:
+                    controles_texto.append(f"'{ctrl['nombre']}' (ISO 27002:{ctrl['codigo_iso']})")
+                else:
+                    controles_texto.append(f"'{ctrl['nombre']}'")
+            
+            if controles_texto:
+                impact_reduction_text += f" Los controles {', '.join(controles_texto)} han contribuido significativamente a esta reducción."
+            
+            # Agregar eficacia si está disponible
+            if controles_proteccion[0]['eficacia']:
+                eficacia_map = {
+                    'Muy Alta': 'muy alta eficacia',
+                    'Alta': 'alta eficacia',
+                    'Media': 'eficacia moderada',
+                    'Baja': 'eficacia limitada'
+                }
+                eficacia = eficacia_map.get(controles_proteccion[0]['eficacia'], 'eficacia')
+                impact_reduction_text += f" El control '{controles_proteccion[0]['nombre']}' tiene {eficacia} según la evaluación realizada."
+            
+            suggestions.append({
+                'id': 'impact-reduction',
+                'titulo': 'Mitigación de Impacto',
+                'descripcion': impact_reduction_text,
+                'norma': 'ISO 27002',
+                'articulo': 'A.12.3 - Gestión de Copias de Seguridad',
+                'confianza': 0.85,
+                'relacion_inherente': f"El impacto inherente era '{inherent_impact}', ahora es '{residual_impact}' debido a las medidas de mitigación implementadas según ISO 27002.",
+                'controles_mencionados': [c['nombre'] for c in controles_proteccion[:2]]
+            })
+        
+        # Sugerencia 3: Reducción general del nivel de riesgo con análisis completo
+        if inherent_level and residual_level and inherent_level != residual_level:
+            inherent_level_text = level_map.get(inherent_level, inherent_level)
+            residual_level_text = level_map.get(residual_level, residual_level)
+            
+            general_reduction_text = f"El nivel de riesgo se ha reducido de {inherent_level_text} a {residual_level_text}. "
+            general_reduction_text += f"Esta reducción se debe a la combinación estratégica de {len(controles_reales)} controles que han mitigado tanto la probabilidad como el impacto del riesgo."
+            
+            # Mencionar controles principales con códigos ISO
+            controles_principales = controles_reales[:3]
+            controles_texto = []
+            for ctrl in controles_principales:
+                if ctrl['codigo_iso']:
+                    controles_texto.append(f"'{ctrl['nombre']}' (ISO 27002:{ctrl['codigo_iso']})")
+                else:
+                    controles_texto.append(f"'{ctrl['nombre']}'")
+            
+            if controles_texto:
+                general_reduction_text += f" Los controles {', '.join(controles_texto)} han demostrado eficacia según ISO 27005 en la gestión de riesgos residuales."
+            
+            # Agregar referencia a ISO 27005
+            general_reduction_text += " Según ISO 27005:2022, la evaluación residual debe considerar la efectividad real de los controles implementados y su capacidad para mitigar el riesgo inherente, considerando tanto factores cuantitativos como cualitativos."
+            
+            suggestions.append({
+                'id': 'level-reduction',
+                'titulo': 'Reducción del Nivel de Riesgo',
+                'descripcion': general_reduction_text,
+                'norma': 'ISO 27005',
+                'articulo': 'A.8.1 - Gestión de Riesgos Residuales',
+                'confianza': 0.95,
+                'relacion_inherente': f"El riesgo inherente era {inherent_level_text} ({inherent_prob} probabilidad, {inherent_impact} impacto). Con los controles implementados, el riesgo residual es {residual_level_text} ({residual_prob} probabilidad, {residual_impact} impacto).",
+                'controles_mencionados': [c['nombre'] for c in controles_principales]
+            })
+        
+        # Sugerencia 4: Análisis detallado de eficacia de controles específicos
+        if controles_reales:
+            controls_text = f"Los {len(controles_reales)} controles seleccionados han demostrado eficacia en la reducción del riesgo. "
+            
+            # Analizar cada control
+            controles_detallados = []
+            for ctrl in controles_reales[:3]:
+                detalle = f"El control '{ctrl['nombre']}'"
+                
+                if ctrl['codigo_iso']:
+                    detalle += f" (ISO 27002:{ctrl['codigo_iso']})"
+                
+                if ctrl['eficacia']:
+                    eficacia_map = {
+                        'Muy Alta': 'muy alta eficacia',
+                        'Alta': 'alta eficacia',
+                        'Media': 'eficacia moderada',
+                        'Baja': 'eficacia limitada'
+                    }
+                    eficacia = eficacia_map.get(ctrl['eficacia'], 'eficacia')
+                    detalle += f" tiene {eficacia}"
+                
+                if ctrl['descripcion']:
+                    detalle += f" y se enfoca en {ctrl['descripcion'][:100]}"
+                
+                controles_detallados.append(detalle)
+            
+            if controles_detallados:
+                controls_text += " ".join(controles_detallados) + ". "
+            
+            controls_text += "Según ISO 27005:2022, la evaluación residual debe considerar la efectividad real de los controles implementados, su capacidad para mitigar el riesgo inherente, y la necesidad de controles adicionales si el riesgo residual sigue siendo inaceptable."
+            
+            # Obtener códigos ISO únicos para la referencia
+            codigos_iso = [c['codigo_iso'] for c in controles_reales if c['codigo_iso']]
+            if codigos_iso:
+                controls_text += f" Los controles implementados están alineados con los requisitos de ISO 27002:2022, específicamente en las secciones {', '.join(set(codigos_iso[:3]))}."
+            
+            suggestions.append({
+                'id': 'controls-efficacy',
+                'titulo': 'Análisis de Eficacia de Controles',
+                'descripcion': controls_text,
+                'norma': 'ISO 27005',
+                'articulo': 'A.8.2 - Evaluación de Efectividad de Controles',
+                'confianza': 0.88,
+                'relacion_inherente': f"Los {len(controles_reales)} controles implementados han mitigado el riesgo inherente {level_map.get(inherent_level, inherent_level)} al nivel residual {level_map.get(residual_level, residual_level)}.",
+                'controles_mencionados': [c['nombre'] for c in controles_reales[:3]]
+            })
+        
+        # Sugerencia 5: Justificación basada en normativa ISO 27005
+        if controles_reales and inherent_level != residual_level:
+            iso_text = f"De acuerdo con ISO 27005:2022, la gestión de riesgos residuales requiere una justificación clara de cómo los controles implementados han reducido el riesgo desde el nivel inherente ({level_map.get(inherent_level, inherent_level)}) al nivel residual ({level_map.get(residual_level, residual_level)}). "
+            
+            # Agregar referencias a controles específicos
+            if len(controles_reales) > 0:
+                iso_text += f"Los controles implementados incluyen: "
+                controles_ref = []
+                for ctrl in controles_reales[:3]:
+                    ref = f"'{ctrl['nombre']}'"
+                    if ctrl['codigo_iso']:
+                        ref += f" conforme a ISO 27002:{ctrl['codigo_iso']}"
+                    controles_ref.append(ref)
+                iso_text += ", ".join(controles_ref) + ". "
+            
+            iso_text += "Estos controles han sido seleccionados y aplicados siguiendo las mejores prácticas establecidas en ISO 27002:2022 y han demostrado su efectividad en la reducción tanto de la probabilidad como del impacto del riesgo identificado."
+            
+            suggestions.append({
+                'id': 'iso-justification',
+                'titulo': 'Justificación según ISO 27005',
+                'descripcion': iso_text,
+                'norma': 'ISO 27005',
+                'articulo': 'A.8 - Gestión de Riesgos Residuales',
+                'confianza': 0.92,
+                'relacion_inherente': f"La justificación se basa en la reducción documentada del riesgo desde {level_map.get(inherent_level, inherent_level)} a {level_map.get(residual_level, residual_level)}, conforme a los requisitos de ISO 27005:2022.",
+                'controles_mencionados': [c['nombre'] for c in controles_reales[:3]]
+            })
+        
+        return jsonify({
+            'success': True,
+            'suggestions': suggestions[:5]  # Máximo 5 sugerencias
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error al sugerir justificaciones residuales: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return jsonify({'error': 'Error interno del servidor'}), 500
+
 @predictive_bp.route('/suggestions/justifications', methods=['POST'])
 def suggest_justifications():
     """Sugerir justificaciones basadas en controles seleccionados"""
@@ -293,24 +595,151 @@ def suggest_justifications():
 
 @predictive_bp.route('/suggestions/complete', methods=['POST'])
 def get_complete_suggestions():
-    """Obtener sugerencias completas para evaluación de riesgos"""
+    """Obtener sugerencias completas para evaluación de riesgos basadas en datos reales"""
     try:
+        from ..models import db, Riesgo, Activo, evaluacion_riesgo_activo, controles_seguridad
+        from sqlalchemy import text, func
+        
         data = request.get_json()
         asset_type = data.get('asset_type', '')
         context = data.get('context', '')
+        activo_id = data.get('activo_id')  # ID del activo actual si está disponible
         
         if not asset_type:
             return jsonify({'error': 'asset_type es requerido'}), 400
         
-        suggestions = suggestion_service.get_risk_assessment_suggestions(asset_type, context)
+        # Obtener amenazas reales de la base de datos basadas en el tipo de activo
+        amenazas_reales = []
+        try:
+            # Buscar riesgos (amenazas) relacionados con activos similares
+            if activo_id:
+                # Buscar evaluaciones de activos similares
+                activos_similares = db.session.query(Activo.ID_Activo).filter(
+                    Activo.Tipo_Activo.ilike(f'%{asset_type}%'),
+                    Activo.ID_Activo != activo_id
+                ).limit(10).all()
+                
+                activo_ids = [a[0] for a in activos_similares]
+                
+                if activo_ids:
+                    riesgos_result = db.session.execute(
+                        text("""
+                            SELECT DISTINCT r.ID_Riesgo, r.Nombre, r.Descripcion, r.tipo_riesgo,
+                                   COUNT(DISTINCT era.ID_Activo) as frecuencia
+                            FROM riesgos r
+                            JOIN evaluacion_riesgo_activo era ON r.ID_Riesgo = era.ID_Riesgo
+                            WHERE era.ID_Activo IN :activo_ids
+                            GROUP BY r.ID_Riesgo, r.Nombre, r.Descripcion, r.tipo_riesgo
+                            ORDER BY frecuencia DESC
+                            LIMIT 5
+                        """),
+                        {'activo_ids': tuple(activo_ids)}
+                    ).fetchall()
+                    
+                    for riesgo in riesgos_result:
+                        amenazas_reales.append({
+                            'id': f"riesgo_{riesgo.ID_Riesgo}",
+                            'nombre': riesgo.Nombre,
+                            'descripcion': riesgo.Descripcion or '',
+                            'categoria': riesgo.tipo_riesgo or 'Tecnológica',
+                            'confianza': min(0.7 + (riesgo.frecuencia * 0.1), 0.95)
+                        })
+            
+            # Si no hay amenazas de activos similares, buscar amenazas más comunes
+            if not amenazas_reales:
+                riesgos_comunes = db.session.query(
+                    Riesgo.ID_Riesgo,
+                    Riesgo.Nombre,
+                    Riesgo.Descripcion,
+                    Riesgo.tipo_riesgo,
+                    func.count(evaluacion_riesgo_activo.ID_Activo).label('frecuencia')
+                ).join(
+                    evaluacion_riesgo_activo, Riesgo.ID_Riesgo == evaluacion_riesgo_activo.ID_Riesgo
+                ).group_by(
+                    Riesgo.ID_Riesgo, Riesgo.Nombre, Riesgo.Descripcion, Riesgo.tipo_riesgo
+                ).order_by(
+                    func.count(evaluacion_riesgo_activo.ID_Activo).desc()
+                ).limit(5).all()
+                
+                for riesgo in riesgos_comunes:
+                    amenazas_reales.append({
+                        'id': f"riesgo_{riesgo.ID_Riesgo}",
+                        'nombre': riesgo.Nombre,
+                        'descripcion': riesgo.Descripcion or '',
+                        'categoria': riesgo.tipo_riesgo or 'Tecnológica',
+                        'confianza': min(0.6 + (riesgo.frecuencia * 0.05), 0.9)
+                    })
+        except Exception as e:
+            logger.error(f"Error obteniendo amenazas reales: {e}")
+        
+        # Obtener vulnerabilidades reales
+        vulnerabilidades_reales = []
+        try:
+            vulnerabilidades_db = db.session.execute(
+                text("""
+                    SELECT DISTINCT ID_Vulnerabilidad, Nombre, Descripcion, Categoria
+                    FROM vulnerabilidades
+                    ORDER BY ID_Vulnerabilidad
+                    LIMIT 5
+                """)
+            ).fetchall()
+            
+            for vuln in vulnerabilidades_db:
+                vulnerabilidades_reales.append({
+                    'id': f"vuln_{vuln.ID_Vulnerabilidad}",
+                    'nombre': vuln.Nombre,
+                    'descripcion': vuln.Descripcion or '',
+                    'categoria': vuln.Categoria or 'Tecnológica',
+                    'confianza': 0.75
+                })
+        except Exception as e:
+            logger.error(f"Error obteniendo vulnerabilidades reales: {e}")
+        
+        # Obtener controles reales
+        controles_reales = []
+        try:
+            controles_db = controles_seguridad.query.filter(
+                controles_seguridad.activo == True
+            ).order_by(controles_seguridad.Nombre).limit(10).all()
+            
+            for control in controles_db:
+                controles_reales.append({
+                    'id': f"control_{control.ID_Control}",
+                    'nombre': control.Nombre,
+                    'descripcion': control.Descripcion or '',
+                    'categoria': control.Categoria or 'Tecnológica',
+                    'confianza': 0.8
+                })
+        except Exception as e:
+            logger.error(f"Error obteniendo controles reales: {e}")
+        
+        # Si no hay datos reales, usar servicio predictivo como fallback
+        if not amenazas_reales and not vulnerabilidades_reales and not controles_reales:
+            suggestions = suggestion_service.get_risk_assessment_suggestions(asset_type, context)
+            return jsonify({
+                'success': True,
+                'data': suggestions
+            })
         
         return jsonify({
             'success': True,
-            'data': suggestions
+            'data': {
+                'amenazas': amenazas_reales,
+                'vulnerabilidades': vulnerabilidades_reales,
+                'controles': controles_reales,
+                'metadata': {
+                    'asset_type': asset_type,
+                    'context': context,
+                    'source': 'database',
+                    'total_suggestions': len(amenazas_reales) + len(vulnerabilidades_reales) + len(controles_reales)
+                }
+            }
         })
         
     except Exception as e:
         logger.error(f"Error al obtener sugerencias completas: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': 'Error interno del servidor'}), 500
 
 @predictive_bp.route('/knowledge-base/status', methods=['GET'])

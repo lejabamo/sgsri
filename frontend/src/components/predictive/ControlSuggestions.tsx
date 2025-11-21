@@ -43,6 +43,9 @@ interface ControlSuggestionsProps {
   assetType: string;
   threatType?: string;
   vulnerabilityType?: string;
+  threatName?: string;  // Nombre completo de la amenaza
+  vulnerabilityName?: string;  // Nombre completo de la vulnerabilidad
+  riskDescription?: string;  // Descripción del riesgo
   onControlSelect?: (control: ControlSuggestion) => void;
   selectedControls?: string[];
 }
@@ -51,6 +54,9 @@ const ControlSuggestions: React.FC<ControlSuggestionsProps> = ({
   assetType,
   threatType,
   vulnerabilityType,
+  threatName,
+  vulnerabilityName,
+  riskDescription,
   onControlSelect,
   selectedControls = []
 }) => {
@@ -72,9 +78,10 @@ const ControlSuggestions: React.FC<ControlSuggestionsProps> = ({
         body: JSON.stringify({
           asset_type: assetType,
           threat_id: threatType || '',
-          threat_name: threatType || '',
+          threat_name: threatName || threatType || '',
           vulnerability_id: vulnerabilityType || '',
-          vulnerability_name: vulnerabilityType || ''
+          vulnerability_name: vulnerabilityName || vulnerabilityType || '',
+          risk_description: riskDescription || ''
         })
       });
 

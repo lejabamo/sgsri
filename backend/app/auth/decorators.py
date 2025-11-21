@@ -91,3 +91,95 @@ def operator_required(f):
 def consultant_required(f):
     """Decorador que requiere rol de consultor o superior"""
     return require_any_role(['ADMIN', 'OPERADOR', 'CONSULTOR'])(f)
+
+def require_permission(resource, action):
+    """
+    Decorador que requiere un permiso específico
+    
+    Args:
+        resource: Recurso (ej: 'activos', 'riesgos', 'usuarios')
+        action: Acción (ej: 'read', 'write', 'delete', 'admin')
+    """
+    def decorator(f):
+        @wraps(f)
+        @require_auth
+        def decorated_function(*args, **kwargs):
+            if not hasattr(request, 'current_user'):
+                return jsonify({'error': 'Usuario no autenticado'}), 401
+            
+            user_role = request.current_user.rol.nombre_rol if request.current_user.rol else None
+            
+            # ADMIN tiene todos los permisos
+            if user_role == 'ADMIN':
+                return f(*args, **kwargs)
+            
+            # Verificar permisos del rol
+            if request.current_user.rol:
+                import json
+                try:
+                    permisos = json.loads(request.current_user.rol.permisos) if request.current_user.rol.permisos else []
+                except (json.JSONDecodeError, TypeError):
+                    permisos = []
+                
+                # Verificar permiso específico
+                permiso_requerido = f"{resource}:{action}"
+                permiso_wildcard = "*"
+                
+                if permiso_wildcard in permisos or permiso_requerido in permisos:
+                    return f(*args, **kwargs)
+            
+            return jsonify({
+                'error': f'Permiso denegado: se requiere {resource}:{action}',
+                'required_permission': f'{resource}:{action}',
+                'user_role': user_role
+            }), 403
+        
+        return decorated_function
+    return decorator
+
+def read_only_required(f):
+    """Decorador que solo permite lectura (CONSULTOR y superior) - Modo consulta"""
+    @wraps(f)
+    @require_auth
+    def decorated_function(*args, **kwargs):
+        if not hasattr(request, 'current_user'):
+            return jsonify({'error': 'Usuario no autenticado'}), 401
+        
+        user_role = request.current_user.rol.nombre_rol if request.current_user.rol else None
+        
+        # ADMIN, OPERADOR y CONSULTOR pueden leer
+        if user_role in ['ADMIN', 'OPERADOR', 'CONSULTOR']:
+            return f(*args, **kwargs)
+        
+        return jsonify({'error': 'Permiso denegado: se requiere al menos rol CONSULTOR'}), 403
+    
+    return decorated_function
+
+def write_required(f):
+    """Decorador que requiere permisos de escritura (OPERADOR y superior) - Bloquea CONSULTOR"""
+    @wraps(f)
+    @require_auth
+    def decorated_function(*args, **kwargs):
+        if not hasattr(request, 'current_user'):
+            return jsonify({'error': 'Usuario no autenticado'}), 401
+        
+        user_role = request.current_user.rol.nombre_rol if request.current_user.rol else None
+        
+        # ADMIN y OPERADOR pueden escribir
+        if user_role in ['ADMIN', 'OPERADOR']:
+            return f(*args, **kwargs)
+        
+        # CONSULTOR no puede escribir
+        if user_role == 'CONSULTOR':
+            return jsonify({
+                'error': 'Permiso denegado: El rol CONSULTOR solo tiene permisos de lectura (modo consulta)',
+                'user_role': user_role,
+                'required_roles': ['ADMIN', 'OPERADOR']
+            }), 403
+        
+        return jsonify({
+            'error': 'Permiso denegado: se requiere rol OPERADOR o ADMIN para realizar esta acción',
+            'user_role': user_role
+        }), 403
+    
+    return decorated_function

@@ -39,3 +39,8 @@ instance/flask_session/
 # Archivos de base de datos grandes
 bdglpi/glpi_db.sql
 *.sql
+
+# Scripts temporales de migración
+backend/alter_riesgos_table*.py
+backend/alter_riesgos_table*.sql
+backend/ejecutar_alter_riesgos.bat

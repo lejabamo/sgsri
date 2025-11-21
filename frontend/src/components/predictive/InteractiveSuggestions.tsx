@@ -32,7 +32,7 @@ interface Suggestion {
 }
 
 interface InteractiveSuggestionsProps {
-  assetType: string;
+  assetType: string | any; // Puede ser string o objeto con datos del activo
   context?: string;
   onSuggestionSelect?: (suggestion: { type: string; data: any }) => void;
   selectedThreat?: string;
@@ -65,14 +65,19 @@ const InteractiveSuggestions: React.FC<InteractiveSuggestionsProps> = ({
     setError(null);
     
     try {
+      // Extraer activo_id del contexto si está disponible
+      const activoId = (assetType as any)?.ID_Activo || (assetType as any)?.id || null;
+      const tipoActivo = typeof assetType === 'string' ? assetType : (assetType as any)?.tipo || (assetType as any)?.Tipo_Activo || '';
+      
       const response = await apiRequest('/predictive/suggestions/complete', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          asset_type: assetType,
-          context: context
+          asset_type: tipoActivo,
+          context: context,
+          activo_id: activoId
         })
       });
 
@@ -128,7 +133,8 @@ const InteractiveSuggestions: React.FC<InteractiveSuggestionsProps> = ({
   };
 
   useEffect(() => {
-    if (assetType) {
+    const tipoActivo = typeof assetType === 'string' ? assetType : (assetType?.tipo || assetType?.Tipo_Activo || '');
+    if (tipoActivo) {
       loadSuggestions();
     }
   }, [assetType]);
@@ -249,16 +255,42 @@ const InteractiveSuggestions: React.FC<InteractiveSuggestionsProps> = ({
                       variant="body2"
                       sx={{
                         fontWeight: 'bold',
-                        fontSize: '0.8rem',
+                        fontSize: '0.85rem',
                         textAlign: 'center',
-                        lineHeight: 1.2,
-                        mb: 0.5
+                        lineHeight: 1.3,
+                        mb: 0.5,
+                        color: '#1E3A8A',
+                        minHeight: '2.6em',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
                       }}
                     >
                       {item.nombre}
                     </Typography>
                     
-                    <Box display="flex" gap={0.5} justifyContent="center">
+                    {/* Mostrar descripción si está disponible */}
+                    {item.descripcion && (
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontSize: '0.7rem',
+                          color: '#6B7280',
+                          textAlign: 'center',
+                          lineHeight: 1.2,
+                          mb: 0.5,
+                          display: 'block',
+                          maxHeight: '2.4em',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}
+                        title={item.descripcion}
+                      >
+                        {item.descripcion.length > 60 ? `${item.descripcion.substring(0, 60)}...` : item.descripcion}
+                      </Typography>
+                    )}
+                    
+                    <Box display="flex" gap={0.5} justifyContent="center" alignItems="center" flexWrap="wrap">
                       <Box
                         sx={{
                           width: 8,
@@ -266,22 +298,36 @@ const InteractiveSuggestions: React.FC<InteractiveSuggestionsProps> = ({
                           borderRadius: '50%',
                           backgroundColor: getConfidenceColor(item.confianza)
                         }}
+                        title={`${(item.confianza * 100).toFixed(0)}% de relevancia`}
                       />
+                      {item.categoria && (
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            fontSize: '0.65rem',
+                            color: 'text.secondary',
+                            fontWeight: 500
+                          }}
+                        >
+                          {item.categoria}
+                        </Typography>
+                      )}
                       <Typography
                         variant="caption"
                         sx={{
-                          fontSize: '0.7rem',
-                          color: 'text.secondary'
+                          fontSize: '0.65rem',
+                          color: getConfidenceColor(item.confianza),
+                          fontWeight: 600
                         }}
                       >
-                        {item.categoria}
+                        {(item.confianza * 100).toFixed(0)}%
                       </Typography>
                     </Box>
                   </Box>
                   
-                  {/* Indicador de selección */}
-                  {(type === 'amenazas' && selectedThreat === item.id) ||
-                   (type === 'vulnerabilidades' && selectedVulnerability === item.id) ? (
+                  {/* Indicador de selección - Comparar por nombre */}
+                  {((type === 'amenazas' && selectedThreat && item.nombre === selectedThreat) ||
+                   (type === 'vulnerabilidades' && selectedVulnerability && item.nombre === selectedVulnerability)) ? (
                     <Box
                       sx={{
                         position: 'absolute',
@@ -293,7 +339,8 @@ const InteractiveSuggestions: React.FC<InteractiveSuggestionsProps> = ({
                         height: 20,
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center'
+                        justifyContent: 'center',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                       }}
                     >
                       <CheckCircleIcon sx={{ fontSize: 14, color: 'white' }} />
@@ -308,32 +355,79 @@ const InteractiveSuggestions: React.FC<InteractiveSuggestionsProps> = ({
     );
   };
 
+  const tipoActivo = typeof assetType === 'string' ? assetType : (assetType?.tipo || assetType?.Tipo_Activo || 'Activo');
+  const nombreActivo = typeof assetType === 'object' ? (assetType?.Nombre || assetType?.nombre || '') : '';
+
   return (
-    <Card sx={{ height: '100%' }}>
-      <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <Typography variant="h6" sx={{ color: '#1E3A8A', mb: 3, textAlign: 'center' }}>
-          🎯 Sugerencias Interactivas
-        </Typography>
-        
-        <Box sx={{ flex: 1, overflow: 'auto' }}>
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              {renderSuggestionBubbles('amenazas', suggestions.amenazas)}
-            </Grid>
-            
-            <Grid item xs={12}>
-              {renderSuggestionBubbles('vulnerabilidades', suggestions.vulnerabilidades)}
-            </Grid>
-            
-            <Grid item xs={12}>
-              {renderSuggestionBubbles('controles', suggestions.controles)}
-            </Grid>
-          </Grid>
+    <Card sx={{ height: '100%', border: '1px solid #E5E7EB' }}>
+      <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 3 }}>
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h6" sx={{ color: '#1E3A8A', mb: 1, fontWeight: 600 }}>
+            Sugerencias Basadas en el Activo
+          </Typography>
+          {nombreActivo && (
+            <Typography variant="body2" sx={{ color: '#6B7280', mb: 1 }}>
+              <strong>Activo:</strong> {nombreActivo}
+            </Typography>
+          )}
+          <Typography variant="body2" sx={{ color: '#6B7280', mb: 2 }}>
+            <strong>Tipo:</strong> {tipoActivo}
+          </Typography>
+          <Alert severity="info" sx={{ borderRadius: '8px', fontSize: '0.875rem' }}>
+            <Typography variant="body2">
+              Estas sugerencias provienen de evaluaciones previas de activos similares en la base de datos. 
+              <strong> Haz clic para seleccionar</strong> y auto-completar el formulario.
+            </Typography>
+          </Alert>
         </Box>
         
-        <Box sx={{ mt: 2, textAlign: 'center' }}>
-          <Typography variant="caption" color="text.secondary">
-            💡 Haz clic en cualquier globo para auto-completar el formulario
+        <Box sx={{ flex: 1, overflow: 'auto' }}>
+          {isLoading ? (
+            <Box display="flex" justifyContent="center" alignItems="center" p={4}>
+              <CircularProgress size={24} />
+              <Typography variant="body2" sx={{ ml: 2 }}>
+                Cargando sugerencias desde la base de datos...
+              </Typography>
+            </Box>
+          ) : error ? (
+            <Alert severity="error" sx={{ borderRadius: '8px' }}>
+              {error}
+            </Alert>
+          ) : (
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                {renderSuggestionBubbles('amenazas', suggestions.amenazas)}
+              </Grid>
+              
+              <Grid item xs={12}>
+                {renderSuggestionBubbles('vulnerabilidades', suggestions.vulnerabilidades)}
+              </Grid>
+              
+              <Grid item xs={12}>
+                {renderSuggestionBubbles('controles', suggestions.controles)}
+              </Grid>
+              
+              {suggestions.amenazas.length === 0 && suggestions.vulnerabilidades.length === 0 && suggestions.controles.length === 0 && (
+                <Grid item xs={12}>
+                  <Alert severity="warning" sx={{ borderRadius: '8px' }}>
+                    <Typography variant="body2">
+                      No se encontraron sugerencias en la base de datos para este tipo de activo. 
+                      Puedes crear nuevas amenazas y vulnerabilidades escribiendo en los campos del formulario.
+                    </Typography>
+                  </Alert>
+                </Grid>
+              )}
+            </Grid>
+          )}
+        </Box>
+        
+        <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid #E5E7EB' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+            <strong>💡 Cómo usar:</strong>
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+            Haz clic en cualquier sugerencia para auto-completar el campo correspondiente en el formulario principal.
+            Las sugerencias están basadas en datos reales de la base de datos.
           </Typography>
         </Box>
       </CardContent>

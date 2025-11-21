@@ -94,6 +94,9 @@ def create_app(config=None):
 
     from .routes.vulnerabilidades import vulnerabilidades_bp
     app.register_blueprint(vulnerabilidades_bp, url_prefix='/api/vulnerabilidades')
+    
+    from .routes.amenazas import amenazas_bp
+    app.register_blueprint(amenazas_bp, url_prefix='/api/amenazas')
 
     from .routes.evaluacion_riesgos import evaluacion_riesgos_bp
     app.register_blueprint(evaluacion_riesgos_bp, url_prefix='/api/evaluacion-riesgos')

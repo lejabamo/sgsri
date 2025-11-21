@@ -1,8 +1,9 @@
 from flask import Blueprint, request, jsonify
 from ..models import db, Riesgo, RiesgoActivo, Activo
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import func
+from sqlalchemy import func, text
 from datetime import datetime
+from ..auth.decorators import admin_required
 
 riesgos_bp = Blueprint('riesgos', __name__)
 
@@ -178,9 +179,15 @@ def delete_riesgo(riesgo_id):
 def get_tipos_riesgo():
     """Obtener todos los tipos de riesgo únicos"""
     try:
-        tipos = db.session.query(Riesgo.tipo_riesgo).distinct().all()
-        return jsonify([tipo[0] for tipo in tipos if tipo[0]]), 200
+        tipos = db.session.query(Riesgo.tipo_riesgo).distinct().filter(
+            Riesgo.tipo_riesgo.isnot(None)
+        ).all()
+        tipos_list = [tipo[0] for tipo in tipos if tipo[0]]
+        # Si no hay tipos, retornar lista vacía en lugar de error
+        return jsonify(tipos_list), 200
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @riesgos_bp.route('/estados', methods=['GET'])
@@ -444,3 +451,65 @@ def get_matriz_riesgo():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@riesgos_bp.route('/alter-table-nombre', methods=['POST'])
+@admin_required
+def alter_table_nombre(current_user):
+    """Endpoint temporal para alterar el campo Nombre de riesgos a TEXT"""
+    try:
+        # Paso 1: Obtener todos los índices que usan la columna Nombre
+        indices = db.session.execute(text("""
+            SELECT DISTINCT INDEX_NAME
+            FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = 'riesgos'
+            AND COLUMN_NAME = 'Nombre'
+            AND INDEX_NAME != 'PRIMARY'
+        """)).fetchall()
+        
+        indices_eliminados = []
+        
+        # Paso 2: Eliminar cada índice que use la columna Nombre
+        for idx in indices:
+            index_name = idx[0]
+            try:
+                db.session.execute(text(f"ALTER TABLE riesgos DROP INDEX `{index_name}`"))
+                indices_eliminados.append(index_name)
+            except Exception as e:
+                # Si el índice no existe o ya fue eliminado, continuar
+                pass
+        
+        db.session.commit()
+        
+        # Paso 3: Ahora alterar la columna a TEXT
+        db.session.execute(text("""
+            ALTER TABLE riesgos 
+            MODIFY COLUMN Nombre TEXT NOT NULL
+        """))
+        
+        # Asegurar que Descripcion sea TEXT
+        db.session.execute(text("""
+            ALTER TABLE riesgos 
+            MODIFY COLUMN Descripcion TEXT
+        """))
+        
+        db.session.commit()
+        
+        mensaje = 'Tabla riesgos alterada exitosamente. Campo Nombre ahora es TEXT (sin limite de longitud)'
+        if indices_eliminados:
+            mensaje += f'. Indices eliminados: {", ".join(indices_eliminados)}'
+        
+        return jsonify({
+            'success': True,
+            'message': mensaje,
+            'indices_eliminados': indices_eliminados
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

@@ -26,6 +26,7 @@ import {
   CheckCircle as CheckCircleIcon,
   Help as HelpIcon,
 } from '@mui/icons-material';
+import JustificationSuggestions from '../predictive/JustificationSuggestions';
 import '../../styles/design-system.css';
 
 interface InherentEvaluationStepProps {
@@ -41,6 +42,9 @@ interface InherentEvaluationStepProps {
     nivelRiesgo: string;
     justificacion: string;
   }) => void;
+  // Props opcionales para sugerencias de normatividad
+  amenaza?: string;
+  controles?: string[];
 }
 
 interface LevelDefinition {
@@ -54,7 +58,9 @@ interface LevelDefinition {
 
 const InherentEvaluationStep: React.FC<InherentEvaluationStepProps> = ({
   data,
-  onUpdate
+  onUpdate,
+  amenaza = '',
+  controles = []
 }) => {
   const [currentStep, setCurrentStep] = useState<'probability' | 'impact' | 'justification'>('probability');
   const [probabilityValue, setProbabilityValue] = useState(0);
@@ -249,13 +255,13 @@ const InherentEvaluationStep: React.FC<InherentEvaluationStepProps> = ({
   return (
     <Box>
       {/* Header con progreso */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', mb: 2 }}>
+      <Box sx={{ mb: 1.5 }}>
+        <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', mb: 1 }}>
           Evaluación Inherente del Riesgo
         </Typography>
         
         {/* Indicador de pasos */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
           <Chip
             label="1. Probabilidad"
             color={currentStep === 'probability' ? 'primary' : 'default'}
@@ -280,15 +286,17 @@ const InherentEvaluationStep: React.FC<InherentEvaluationStepProps> = ({
         </Box>
       </Box>
 
-      <Grid container spacing={3}>
+      <Grid container spacing={2}>
         {/* Panel Principal - Evaluación Paso a Paso */}
         <Grid item xs={12} md={8}>
           <Card sx={{ borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
-            <CardContent sx={{ p: 4 }}>
-              {/* Paso 1: Probabilidad */}
-              <Fade in={currentStep === 'probability'}>
+            <CardContent sx={{ p: 2.5, pt: 2.5, minHeight: '400px' }}>
+              <Box>
+                {/* Paso 1: Probabilidad */}
+                {currentStep === 'probability' && (
+                <Fade in={true}>
                 <Box>
-                  <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', mb: 3 }}>
+                  <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', mb: 2 }}>
                     Paso 1: ¿Con qué frecuencia puede ocurrir este riesgo?
                   </Typography>
                   
@@ -349,11 +357,13 @@ const InherentEvaluationStep: React.FC<InherentEvaluationStepProps> = ({
                   )}
                 </Box>
               </Fade>
+              )}
 
               {/* Paso 2: Impacto */}
-              <Fade in={currentStep === 'impact'}>
+              {currentStep === 'impact' && (
+              <Fade in={true}>
                 <Box>
-                  <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', mb: 3 }}>
+                  <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', mb: 2 }}>
                     Paso 2: ¿Cuál sería el impacto si ocurriera?
                   </Typography>
                   
@@ -414,21 +424,51 @@ const InherentEvaluationStep: React.FC<InherentEvaluationStepProps> = ({
                   )}
                 </Box>
               </Fade>
+              )}
 
               {/* Paso 3: Justificación */}
-              <Fade in={currentStep === 'justification'}>
+              {currentStep === 'justification' && (
+              <Fade in={true}>
                 <Box>
-                  <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', mb: 3 }}>
+                  <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', mb: 1.5 }}>
                     Paso 3: Justifica tu evaluación
                   </Typography>
                   
+                  {/* Sugerencias de normatividad ISO - Foco principal */}
+                  {(amenaza || controles.length > 0) && (
+                    <Box sx={{ mb: 2 }}>
+                      <JustificationSuggestions
+                        riskType={amenaza || 'Riesgo de seguridad'}
+                        controls={controles}
+                        onJustificationSelect={(justificationText) => {
+                          const newJustification = justification
+                            ? `${justification}\n\n${justificationText}`
+                            : justificationText;
+                          setJustification(newJustification);
+                          if (probabilityValue >= 0 && impactValue >= 0) {
+                            const selectedProb = probabilityLevels[probabilityValue];
+                            const selectedImp = impactLevels[impactValue];
+                            const riskLevel = calculateRiskLevel(selectedProb.value, selectedImp.value);
+                            onUpdate({
+                              probabilidad: selectedProb.value,
+                              impacto: selectedImp.value,
+                              nivelRiesgo: riskLevel,
+                              justificacion: newJustification
+                            });
+                          }
+                        }}
+                      />
+                    </Box>
+                  )}
+                  
+                  {/* Campo de texto para justificación */}
                   <TextField
                     fullWidth
                     multiline
-                    rows={4}
+                    rows={6}
                     value={justification}
                     onChange={handleJustificationChange}
-                    placeholder="Explica por qué seleccionaste estos niveles de probabilidad e impacto. Incluye evidencia, datos históricos, o análisis que respalde tu evaluación..."
+                    placeholder="Explica por qué seleccionaste estos niveles de probabilidad e impacto. Incluye evidencia, datos históricos, o análisis que respalde tu evaluación. Puedes usar las sugerencias de normatividad ISO arriba..."
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         borderRadius: '12px',
@@ -444,10 +484,12 @@ const InherentEvaluationStep: React.FC<InherentEvaluationStepProps> = ({
                   />
                   
                   <Typography variant="caption" className="font-roboto" sx={{ color: '#6B7280', mt: 1, display: 'block' }}>
-                    💡 Tip: Una justificación sólida incluye evidencia específica, datos históricos, o análisis técnico que respalde la evaluación.
+                    💡 Tip: Usa las sugerencias de normatividad ISO arriba para crear una justificación sólida basada en estándares reconocidos.
                   </Typography>
                 </Box>
               </Fade>
+              )}
+              </Box>
             </CardContent>
           </Card>
         </Grid>
@@ -512,89 +554,265 @@ const InherentEvaluationStep: React.FC<InherentEvaluationStepProps> = ({
               </CardContent>
             </Card>
 
-            {/* Matriz de Referencia */}
+            {/* Matriz de Referencia Mejorada */}
             <Card sx={{ borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
               <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A', mb: 3 }}>
-                  Matriz de Referencia
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                  <Typography variant="h6" className="font-poppins" sx={{ color: '#1E3A8A' }}>
+                    Matriz de Riesgo
+                  </Typography>
+                  <Tooltip 
+                    title={
+                      <Box>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                          ¿Cómo usar esta matriz?
+                        </Typography>
+                        <Typography variant="body2" sx={{ mb: 1 }}>
+                          <strong>1. Visualización:</strong> Cada celda muestra el nivel de riesgo resultante de combinar probabilidad (filas) e impacto (columnas).
+                        </Typography>
+                        <Typography variant="body2" sx={{ mb: 1 }}>
+                          <strong>2. Selección rápida:</strong> Haz clic en cualquier celda para seleccionar esa combinación directamente.
+                        </Typography>
+                        <Typography variant="body2" sx={{ mb: 1 }}>
+                          <strong>3. Interpretación:</strong> Los colores indican la criticidad: Verde (Bajo), Naranja (Medio), Rojo (Alto).
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>4. Referencia:</strong> Úsala para validar tu evaluación o para selección rápida si ya conoces los valores.
+                        </Typography>
+                      </Box>
+                    }
+                    arrow
+                    placement="left"
+                  >
+                    <IconButton size="small" sx={{ color: '#1E3A8A' }}>
+                      <HelpIcon />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+                
+                <Alert severity="info" sx={{ mb: 2, borderRadius: '8px', fontSize: '0.75rem' }}>
+                  <Typography variant="caption" className="font-roboto">
+                    <strong>Tip:</strong> Haz clic en cualquier celda para seleccionar esa combinación de probabilidad e impacto. La celda resaltada muestra tu selección actual.
+                  </Typography>
+                </Alert>
                 
                 <Box sx={{ fontSize: '0.75rem' }}>
-                  <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 0.5, mb: 1 }}>
+                  {/* Encabezado de columnas (Impacto) */}
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '100px repeat(5, 1fr)', gap: 0.5, mb: 1 }}>
                     <Box></Box>
                     {impactLevels.map((level, index) => (
-                      <Typography key={`impact-${level.value}-${index}`} variant="caption" className="font-roboto" sx={{ 
-                        textAlign: 'center', 
-                        fontWeight: 600,
-                        color: '#374151'
-                      }}>
-                        {level.label}
-                      </Typography>
+                      <Tooltip
+                        key={`impact-header-${level.value}-${index}`}
+                        title={
+                          <Box>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                              {level.label}
+                            </Typography>
+                            <Typography variant="body2">{level.description}</Typography>
+                            {level.examples.length > 0 && (
+                              <Typography variant="caption" sx={{ mt: 0.5, display: 'block', fontStyle: 'italic' }}>
+                                Ej: {level.examples[0]}
+                              </Typography>
+                            )}
+                          </Box>
+                        }
+                        arrow
+                      >
+                        <Typography 
+                          variant="caption" 
+                          className="font-roboto" 
+                          sx={{ 
+                            textAlign: 'center', 
+                            fontWeight: 600,
+                            color: '#374151',
+                            cursor: 'help',
+                            fontSize: '0.7rem',
+                            lineHeight: 1.2
+                          }}
+                        >
+                          {level.label}
+                        </Typography>
+                      </Tooltip>
                     ))}
                   </Box>
                   
+                  {/* Filas de probabilidad */}
                   {probabilityLevels.map((probLevel, probIndex) => (
-                    <Box key={`prob-${probLevel.value}-${probIndex}`} sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 0.5, mb: 0.5 }}>
-                      <Typography variant="caption" className="font-roboto" sx={{ 
-                        fontWeight: 600,
-                        color: '#374151',
-                        display: 'flex',
-                        alignItems: 'center'
-                      }}>
-                        {probLevel.label}
-                      </Typography>
+                    <Box key={`prob-row-${probLevel.value}-${probIndex}`} sx={{ display: 'grid', gridTemplateColumns: '100px repeat(5, 1fr)', gap: 0.5, mb: 0.5 }}>
+                      <Tooltip
+                        title={
+                          <Box>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                              {probLevel.label}
+                            </Typography>
+                            <Typography variant="body2">{probLevel.description}</Typography>
+                            {probLevel.examples.length > 0 && (
+                              <Typography variant="caption" sx={{ mt: 0.5, display: 'block', fontStyle: 'italic' }}>
+                                Ej: {probLevel.examples[0]}
+                              </Typography>
+                            )}
+                          </Box>
+                        }
+                        arrow
+                        placement="left"
+                      >
+                        <Typography 
+                          variant="caption" 
+                          className="font-roboto" 
+                          sx={{ 
+                            fontWeight: 600,
+                            color: '#374151',
+                            display: 'flex',
+                            alignItems: 'center',
+                            cursor: 'help',
+                            fontSize: '0.7rem',
+                            lineHeight: 1.2
+                          }}
+                        >
+                          {probLevel.label}
+                        </Typography>
+                      </Tooltip>
                       {impactLevels.map((impLevel, impIndex) => {
                         const riskLevel = calculateRiskLevel(probLevel.value, impLevel.value);
                         const isSelected = selectedProbability?.value === probLevel.value && selectedImpact?.value === impLevel.value;
+                        const riskText = getRiskText(riskLevel);
+                        const riskColor = getRiskColor(riskLevel);
+                        
+                        // Obtener recomendación según el nivel
+                        const getRecommendation = (level: string) => {
+                          switch(level) {
+                            case 'HIGH':
+                              return 'Acción inmediata requerida';
+                            case 'MEDIUM':
+                              return 'Monitoreo y plan de mitigación';
+                            case 'LOW':
+                              return 'Aceptable con monitoreo';
+                            default:
+                              return '';
+                          }
+                        };
+                        
                         return (
-                          <Box
-                            key={`prob-${probLevel.value}-imp-${impLevel.value}-${probIndex}-${impIndex}`}
-                            sx={{
-                              width: '100%',
-                              height: 20,
-                              backgroundColor: getRiskColor(riskLevel),
-                              borderRadius: '4px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              border: isSelected ? '2px solid #1E3A8A' : '1px solid #E5E7EB',
-                              cursor: 'pointer',
-                              '&:hover': {
-                                opacity: 0.8
-                              }
-                            }}
-                            onClick={() => {
-                              setProbabilityValue(probIndex);
-                              setImpactValue(impIndex);
-                              setCurrentStep('justification');
-                            }}
+                          <Tooltip
+                            key={`cell-tooltip-${probLevel.value}-${impLevel.value}`}
+                            title={
+                              <Box>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                                  Riesgo {riskText}
+                                </Typography>
+                                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                                  <strong>Probabilidad:</strong> {probLevel.label}
+                                </Typography>
+                                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                                  <strong>Impacto:</strong> {impLevel.label}
+                                </Typography>
+                                <Typography variant="caption" sx={{ 
+                                  display: 'block', 
+                                  mt: 1, 
+                                  pt: 1, 
+                                  borderTop: '1px solid rgba(255,255,255,0.2)',
+                                  fontStyle: 'italic'
+                                }}>
+                                  {getRecommendation(riskLevel)}
+                                </Typography>
+                              </Box>
+                            }
+                            arrow
                           >
-                            <Typography variant="caption" sx={{ 
-                              color: 'white', 
-                              fontWeight: 600,
-                              fontSize: '0.6rem'
-                            }}>
-                              {getRiskText(riskLevel).charAt(0)}
-                            </Typography>
-                          </Box>
+                            <Box
+                              sx={{
+                                width: '100%',
+                                minHeight: 32,
+                                backgroundColor: riskColor,
+                                borderRadius: '6px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                border: isSelected ? '3px solid #1E3A8A' : '2px solid rgba(255,255,255,0.3)',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                                position: 'relative',
+                                boxShadow: isSelected ? '0 4px 12px rgba(30, 58, 138, 0.3)' : 'none',
+                                '&:hover': {
+                                  transform: 'scale(1.05)',
+                                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                                  zIndex: 1
+                                }
+                              }}
+                              onClick={() => {
+                                setProbabilityValue(probIndex);
+                                setImpactValue(impIndex);
+                                setCurrentStep('justification');
+                              }}
+                            >
+                              <Typography variant="caption" sx={{ 
+                                color: 'white', 
+                                fontWeight: 700,
+                                fontSize: '0.7rem',
+                                textShadow: '0 1px 2px rgba(0,0,0,0.2)'
+                              }}>
+                                {riskText}
+                              </Typography>
+                              {isSelected && (
+                                <Box sx={{
+                                  position: 'absolute',
+                                  top: -8,
+                                  right: -8,
+                                  width: 20,
+                                  height: 20,
+                                  borderRadius: '50%',
+                                  backgroundColor: '#1E3A8A',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  border: '2px solid white',
+                                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                                }}>
+                                  <CheckCircleIcon sx={{ fontSize: 12, color: 'white' }} />
+                                </Box>
+                              )}
+                            </Box>
+                          </Tooltip>
                         );
                       })}
                     </Box>
                   ))}
                 </Box>
                 
-                <Box sx={{ mt: 2, display: 'flex', gap: 2, justifyContent: 'center' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Box sx={{ width: 12, height: 12, backgroundColor: '#10B981', borderRadius: '2px' }}></Box>
-                    <Typography variant="caption" className="font-roboto">Bajo</Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Box sx={{ width: 12, height: 12, backgroundColor: '#F59E0B', borderRadius: '2px' }}></Box>
-                    <Typography variant="caption" className="font-roboto">Medio</Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Box sx={{ width: 12, height: 12, backgroundColor: '#EF4444', borderRadius: '2px' }}></Box>
-                    <Typography variant="caption" className="font-roboto">Alto</Typography>
+                {/* Leyenda mejorada */}
+                <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid #E5E7EB' }}>
+                  <Typography variant="caption" className="font-roboto" sx={{ fontWeight: 600, color: '#374151', mb: 1, display: 'block' }}>
+                    Niveles de Riesgo:
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Box sx={{ width: 16, height: 16, backgroundColor: '#10B981', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.1)' }}></Box>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="caption" className="font-roboto" sx={{ fontWeight: 600 }}>Bajo</Typography>
+                        <Typography variant="caption" className="font-roboto" sx={{ color: '#6B7280', display: 'block', fontSize: '0.65rem' }}>
+                          Riesgo aceptable, monitoreo rutinario
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Box sx={{ width: 16, height: 16, backgroundColor: '#F59E0B', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.1)' }}></Box>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="caption" className="font-roboto" sx={{ fontWeight: 600 }}>Medio</Typography>
+                        <Typography variant="caption" className="font-roboto" sx={{ color: '#6B7280', display: 'block', fontSize: '0.65rem' }}>
+                          Requiere plan de mitigación y monitoreo
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Box sx={{ width: 16, height: 16, backgroundColor: '#EF4444', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.1)' }}></Box>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="caption" className="font-roboto" sx={{ fontWeight: 600 }}>Alto</Typography>
+                        <Typography variant="caption" className="font-roboto" sx={{ color: '#6B7280', display: 'block', fontSize: '0.65rem' }}>
+                          Acción inmediata requerida, prioridad alta
+                        </Typography>
+                      </Box>
+                    </Box>
                   </Box>
                 </Box>
               </CardContent>

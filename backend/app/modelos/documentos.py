@@ -22,14 +22,31 @@ class DocumentoAdjunto(db.Model):
     usuario = db.relationship('UsuarioAuth', backref='documentos_subidos')
     
     def to_dict(self):
+        from flask import request
+        try:
+            # Intentar generar URL absoluta
+            if request:
+                base_url = request.host_url.rstrip('/')
+                url = f'{base_url}/api/documentos/descargar/{self.id}'
+            else:
+                # Si no hay request context, usar URL relativa
+                # El frontend la convertirá a absoluta
+                url = f'/api/documentos/descargar/{self.id}'
+        except Exception as e:
+            # Si hay error, usar URL relativa
+            url = f'/api/documentos/descargar/{self.id}'
+        
         return {
             'id': self.id,
             'accion_id': self.accion_id,
             'nombre': self.nombre_original,
+            'nombre_original': self.nombre_original,  # Alias para compatibilidad
             'tipo': self.tipo_mime,
             'tamaño': self.tamaño_bytes,
-            'url': f'/api/documentos/descargar/{self.id}',
-            'fechaSubida': self.fecha_subida.isoformat(),
+            'tamaño_bytes': self.tamaño_bytes,  # Alias para compatibilidad
+            'url': url,
+            'fechaSubida': self.fecha_subida.isoformat() if self.fecha_subida else None,
+            'fecha_subida': self.fecha_subida.isoformat() if self.fecha_subida else None,  # Alias
             'descripcion': self.descripcion,
             'subido_por': self.subido_por,
             'activo': self.activo
