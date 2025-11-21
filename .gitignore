@@ -44,3 +44,17 @@ bdglpi/glpi_db.sql
 backend/alter_riesgos_table*.py
 backend/alter_riesgos_table*.sql
 backend/ejecutar_alter_riesgos.bat
+
+# Backups (mantener estructura pero no los archivos grandes)
+backups/*.sql
+backups/*.sql.gz
+!backups/.gitkeep
+
+# Node modules
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Build artifacts
+*.map
+.cache/
