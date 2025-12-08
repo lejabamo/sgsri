@@ -21,31 +21,42 @@
         
         // Esperar a que Mermaid se cargue
         function initMermaidLib() {
-            if (typeof mermaid !== 'undefined') {
-                mermaid.initialize({ 
-                    startOnLoad: false,
-                    theme: 'default',
-                    flowchart: {
-                        useMaxWidth: true,
-                        htmlLabels: true,
-                        curve: 'basis',
-                        padding: 20
-                    },
-                    securityLevel: 'loose',
-                    fontFamily: 'Inter, sans-serif'
-                });
-                
-                mermaidInstance = mermaid;
-                mermaidReady = true;
-                console.log('✅ Mermaid inicializado');
-                
-                // Inicializar diagramas después de que Mermaid esté listo
-                if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', () => {
-                        setTimeout(initMermaidDiagrams, 500);
+            if (typeof mermaid !== 'undefined' && mermaid.initialize) {
+                try {
+                    mermaid.initialize({ 
+                        startOnLoad: false,
+                        theme: 'default',
+                        flowchart: {
+                            useMaxWidth: true,
+                            htmlLabels: true,
+                            curve: 'basis',
+                            padding: 20
+                        },
+                        securityLevel: 'loose',
+                        fontFamily: 'Inter, sans-serif'
                     });
-                } else {
-                    setTimeout(initMermaidDiagrams, 500);
+                    
+                    mermaidInstance = mermaid;
+                    mermaidReady = true;
+                    console.log('✅ Mermaid inicializado correctamente');
+                    
+                    // Inicializar diagramas después de que Mermaid esté listo
+                    const initDiagrams = () => {
+                        setTimeout(() => {
+                            if (window.renderAllMermaidDiagrams) {
+                                window.renderAllMermaidDiagrams();
+                            }
+                        }, 800);
+                    };
+                    
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', initDiagrams);
+                    } else {
+                        initDiagrams();
+                    }
+                } catch (err) {
+                    console.error('❌ Error inicializando Mermaid:', err);
+                    setTimeout(initMermaidLib, 200);
                 }
             } else {
                 console.warn('⏳ Esperando carga de Mermaid...');
@@ -54,9 +65,12 @@
         }
         
         // Iniciar cuando el script se carga
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initMermaidLib);
-        } else {
+        window.addEventListener('load', () => {
+            setTimeout(initMermaidLib, 100);
+        });
+        
+        // También intentar inmediatamente si el DOM ya está listo
+        if (document.readyState !== 'loading') {
             initMermaidLib();
         }
         
@@ -87,16 +101,30 @@
             
             try {
                 element.setAttribute('data-rendering', 'true');
+                
+                // Asegurar que el elemento sea visible temporalmente para renderizar
+                const originalDisplay = element.style.display;
+                const originalVisibility = element.style.visibility;
+                element.style.display = 'block';
+                element.style.visibility = 'visible';
+                
                 await mermaid.run({
                     nodes: [element],
                     suppressErrors: false
                 });
+                
+                // Restaurar estilos originales
+                element.style.display = originalDisplay || '';
+                element.style.visibility = originalVisibility || '';
+                
                 element.removeAttribute('data-rendering');
                 element.setAttribute('data-rendered', 'true');
                 console.log('✅ Diagrama renderizado:', element.id);
             } catch (err) {
                 console.error('❌ Error renderizando diagrama:', element.id, err);
                 element.removeAttribute('data-rendering');
+                element.style.display = '';
+                element.style.visibility = '';
                 // Intentar de nuevo después de un delay
                 setTimeout(() => {
                     if (!element.querySelector('svg')) {
