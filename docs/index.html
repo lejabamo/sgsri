@@ -14,29 +14,51 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
     <!-- Mermaid.js para diagramas -->
-    <script type="module">
-        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-        
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
         let mermaidReady = false;
         let mermaidInstance = null;
         
-        // Inicializar Mermaid
-        mermaid.initialize({ 
-            startOnLoad: false,
-            theme: 'default',
-            flowchart: {
-                useMaxWidth: true,
-                htmlLabels: true,
-                curve: 'basis',
-                padding: 20
-            },
-            securityLevel: 'loose',
-            fontFamily: 'Inter, sans-serif'
-        });
+        // Esperar a que Mermaid se cargue
+        function initMermaidLib() {
+            if (typeof mermaid !== 'undefined') {
+                mermaid.initialize({ 
+                    startOnLoad: false,
+                    theme: 'default',
+                    flowchart: {
+                        useMaxWidth: true,
+                        htmlLabels: true,
+                        curve: 'basis',
+                        padding: 20
+                    },
+                    securityLevel: 'loose',
+                    fontFamily: 'Inter, sans-serif'
+                });
+                
+                mermaidInstance = mermaid;
+                mermaidReady = true;
+                console.log('✅ Mermaid inicializado');
+                
+                // Inicializar diagramas después de que Mermaid esté listo
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', () => {
+                        setTimeout(initMermaidDiagrams, 500);
+                    });
+                } else {
+                    setTimeout(initMermaidDiagrams, 500);
+                }
+            } else {
+                console.warn('⏳ Esperando carga de Mermaid...');
+                setTimeout(initMermaidLib, 100);
+            }
+        }
         
-        mermaidInstance = mermaid;
-        mermaidReady = true;
-        console.log('✅ Mermaid inicializado');
+        // Iniciar cuando el script se carga
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initMermaidLib);
+        } else {
+            initMermaidLib();
+        }
         
         // Función para renderizar un diagrama Mermaid específico
         async function renderMermaidDiagram(element) {
@@ -149,8 +171,6 @@
                 initRender();
             }
         }
-        
-        initMermaidDiagrams();
         
         // Fallback: intentar renderizar todos los diagramas cada 2 segundos si no se han renderizado
         setInterval(() => {
