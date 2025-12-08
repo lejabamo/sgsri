@@ -16,15 +16,78 @@
     <!-- Mermaid.js para diagramas -->
     <script type="module">
         import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        
+        let mermaidInitialized = false;
+        
         mermaid.initialize({ 
-            startOnLoad: true,
+            startOnLoad: false, // Desactivamos auto-render para control manual
             theme: 'default',
             flowchart: {
                 useMaxWidth: true,
                 htmlLabels: true,
-                curve: 'basis'
-            }
+                curve: 'basis',
+                padding: 20
+            },
+            securityLevel: 'loose'
         });
+        
+        mermaidInitialized = true;
+        
+        // Función para renderizar todos los diagramas Mermaid
+        function renderAllMermaidDiagrams() {
+            const mermaidElements = document.querySelectorAll('.mermaid');
+            mermaidElements.forEach((element, index) => {
+                // Asignar ID único si no lo tiene
+                if (!element.id) {
+                    element.id = `mermaid-diagram-${index}`;
+                }
+                
+                // Solo renderizar si no está renderizado
+                if (!element.querySelector('svg')) {
+                    const graphDefinition = element.textContent.trim();
+                    if (graphDefinition) {
+                        mermaid.run({
+                            nodes: [element],
+                            suppressErrors: false
+                        }).catch(err => {
+                            console.warn('Error renderizando diagrama Mermaid:', err);
+                        });
+                    }
+                }
+            });
+        }
+        
+        // Renderizar cuando el DOM esté listo
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                setTimeout(renderAllMermaidDiagrams, 500);
+            });
+        } else {
+            setTimeout(renderAllMermaidDiagrams, 500);
+        }
+        
+        // Re-renderizar cuando se cambia de slide
+        window.renderMermaidOnSlideChange = function() {
+            setTimeout(() => {
+                const activeSlide = document.querySelector('.carousel-slide.active');
+                if (activeSlide) {
+                    const mermaidInSlide = activeSlide.querySelectorAll('.mermaid');
+                    mermaidInSlide.forEach((element, index) => {
+                        if (!element.querySelector('svg')) {
+                            const graphDefinition = element.textContent.trim();
+                            if (graphDefinition) {
+                                mermaid.run({
+                                    nodes: [element],
+                                    suppressErrors: false
+                                }).catch(err => {
+                                    console.warn('Error renderizando diagrama:', err);
+                                });
+                            }
+                        }
+                    });
+                }
+            }, 300);
+        };
     </script>
     
     <style>
@@ -49,20 +112,36 @@
         .carousel-container {
             position: relative;
             overflow: hidden;
+            min-height: 600px;
         }
         
         .carousel-slide {
             display: none;
-            animation: fadeIn 0.5s;
+            opacity: 0;
+            transition: opacity 0.6s ease-in-out, transform 0.6s ease-in-out;
+            transform: translateX(20px);
         }
         
         .carousel-slide.active {
             display: block;
+            opacity: 1;
+            transform: translateX(0);
+        }
+        
+        .carousel-slide.fade-out {
+            opacity: 0;
+            transform: translateX(-20px);
         }
         
         @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+            from { 
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to { 
+                opacity: 1;
+                transform: translateX(0);
+            }
         }
         
         /* Smooth scroll */
@@ -397,7 +476,7 @@ graph LR
                     <div class="text-center">
                         <h3 class="text-2xl font-semibold mb-4 univalle-red">Flujo 1: Evaluación de Riesgos con RAG</h3>
                         <div class="bg-white rounded-lg shadow-md p-6 max-w-6xl mx-auto">
-                            <div class="mermaid">
+                            <div class="mermaid" id="mermaid-flujo1">
 graph LR
     A["👤 Gestor de Riesgos"] -->|"HTTPS/JSON"| B["⚛️ Frontend<br/>Wizard"]
     B -->|"HTTPS/JSON"| C["🔧 Backend API"]
@@ -425,7 +504,7 @@ graph LR
                     <div class="text-center">
                         <h3 class="text-2xl font-semibold mb-4 univalle-red">Flujo 2: Sincronización GLPI mediante ETL</h3>
                         <div class="bg-white rounded-lg shadow-md p-6 max-w-6xl mx-auto">
-                            <div class="mermaid">
+                            <div class="mermaid" id="mermaid-flujo2">
 graph LR
     A["🔌 GLPI<br/>MySQL"] -->|"MySQL/SQL<br/>Extracción"| B["🔄 Módulo ETL<br/>Extract"]
     B -->|"Transform<br/>Mapeo Datos"| C["🔄 Módulo ETL<br/>Transform"]
@@ -453,7 +532,7 @@ graph LR
                     <div class="text-center">
                         <h3 class="text-2xl font-semibold mb-4 univalle-red">Flujo 3: Sugerencias Predictivas Inteligentes</h3>
                         <div class="bg-white rounded-lg shadow-md p-6 max-w-6xl mx-auto">
-                            <div class="mermaid">
+                            <div class="mermaid" id="mermaid-flujo3">
 graph LR
     A["⚛️ Frontend<br/>Tipo Activo"] -->|"HTTPS/JSON"| B["🔧 Backend API"]
     B -->|"HTTP/JSON"| C["🤖 Motor RAG<br/>Knowledge Query"]
@@ -625,7 +704,7 @@ graph LR
                     <div class="text-center">
                         <h3 class="text-2xl font-semibold mb-4 univalle-red">Flujo RAG - Generación de Justificaciones</h3>
                         <div class="bg-white rounded-lg shadow-md p-6 max-w-6xl mx-auto">
-                            <div class="mermaid">
+                            <div class="mermaid" id="mermaid-rag-detallado">
 graph TB
     subgraph UserLayer["👤 Capa de Usuario"]
         A["👤 Gestor de Riesgos<br/>Solicita Justificación<br/>de Riesgo Residual"]
@@ -1255,20 +1334,34 @@ graph LR
         const dots = document.querySelectorAll('.carousel-dot');
         const totalSlides = slides.length;
         
-        // Para PDF: mostrar todas las slides
+        // Para PDF: mostrar todas las slides y renderizar todos los diagramas
+        function prepareForPrint() {
+            if (window.matchMedia('print').matches) {
+                slides.forEach((slide, index) => {
+                    slide.classList.add('active');
+                    slide.style.display = 'block';
+                    slide.style.opacity = '1';
+                    slide.style.transform = 'none';
+                });
+                
+                // Renderizar todos los diagramas Mermaid
+                setTimeout(() => {
+                    if (window.renderAllMermaidDiagrams) {
+                        window.renderAllMermaidDiagrams();
+                    }
+                }, 1000);
+            }
+        }
+        
+        // Escuchar cambios en media query de impresión
+        window.matchMedia('print').addEventListener('change', prepareForPrint);
+        
+        // Preparar al cargar si ya está en modo impresión
         if (window.matchMedia('print').matches) {
-            slides.forEach(slide => {
-                slide.classList.add('active');
-                slide.style.display = 'block';
-            });
+            prepareForPrint();
         }
 
         function showSlide(n) {
-            // Ocultar todas las slides
-            slides.forEach(slide => slide.classList.remove('active'));
-            dots.forEach(dot => dot.classList.remove('bg-univalle-red'));
-            dots.forEach(dot => dot.classList.add('bg-gray-300'));
-
             // Asegurar que el índice esté en rango
             if (n >= totalSlides) {
                 currentSlide = 0;
@@ -1278,10 +1371,32 @@ graph LR
                 currentSlide = n;
             }
 
-            // Mostrar la slide actual
-            slides[currentSlide].classList.add('active');
-            dots[currentSlide].classList.remove('bg-gray-300');
-            dots[currentSlide].classList.add('bg-univalle-red');
+            // Transición suave: primero ocultar la actual
+            const currentActive = document.querySelector('.carousel-slide.active');
+            if (currentActive) {
+                currentActive.classList.add('fade-out');
+                setTimeout(() => {
+                    currentActive.classList.remove('active', 'fade-out');
+                }, 300);
+            }
+
+            // Actualizar dots
+            dots.forEach(dot => {
+                dot.classList.remove('bg-univalle-red');
+                dot.classList.add('bg-gray-300');
+            });
+
+            // Mostrar la nueva slide con transición
+            setTimeout(() => {
+                slides[currentSlide].classList.add('active');
+                dots[currentSlide].classList.remove('bg-gray-300');
+                dots[currentSlide].classList.add('bg-univalle-red');
+                
+                // Renderizar diagramas Mermaid en la nueva slide
+                if (window.renderMermaidOnSlideChange) {
+                    window.renderMermaidOnSlideChange();
+                }
+            }, 300);
         }
 
         function nextSlide() {
@@ -1296,11 +1411,30 @@ graph LR
             showSlide(n);
         }
 
-        // Auto-avance del carrusel cada 10 segundos (solo si no está en modo impresión)
+        // Auto-avance del carrusel cada 12 segundos (solo si no está en modo impresión)
+        let autoAdvanceInterval;
         if (!window.matchMedia('print').matches) {
-            setInterval(() => {
+            autoAdvanceInterval = setInterval(() => {
                 nextSlide();
-            }, 10000);
+            }, 12000);
+        }
+        
+        // Pausar auto-avance al hacer hover sobre el carrusel
+        const carouselContainer = document.querySelector('.carousel-container');
+        if (carouselContainer) {
+            carouselContainer.addEventListener('mouseenter', () => {
+                if (autoAdvanceInterval) {
+                    clearInterval(autoAdvanceInterval);
+                }
+            });
+            
+            carouselContainer.addEventListener('mouseleave', () => {
+                if (!window.matchMedia('print').matches) {
+                    autoAdvanceInterval = setInterval(() => {
+                        nextSlide();
+                    }, 12000);
+                }
+            });
         }
 
         // Inicializar
