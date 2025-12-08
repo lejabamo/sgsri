@@ -795,6 +795,41 @@ graph TB
         </div>
     </section>
 
+    <!-- Convenciones del Diagrama -->
+    <section class="py-16 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-2xl font-bold univalle-red mb-6">Convenciones de Color del Diagrama</h2>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 bg-blue-200 border-2 border-blue-500 rounded mr-2"></div>
+                        <span><strong>Azul:</strong> Usuarios</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 bg-purple-200 border-2 border-purple-500 rounded mr-2"></div>
+                        <span><strong>Púrpura:</strong> Componentes SmartAuditorIA</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 bg-orange-200 border-4 border-orange-500 rounded mr-2"></div>
+                        <span><strong>Naranja:</strong> Motor RAG / IA (Destacado)</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 bg-green-200 border-2 border-green-500 rounded mr-2"></div>
+                        <span><strong>Verde:</strong> Base de Datos MySQL</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 bg-yellow-200 border-2 border-yellow-500 rounded mr-2"></div>
+                        <span><strong>Amarillo:</strong> Base de Datos Vectorial</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 bg-pink-200 border-2 border-pink-500 rounded mr-2"></div>
+                        <span><strong>Rosa:</strong> Sistemas Externos</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Stack Tecnológico y Normativo -->
     <section id="normativa" class="py-16 bg-gray-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -877,6 +912,101 @@ graph TB
         </div>
     </section>
 
+    <!-- Flujos de Datos Principales -->
+    <section id="flujos" class="py-16 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12">
+                <h2 class="text-4xl font-bold univalle-red mb-4">Flujos de Datos Principales</h2>
+                <p class="text-lg text-gray-600 max-w-3xl mx-auto">
+                    Diagramas detallados de los principales flujos de datos en el sistema SmartAuditorIA.
+                </p>
+            </div>
+
+            <div class="space-y-8">
+                <!-- Flujo 1: Evaluación con RAG -->
+                <div class="bg-gray-50 rounded-lg p-6 border-l-4 border-univalle-red">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">Flujo 1: Evaluación de Riesgos con RAG</h3>
+                    <div class="bg-white rounded-lg p-4">
+                        <div class="mermaid">
+graph LR
+    A["👤 Gestor de Riesgos"] -->|"HTTPS/JSON"| B["⚛️ Frontend<br/>Wizard"]
+    B -->|"HTTPS/JSON"| C["🔧 Backend API"]
+    C -->|"HTTP/JSON<br/>Solicitud"| D["🤖 Motor RAG<br/>Context Extraction"]
+    D -->|"API/Embeddings"| E["📊 Vector DB<br/>Semantic Search"]
+    E -->|"Vectores/JSON"| D
+    D -->|"HTTP/JSON<br/>Sugerencias"| C
+    C -->|"HTTPS/JSON"| B
+    B -->|"Render UI"| A
+    
+    style D fill:#fff3e0,stroke:#e65100,stroke-width:3px
+    style E fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-4">
+                        El usuario solicita una justificación de riesgo residual. El sistema extrae el contexto, 
+                        consulta la base vectorial mediante búsqueda semántica, y genera justificaciones normativas 
+                        que se presentan al usuario en el wizard.
+                    </p>
+                </div>
+
+                <!-- Flujo 2: Sincronización ETL -->
+                <div class="bg-gray-50 rounded-lg p-6 border-l-4 border-purple-500">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">Flujo 2: Sincronización GLPI mediante ETL</h3>
+                    <div class="bg-white rounded-lg p-4">
+                        <div class="mermaid">
+graph LR
+    A["🔌 GLPI<br/>MySQL"] -->|"MySQL/SQL<br/>Extracción"| B["🔄 Módulo ETL<br/>Extract"]
+    B -->|"Transform<br/>Mapeo Datos"| C["🔄 Módulo ETL<br/>Transform"]
+    C -->|"SQL INSERT/UPDATE<br/>Carga"| D["🔄 Módulo ETL<br/>Load"]
+    D -->|"SQL INSERT"| E["🗄️ MySQL<br/>SmartAuditorIA"]
+    E -->|"SQL/ORM"| F["🔧 Backend API"]
+    F -->|"HTTPS/JSON"| G["⚛️ Frontend"]
+    
+    style B fill:#e1bee7,stroke:#6a1b9a,stroke-width:2px
+    style C fill:#e1bee7,stroke:#6a1b9a,stroke-width:2px
+    style D fill:#e1bee7,stroke:#6a1b9a,stroke-width:2px
+    style E fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-4">
+                        El módulo ETL extrae datos de activos (hardware, software, usuarios) desde GLPI, 
+                        los transforma según el esquema de SmartAuditorIA, y los carga en la base de datos MySQL. 
+                        Los datos quedan disponibles para el backend y frontend.
+                    </p>
+                </div>
+
+                <!-- Flujo 3: Sugerencias Predictivas -->
+                <div class="bg-gray-50 rounded-lg p-6 border-l-4 border-orange-500">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">Flujo 3: Sugerencias Predictivas Inteligentes</h3>
+                    <div class="bg-white rounded-lg p-4">
+                        <div class="mermaid">
+graph LR
+    A["⚛️ Frontend<br/>Tipo Activo"] -->|"HTTPS/JSON"| B["🔧 Backend API"]
+    B -->|"HTTP/JSON"| C["🤖 Motor RAG<br/>Knowledge Query"]
+    C -->|"SQL/ORM"| D["🗄️ MySQL<br/>Controles ISO"]
+    C -->|"API/Embeddings"| E["📊 Vector DB<br/>Semantic Matching"]
+    D -->|"ResultSet"| C
+    E -->|"Vectores"| C
+    C -->|"Template<br/>Generation"| F["🤖 Motor RAG<br/>Response"]
+    F -->|"HTTP/JSON<br/>Sugerencias"| B
+    B -->|"HTTPS/JSON"| G["⚛️ Frontend<br/>Cards Interactivas"]
+    
+    style C fill:#fff3e0,stroke:#e65100,stroke-width:3px
+    style F fill:#fff3e0,stroke:#e65100,stroke-width:3px
+    style E fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style D fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-4">
+                        Cuando el usuario selecciona un tipo de activo, el sistema consulta tanto la base de datos 
+                        relacional (controles ISO) como la base vectorial (búsqueda semántica) para generar sugerencias 
+                        inteligentes de amenazas, vulnerabilidades y controles, presentadas como cards interactivas.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Footer -->
     <footer class="bg-gray-900 text-white py-12">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -910,6 +1040,15 @@ graph TB
             </div>
         </div>
     </footer>
+
+    <!-- Botón de Exportación a PDF -->
+    <div class="fixed bottom-6 right-6 no-print z-50">
+        <button onclick="window.print()" 
+                class="bg-univalle-red text-white px-6 py-3 rounded-lg shadow-lg hover:bg-opacity-90 transition-all font-semibold flex items-center space-x-2">
+            <span>📄</span>
+            <span>Exportar a PDF</span>
+        </button>
+    </div>
 
     <!-- JavaScript para el Carrusel -->
     <script>
