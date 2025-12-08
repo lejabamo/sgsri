@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Context Diagram | SmartAuditorIA - Ing. Leonardo Javier Bastidas Moreno</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Mermaid.js para diagramas -->
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            }
+        });
+    </script>
+    
+    <!-- Google Fonts - Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        /* Colores Universidad del Valle - Rojo/Vinotinto */
+        .univalle-red {
+            color: #8B1538;
+        }
+        
+        .bg-univalle-red {
+            background-color: #8B1538;
+        }
+        
+        .border-univalle-red {
+            border-color: #8B1538;
+        }
+        
+        .text-univalle-red {
+            color: #8B1538;
+        }
+        
+        /* Estilos para impresión/PDF */
+        @media print {
+            .no-print {
+                display: none;
+            }
+            body {
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+            }
+            .page-break {
+                page-break-after: always;
+            }
+        }
+        
+        /* Animaciones sutiles */
+        .card-hover {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Destacar componente RAG */
+        .rag-highlight {
+            border: 3px solid #e65100;
+            box-shadow: 0 0 20px rgba(230, 81, 0, 0.3);
+        }
+        
+        /* Estilos para Mermaid */
+        .mermaid {
+            text-align: center;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        
+        /* Mejorar calidad de renderizado */
+        .mermaid svg {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'univalle': {
+                            'red': '#8B1538',
+                            'dark': '#6B0F2A'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 text-gray-800">
+    
+    <!-- Encabezado Institucional -->
+    <header class="bg-white border-b-4 border-univalle-red shadow-sm">
+        <div class="max-w-7xl mx-auto px-6 py-8">
+            <div class="text-center">
+                <h1 class="text-3xl font-bold univalle-red mb-2">Universidad del Valle</h1>
+                <h2 class="text-xl font-semibold text-gray-700 mb-1">Escuela de Ingeniería de Sistemas y Computación</h2>
+                <h3 class="text-lg text-gray-600 mb-6">Maestría en Computación para el Desarrollo de Aplicaciones Inteligentes</h3>
+                
+                <div class="bg-univalle-red text-white px-6 py-4 rounded-lg inline-block">
+                    <h4 class="text-2xl font-bold mb-1">SmartAuditorIA</h4>
+                    <p class="text-sm opacity-90">Sistema de Gestión de Riesgos de Información</p>
+                </div>
+                
+                <div class="mt-6 text-gray-600">
+                    <p class="font-semibold">Ing. Leonardo Javier Bastidas Moreno</p>
+                    <p class="text-sm">Diagrama de Contexto Inteligente (Smart Context Diagram - SCD)</p>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Contenido Principal -->
+    <main class="max-w-7xl mx-auto px-6 py-8">
+        
+        <!-- Resumen Ejecutivo -->
+        <section class="mb-10">
+            <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-univalle-red">
+                <h2 class="text-2xl font-bold univalle-red mb-4">Resumen Ejecutivo</h2>
+                <p class="text-gray-700 leading-relaxed">
+                    <strong>SmartAuditorIA</strong> es una plataforma integral para la gestión de riesgos de seguridad de la información 
+                    basada en normas ISO 27001/27002/27005 y normativa colombiana. El sistema combina tecnologías modernas de desarrollo 
+                    web (Frontend React + Backend Flask) con inteligencia artificial mediante un Motor RAG (Retrieval Augmented Generation) 
+                    que proporciona justificaciones normativas contextuales y sugerencias inteligentes de controles de seguridad.
+                </p>
+            </div>
+        </section>
+
+        <!-- Diagrama de Contexto -->
+        <section class="mb-10">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-2xl font-bold univalle-red mb-4">Diagrama de Contexto C4 - Arquitectura SmartAuditorIA</h2>
+                
+                <div class="bg-gray-50 rounded-lg p-6 mb-4 border-2 border-gray-200">
+                    <!-- Mermaid Diagram embebido para mejor calidad -->
+                    <div class="mermaid">
+graph LR
+    %% Definir estilos
+    classDef userStyle fill:#e1f5ff,stroke:#01579b,stroke-width:2px,color:#000
+    classDef systemStyle fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#000
+    classDef aiStyle fill:#fff3e0,stroke:#e65100,stroke-width:3px,color:#000
+    classDef dbStyle fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px,color:#000
+    classDef externalStyle fill:#fce4ec,stroke:#880e4f,stroke-width:2px,color:#000
+    classDef vectorStyle fill:#fff9c4,stroke:#f57f17,stroke-width:2px,color:#000
+    classDef etlStyle fill:#e1bee7,stroke:#6a1b9a,stroke-width:2px,color:#000
+
+    %% === COLUMNA IZQUIERDA: EXTERNO Y ETL ===
+    subgraph LeftCol[" "]
+        direction TB
+        GLPI["🔌 GLPI<br/>Hardware • Software"]
+        ModuloETL["🔄 Módulo ETL<br/>Extract • Transform • Load"]
+        MySQL["🗄️ MySQL<br/>Activos • Riesgos"]
+    end
+    
+    class GLPI externalStyle
+    class ModuloETL etlStyle
+    class MySQL dbStyle
+
+    %% === COLUMNA CENTRAL: APLICACIÓN ===
+    subgraph CenterCol[" "]
+        direction TB
+        GestorRiesgos["👤 Gestor de Riesgos"]
+        Frontend["⚛️ Frontend React<br/>Wizard • Dashboard"]
+        BackendAPI["🔧 Backend API<br/>REST Services"]
+    end
+    
+    class GestorRiesgos userStyle
+    class Frontend systemStyle
+    class BackendAPI systemStyle
+
+    %% === COLUMNA DERECHA: IA Y VECTOR ===
+    subgraph RightCol[" "]
+        direction TB
+        MotorRAG["🤖 Motor RAG / IA<br/>Sugerencias ISO<br/>Justificaciones"]
+        VectorDB["📊 Vector DB<br/>Embeddings ISO"]
+    end
+    
+    class MotorRAG aiStyle
+    class VectorDB vectorStyle
+
+    %% === CONEXIONES VERTICALES EN CADA COLUMNA ===
+    GLPI -->|"MySQL/SQL"| ModuloETL
+    ModuloETL -->|"SQL INSERT"| MySQL
+    
+    GestorRiesgos -->|"HTTPS/JSON"| Frontend
+    Frontend -->|"HTTPS/JSON"| BackendAPI
+    
+    MotorRAG -->|"API/Embeddings"| VectorDB
+    VectorDB -->|"Vectores"| MotorRAG
+
+    %% === CONEXIONES HORIZONTALES ENTRE COLUMNAS ===
+    BackendAPI -->|"HTTP/JSON"| MotorRAG
+    MotorRAG -->|"HTTP/JSON"| BackendAPI
+    BackendAPI -->|"SQL/ORM"| MySQL
+    MySQL -->|"ResultSet"| BackendAPI
+
+    %% Estilo de las flechas
+    linkStyle 0 stroke:#880e4f,stroke-width:2px
+    linkStyle 1 stroke:#6a1b9a,stroke-width:2px
+    linkStyle 2 stroke:#01579b,stroke-width:2px
+    linkStyle 3 stroke:#4a148c,stroke-width:2px
+    linkStyle 4 stroke:#e65100,stroke-width:3px
+    linkStyle 5 stroke:#f57f17,stroke-width:2px
+    linkStyle 6 stroke:#e65100,stroke-width:3px
+    linkStyle 7 stroke:#e65100,stroke-width:3px
+    linkStyle 8 stroke:#1b5e20,stroke-width:2px
+    linkStyle 9 stroke:#1b5e20,stroke-width:2px
+                    </div>
+                </div>
+                
+                <p class="text-sm text-gray-600 italic text-center">
+                    <strong>Figura 1.</strong> Arquitectura C4 de SmartAuditorIA mostrando el flujo entre el Gestor de Riesgos, 
+                    el Núcleo del Sistema y el Motor RAG. El diagrama ilustra las tres columnas principales: Externa/ETL (izquierda), 
+                    Aplicación (centro) e Inteligencia Artificial (derecha).
+                </p>
+            </div>
+        </section>
+
+        <!-- Detalle de Arquitectura -->
+        <section class="mb-10">
+            <h2 class="text-2xl font-bold univalle-red mb-6">Detalle de Arquitectura</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                
+                <!-- Componente: Gestor de Riesgos -->
+                <div class="bg-blue-50 border-2 border-blue-300 rounded-lg p-5 card-hover">
+                    <div class="flex items-center mb-3">
+                        <span class="text-3xl mr-3">👤</span>
+                        <h3 class="text-xl font-bold text-blue-900">Gestor de Riesgos</h3>
+                    </div>
+                    <p class="text-sm text-gray-700 mb-2"><strong>Rol:</strong> Usuario principal del sistema</p>
+                    <ul class="text-sm text-gray-600 space-y-1">
+                        <li>• Gestiona activos de información</li>
+                        <li>• Evalúa riesgos mediante wizard</li>
+                        <li>• Consulta dashboards analíticos</li>
+                        <li>• Interactúa vía HTTPS/JSON</li>
+                    </ul>
+                </div>
+
+                <!-- Componente: Frontend React -->
+                <div class="bg-purple-50 border-2 border-purple-300 rounded-lg p-5 card-hover">
+                    <div class="flex items-center mb-3">
+                        <span class="text-3xl mr-3">⚛️</span>
+                        <h3 class="text-xl font-bold text-purple-900">Frontend React</h3>
+                    </div>
+                    <p class="text-sm text-gray-700 mb-2"><strong>Tecnologías:</strong> React 18+, TypeScript, Material-UI</p>
+                    <ul class="text-sm text-gray-600 space-y-1">
+                        <li>• Wizard de Evaluación Interactivo</li>
+                        <li>• Dashboard con gráficos</li>
+                        <li>• Gestión de Activos (CRUD)</li>
+                        <li>• Visualización de Matriz de Riesgos</li>
+                    </ul>
+                </div>
+
+                <!-- Componente: Backend API -->
+                <div class="bg-purple-50 border-2 border-purple-300 rounded-lg p-5 card-hover">
+                    <div class="flex items-center mb-3">
+                        <span class="text-3xl mr-3">🔧</span>
+                        <h3 class="text-xl font-bold text-purple-900">Backend Flask API</h3>
+                    </div>
+                    <p class="text-sm text-gray-700 mb-2"><strong>Tecnologías:</strong> Flask 2.3+, SQLAlchemy, PyJWT</p>
+                    <ul class="text-sm text-gray-600 space-y-1">
+                        <li>• /api/activos - Gestión de activos</li>
+                        <li>• /api/riesgos - Gestión de riesgos</li>
+                        <li>• /api/evaluacion - Evaluaciones</li>
+                        <li>• /api/predictive/* - Servicios IA</li>
+                    </ul>
+                </div>
+
+                <!-- Componente: Motor RAG / IA (DESTACADO) -->
+                <div class="bg-orange-50 border-4 border-orange-500 rounded-lg p-5 card-hover rag-highlight">
+                    <div class="flex items-center mb-3">
+                        <span class="text-3xl mr-3">🤖</span>
+                        <h3 class="text-xl font-bold text-orange-900">Motor RAG / Servicio de IA</h3>
+                    </div>
+                    <p class="text-sm text-gray-700 mb-2"><strong>Tecnologías:</strong> LangChain, LlamaIndex, sentence-transformers</p>
+                    <p class="text-xs font-semibold text-orange-800 mb-2 bg-orange-100 px-2 py-1 rounded">COMPONENTE INTELIGENTE DIFERENCIADOR</p>
+                    <ul class="text-sm text-gray-700 space-y-1">
+                        <li>• <strong>Retrieval:</strong> Búsqueda semántica en base de conocimiento ISO</li>
+                        <li>• <strong>Augmented:</strong> Enriquecimiento de contexto con normativa</li>
+                        <li>• <strong>Generation:</strong> Justificaciones basadas en ISO 27005</li>
+                        <li>• Sugerencias inteligentes de amenazas, vulnerabilidades y controles</li>
+                        <li>• Cálculo de niveles de confianza (0-1)</li>
+                    </ul>
+                    <div class="mt-3 pt-3 border-t border-orange-300">
+                        <p class="text-xs font-semibold text-orange-900">Endpoints Principales:</p>
+                        <ul class="text-xs text-gray-600 mt-1">
+                            <li>• /api/predictive/suggestions/threats</li>
+                            <li>• /api/predictive/suggestions/residual-justifications</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Componente: Base de Datos Vectorial -->
+                <div class="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-5 card-hover">
+                    <div class="flex items-center mb-3">
+                        <span class="text-3xl mr-3">📊</span>
+                        <h3 class="text-xl font-bold text-yellow-900">Base de Datos Vectorial</h3>
+                    </div>
+                    <p class="text-sm text-gray-700 mb-2"><strong>Tecnologías:</strong> ChromaDB / Pinecone, sentence-transformers</p>
+                    <ul class="text-sm text-gray-600 space-y-1">
+                        <li>• Embeddings ISO 27001:2022</li>
+                        <li>• Embeddings ISO 27002:2022</li>
+                        <li>• Embeddings ISO 27005:2022</li>
+                        <li>• Vectores de controles y amenazas</li>
+                        <li>• Búsqueda por similitud coseno</li>
+                    </ul>
+                </div>
+
+                <!-- Componente: MySQL -->
+                <div class="bg-green-50 border-2 border-green-400 rounded-lg p-5 card-hover">
+                    <div class="flex items-center mb-3">
+                        <span class="text-3xl mr-3">🗄️</span>
+                        <h3 class="text-xl font-bold text-green-900">Base de Datos MySQL</h3>
+                    </div>
+                    <p class="text-sm text-gray-700 mb-2"><strong>Versión:</strong> MySQL 8.0+</p>
+                    <ul class="text-sm text-gray-600 space-y-1">
+                        <li>• Tabla: activos</li>
+                        <li>• Tabla: riesgos</li>
+                        <li>• Tabla: evaluacion_riesgo_activo</li>
+                        <li>• Tabla: controles_seguridad</li>
+                        <li>• Tabla: incidentes</li>
+                    </ul>
+                </div>
+
+                <!-- Componente: Módulo ETL -->
+                <div class="bg-purple-50 border-2 border-purple-300 rounded-lg p-5 card-hover">
+                    <div class="flex items-center mb-3">
+                        <span class="text-3xl mr-3">🔄</span>
+                        <h3 class="text-xl font-bold text-purple-900">Módulo ETL</h3>
+                    </div>
+                    <p class="text-sm text-gray-700 mb-2"><strong>Función:</strong> Extract, Transform, Load</p>
+                    <ul class="text-sm text-gray-600 space-y-1">
+                        <li>• <strong>Extract:</strong> Extracción desde GLPI</li>
+                        <li>• <strong>Transform:</strong> Mapeo al esquema SmartAuditorIA</li>
+                        <li>• <strong>Load:</strong> Carga en MySQL</li>
+                        <li>• Scripts: etl_computers.py, etl_softwares.py, etl_users.py</li>
+                    </ul>
+                </div>
+
+                <!-- Componente: GLPI -->
+                <div class="bg-pink-50 border-2 border-pink-300 rounded-lg p-5 card-hover">
+                    <div class="flex items-center mb-3">
+                        <span class="text-3xl mr-3">🔌</span>
+                        <h3 class="text-xl font-bold text-pink-900">GLPI</h3>
+                    </div>
+                    <p class="text-sm text-gray-700 mb-2"><strong>Tipo:</strong> Sistema Externo</p>
+                    <ul class="text-sm text-gray-600 space-y-1">
+                        <li>• Inventario Hardware</li>
+                        <li>• Inventario Software</li>
+                        <li>• Gestión de Usuarios</li>
+                        <li>• Sistema de Tickets</li>
+                    </ul>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Justificación de Smart App -->
+        <section class="mb-10 page-break">
+            <div class="bg-white rounded-lg shadow-md p-8 border-l-4 border-univalle-red">
+                <h2 class="text-2xl font-bold univalle-red mb-6">Justificación de SmartAuditorIA como Smart App</h2>
+                
+                <div class="space-y-6">
+                    <div>
+                        <h3 class="text-xl font-semibold text-gray-800 mb-3 flex items-center">
+                            <span class="bg-univalle-red text-white rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm">1</span>
+                            Conciencia de Contexto
+                        </h3>
+                        <p class="text-gray-700 leading-relaxed ml-11">
+                            SmartAuditorIA demuestra <strong>Conciencia de Contexto</strong> mediante su capacidad de identificar y aplicar 
+                            automáticamente las normativas legales y estándares internacionales pertinentes según el escenario específico de 
+                            cada evaluación de riesgo. El sistema analiza dinámicamente el contexto (tipo de reducción identificada, controles 
+                            implementados, características del activo) y selecciona inteligentemente las referencias normativas apropiadas: 
+                            <strong>ISO 27005:2022</strong> para justificaciones de evaluación residual, <strong>ISO 27002:2022</strong> para 
+                            controles de seguridad específicos, y el <strong>marco legal colombiano</strong> (Resolución 2277 de 2025, Resolución 
+                            500 de 2021, CONPES 3995 de 2020) según la naturaleza del riesgo evaluado.
+                        </p>
+                        <p class="text-gray-700 leading-relaxed ml-11 mt-3">
+                            Esta capacidad contextual se implementa mediante el sistema <strong>RAG (Retrieval Augmented Generation)</strong>, 
+                            que clasifica automáticamente controles según su función (preventivos para reducir probabilidad, de protección para 
+                            mitigar impacto) y los mapea a códigos ISO específicos (A.6, A.7, A.9 para controles preventivos; A.12, A.17, A.18 
+                            para controles de protección), demostrando que el sistema posee conocimiento contextual sobre <em>qué norma aplicar en cada situación</em>.
+                        </p>
+                    </div>
+
+                    <div class="border-t border-gray-200 pt-6">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-3 flex items-center">
+                            <span class="bg-univalle-red text-white rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm">2</span>
+                            Toma de Decisiones Autónoma
+                        </h3>
+                        <p class="text-gray-700 leading-relaxed ml-11">
+                            La capacidad de <strong>Toma de Decisiones</strong> se evidencia en el motor predictivo que sugiere controles de 
+                            seguridad mediante análisis inteligente de relaciones entre amenazas, vulnerabilidades y activos. El sistema no se 
+                            limita a presentar un catálogo estático de controles, sino que:
+                        </p>
+                        <ul class="text-gray-700 leading-relaxed ml-11 mt-3 space-y-2">
+                            <li>• <strong>Calcula relevancia</strong> basada en coincidencias de palabras clave y contexto del activo</li>
+                            <li>• <strong>Prioriza controles</strong> según su eficacia esperada (Muy Alta, Alta, Media, Baja)</li>
+                            <li>• <strong>Genera múltiples justificaciones</strong> desde diferentes perspectivas (reducción de probabilidad, 
+                                mitigación de impacto, análisis de eficacia, cumplimiento normativo)</li>
+                            <li>• <strong>Calcula niveles de confianza</strong> (0-1) mediante algoritmos heurísticos que combinan eficacia de 
+                                controles, relevancia contextual y coherencia normativa</li>
+                        </ul>
+                        <p class="text-gray-700 leading-relaxed ml-11 mt-3">
+                            Esta capacidad de decisión se fundamenta en algoritmos que combinan búsqueda semántica en bases de conocimiento 
+                            estructuradas, cálculo heurístico de confianza, y generación contextual de justificaciones que integran tanto 
+                            estándares internacionales como el marco legal colombiano.
+                        </p>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-5 mt-6 border-l-4 border-univalle-red">
+                        <p class="text-gray-800 font-semibold italic">
+                            Por tanto, SmartAuditorIA trasciende las aplicaciones tradicionales al incorporar inteligencia contextual 
+                            adaptativa y capacidad de decisión fundamentada, posicionándolo como una <strong>verdadera Smart App</strong> en el 
+                            dominio de la gestión de riesgos de seguridad de la información.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Marco Normativo -->
+        <section class="mb-10">
+            <div class="bg-white rounded-lg shadow-md p-8">
+                <h2 class="text-2xl font-bold univalle-red mb-6">Marco Normativo - Base de Conocimiento del RAG</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    
+                    <!-- Estándares Internacionales -->
+                    <div class="bg-red-50 border-2 border-red-200 rounded-lg p-5">
+                        <h3 class="text-lg font-bold text-red-900 mb-4 flex items-center">
+                            <span class="text-2xl mr-2">🌐</span>
+                            Estándares Internacionales ISO
+                        </h3>
+                        <ul class="space-y-2 text-sm text-gray-700">
+                            <li class="flex items-start">
+                                <span class="text-red-600 mr-2">•</span>
+                                <div>
+                                    <strong>ISO 27001:2022</strong> - Sistema de Gestión de Seguridad de la Información
+                                </div>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-red-600 mr-2">•</span>
+                                <div>
+                                    <strong>ISO 27002:2022</strong> - Controles de Seguridad de la Información
+                                </div>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-red-600 mr-2">•</span>
+                                <div>
+                                    <strong>ISO 27005:2022</strong> - Gestión de Riesgos de Seguridad de la Información
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Marco Legal Colombia -->
+                    <div class="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-5">
+                        <h3 class="text-lg font-bold text-yellow-900 mb-4 flex items-center">
+                            <span class="text-2xl mr-2">⚖️</span>
+                            Marco Legal Colombia
+                        </h3>
+                        <ul class="space-y-2 text-sm text-gray-700">
+                            <li class="flex items-start">
+                                <span class="text-yellow-600 mr-2">•</span>
+                                <div>
+                                    <strong>Decreto 767 de 2022</strong> - Política de Gobierno Digital
+                                </div>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-yellow-600 mr-2">•</span>
+                                <div>
+                                    <strong>CONPES 3995 de 2020</strong> - Política de Seguridad Digital
+                                </div>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-yellow-600 mr-2">•</span>
+                                <div>
+                                    <strong>Resolución 500 de 2021</strong> - Requisitos Mínimos de Seguridad
+                                </div>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-yellow-600 mr-2">•</span>
+                                <div>
+                                    <strong>Resolución 2277 de 2025</strong> - Gestión de Riesgos Residuales
+                                </div>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-yellow-600 mr-2">•</span>
+                                <div>
+                                    <strong>Ley 1581 de 2012</strong> - Protección de Datos Personales
+                                </div>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-yellow-600 mr-2">•</span>
+                                <div>
+                                    <strong>Ley 1273 de 2009</strong> - Delitos Informáticos
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- Convenciones del Diagrama -->
+        <section class="mb-10">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-bold univalle-red mb-4">Convenciones de Color del Diagrama</h2>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 bg-blue-200 border-2 border-blue-500 rounded mr-2"></div>
+                        <span><strong>Azul:</strong> Usuarios</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 bg-purple-200 border-2 border-purple-500 rounded mr-2"></div>
+                        <span><strong>Púrpura:</strong> Componentes SmartAuditorIA</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 bg-orange-200 border-4 border-orange-500 rounded mr-2"></div>
+                        <span><strong>Naranja:</strong> Motor RAG / IA (Destacado)</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 bg-green-200 border-2 border-green-500 rounded mr-2"></div>
+                        <span><strong>Verde:</strong> Base de Datos MySQL</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 bg-yellow-200 border-2 border-yellow-500 rounded mr-2"></div>
+                        <span><strong>Amarillo:</strong> Base de Datos Vectorial</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 bg-pink-200 border-2 border-pink-500 rounded mr-2"></div>
+                        <span><strong>Rosa:</strong> Sistemas Externos</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Flujos de Datos Principales -->
+        <section class="mb-10">
+            <div class="bg-white rounded-lg shadow-md p-8">
+                <h2 class="text-2xl font-bold univalle-red mb-6">Flujos de Datos Principales</h2>
+                
+                <div class="space-y-8">
+                    <!-- Flujo 1: Evaluación con RAG -->
+                    <div class="bg-gray-50 rounded-lg p-5 border-l-4 border-univalle-red">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Flujo 1: Evaluación de Riesgos con RAG</h3>
+                        <div class="mermaid">
+graph LR
+    A["👤 Gestor de Riesgos"] -->|"HTTPS/JSON"| B["⚛️ Frontend<br/>Wizard"]
+    B -->|"HTTPS/JSON"| C["🔧 Backend API"]
+    C -->|"HTTP/JSON<br/>Solicitud"| D["🤖 Motor RAG<br/>Context Extraction"]
+    D -->|"API/Embeddings"| E["📊 Vector DB<br/>Semantic Search"]
+    E -->|"Vectores/JSON"| D
+    D -->|"HTTP/JSON<br/>Sugerencias"| C
+    C -->|"HTTPS/JSON"| B
+    B -->|"Render UI"| A
+    
+    style D fill:#fff3e0,stroke:#e65100,stroke-width:3px
+    style E fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+                        </div>
+                    </div>
+
+                    <!-- Flujo 2: Sincronización ETL -->
+                    <div class="bg-gray-50 rounded-lg p-5 border-l-4 border-purple-500">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Flujo 2: Sincronización GLPI mediante ETL</h3>
+                        <div class="mermaid">
+graph LR
+    A["🔌 GLPI<br/>MySQL"] -->|"MySQL/SQL<br/>Extracción"| B["🔄 Módulo ETL<br/>Extract"]
+    B -->|"Transform<br/>Mapeo Datos"| C["🔄 Módulo ETL<br/>Transform"]
+    C -->|"SQL INSERT/UPDATE<br/>Carga"| D["🔄 Módulo ETL<br/>Load"]
+    D -->|"SQL INSERT"| E["🗄️ MySQL<br/>SmartAuditorIA"]
+    E -->|"SQL/ORM"| F["🔧 Backend API"]
+    F -->|"HTTPS/JSON"| G["⚛️ Frontend"]
+    
+    style B fill:#e1bee7,stroke:#6a1b9a,stroke-width:2px
+    style C fill:#e1bee7,stroke:#6a1b9a,stroke-width:2px
+    style D fill:#e1bee7,stroke:#6a1b9a,stroke-width:2px
+    style E fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+                        </div>
+                    </div>
+
+                    <!-- Flujo 3: Sugerencias Predictivas -->
+                    <div class="bg-gray-50 rounded-lg p-5 border-l-4 border-orange-500">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Flujo 3: Sugerencias Predictivas Inteligentes</h3>
+                        <div class="mermaid">
+graph LR
+    A["⚛️ Frontend<br/>Tipo Activo"] -->|"HTTPS/JSON"| B["🔧 Backend API"]
+    B -->|"HTTP/JSON"| C["🤖 Motor RAG<br/>Knowledge Query"]
+    C -->|"SQL/ORM"| D["🗄️ MySQL<br/>Controles ISO"]
+    C -->|"API/Embeddings"| E["📊 Vector DB<br/>Semantic Matching"]
+    D -->|"ResultSet"| C
+    E -->|"Vectores"| C
+    C -->|"Template<br/>Generation"| F["🤖 Motor RAG<br/>Response"]
+    F -->|"HTTP/JSON<br/>Sugerencias"| B
+    B -->|"HTTPS/JSON"| G["⚛️ Frontend<br/>Cards Interactivas"]
+    
+    style C fill:#fff3e0,stroke:#e65100,stroke-width:3px
+    style F fill:#fff3e0,stroke:#e65100,stroke-width:3px
+    style E fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style D fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Pie de Página -->
+    <footer class="bg-gray-800 text-white py-6 mt-12">
+        <div class="max-w-7xl mx-auto px-6 text-center">
+            <p class="text-sm opacity-90">Universidad del Valle - Escuela de Ingeniería de Sistemas y Computación</p>
+            <p class="text-xs opacity-75 mt-2">Maestría en Computación para el Desarrollo de Aplicaciones Inteligentes</p>
+            <p class="text-xs opacity-75 mt-1">SmartAuditorIA - Sistema de Gestión de Riesgos de Información</p>
+            <p class="text-xs opacity-60 mt-4">Ing. Leonardo Javier Bastidas Moreno - Smart Context Diagram (SCD)</p>
+        </div>
+    </footer>
+
+    <!-- Botón de Impresión (No se muestra en PDF) -->
+    <div class="fixed bottom-6 right-6 no-print">
+        <button onclick="window.print()" 
+                class="bg-univalle-red text-white px-6 py-3 rounded-lg shadow-lg hover:bg-opacity-90 transition-all font-semibold">
+            📄 Exportar a PDF
+        </button>
+    </div>
+
+</body>
+</html>
+
