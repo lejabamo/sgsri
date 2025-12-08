@@ -85,6 +85,66 @@
             border: 3px solid #e65100;
             box-shadow: 0 0 20px rgba(230, 81, 0, 0.3);
         }
+        
+        /* Animación del Wizard */
+        .wizard-animation-container {
+            min-height: 500px;
+        }
+        
+        .wizard-step {
+            opacity: 0;
+            transform: translateX(50px);
+            transition: opacity 0.8s ease, transform 0.8s ease;
+        }
+        
+        .wizard-step.step-1 {
+            animation: wizardStep1 10s infinite;
+        }
+        
+        .wizard-step.step-2 {
+            animation: wizardStep2 10s infinite;
+        }
+        
+        .wizard-step.step-3 {
+            animation: wizardStep3 10s infinite;
+        }
+        
+        .wizard-step.step-4 {
+            animation: wizardStep4 10s infinite;
+        }
+        
+        .wizard-step.step-5 {
+            animation: wizardStep5 10s infinite;
+        }
+        
+        @keyframes wizardStep1 {
+            0%, 18% { opacity: 1; transform: translateX(0); }
+            19%, 100% { opacity: 0; transform: translateX(-50px); }
+        }
+        
+        @keyframes wizardStep2 {
+            0%, 18% { opacity: 0; transform: translateX(50px); }
+            19%, 36% { opacity: 1; transform: translateX(0); }
+            37%, 100% { opacity: 0; transform: translateX(-50px); }
+        }
+        
+        @keyframes wizardStep3 {
+            0%, 36% { opacity: 0; transform: translateX(50px); }
+            37%, 54% { opacity: 1; transform: translateX(0); }
+            55%, 100% { opacity: 0; transform: translateX(-50px); }
+        }
+        
+        @keyframes wizardStep4 {
+            0%, 54% { opacity: 0; transform: translateX(50px); }
+            55%, 72% { opacity: 1; transform: translateX(0); }
+            73%, 100% { opacity: 0; transform: translateX(-50px); }
+        }
+        
+        @keyframes wizardStep5 {
+            0%, 72% { opacity: 0; transform: translateX(50px); }
+            73%, 90% { opacity: 1; transform: translateX(0); }
+            91%, 100% { opacity: 0; transform: translateX(-50px); }
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
@@ -138,13 +198,85 @@
 
             <!-- Carrusel -->
             <div class="carousel-container bg-gray-50 rounded-lg shadow-lg p-6 mb-8">
-                <!-- Slide 1: Diagrama de Contexto -->
+                <!-- Slide 1: Diagrama de Contexto (Mermaid embebido) -->
                 <div class="carousel-slide active">
                     <div class="text-center">
                         <h3 class="text-2xl font-semibold mb-4 univalle-red">Diagrama de Contexto C4</h3>
-                        <img src="./assets/AuditorIA_Smart_Context_Diagram.jpg" 
-                             alt="Smart Context Diagram de SmartAuditorIA" 
-                             class="w-full h-auto rounded-lg shadow-md mx-auto max-w-5xl">
+                        <div class="bg-white rounded-lg p-6 max-w-6xl mx-auto">
+                            <div class="mermaid">
+graph LR
+    %% Definir estilos
+    classDef userStyle fill:#e1f5ff,stroke:#01579b,stroke-width:2px,color:#000
+    classDef systemStyle fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#000
+    classDef aiStyle fill:#fff3e0,stroke:#e65100,stroke-width:3px,color:#000
+    classDef dbStyle fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px,color:#000
+    classDef externalStyle fill:#fce4ec,stroke:#880e4f,stroke-width:2px,color:#000
+    classDef vectorStyle fill:#fff9c4,stroke:#f57f17,stroke-width:2px,color:#000
+    classDef etlStyle fill:#e1bee7,stroke:#6a1b9a,stroke-width:2px,color:#000
+
+    %% === COLUMNA IZQUIERDA: EXTERNO Y ETL ===
+    subgraph LeftCol[" "]
+        direction TB
+        GLPI["🔌 GLPI<br/>Hardware • Software"]
+        ModuloETL["🔄 Módulo ETL<br/>Extract • Transform • Load"]
+        MySQL["🗄️ MySQL<br/>Activos • Riesgos"]
+    end
+    
+    class GLPI externalStyle
+    class ModuloETL etlStyle
+    class MySQL dbStyle
+
+    %% === COLUMNA CENTRAL: APLICACIÓN ===
+    subgraph CenterCol[" "]
+        direction TB
+        GestorRiesgos["👤 Gestor de Riesgos"]
+        Frontend["⚛️ Frontend React<br/>Wizard • Dashboard"]
+        BackendAPI["🔧 Backend API<br/>REST Services"]
+    end
+    
+    class GestorRiesgos userStyle
+    class Frontend systemStyle
+    class BackendAPI systemStyle
+
+    %% === COLUMNA DERECHA: IA Y VECTOR ===
+    subgraph RightCol[" "]
+        direction TB
+        MotorRAG["🤖 Motor RAG / IA<br/>Sugerencias ISO<br/>Justificaciones"]
+        VectorDB["📊 Vector DB<br/>Embeddings ISO"]
+    end
+    
+    class MotorRAG aiStyle
+    class VectorDB vectorStyle
+
+    %% === CONEXIONES VERTICALES EN CADA COLUMNA ===
+    GLPI -->|"MySQL/SQL"| ModuloETL
+    ModuloETL -->|"SQL INSERT"| MySQL
+    
+    GestorRiesgos -->|"HTTPS/JSON"| Frontend
+    Frontend -->|"HTTPS/JSON"| BackendAPI
+    
+    MotorRAG -->|"API/Embeddings"| VectorDB
+    VectorDB -->|"Vectores"| MotorRAG
+
+    %% === CONEXIONES HORIZONTALES ENTRE COLUMNAS ===
+    BackendAPI -->|"HTTP/JSON"| MotorRAG
+    MotorRAG -->|"HTTP/JSON"| BackendAPI
+    BackendAPI -->|"SQL/ORM"| MySQL
+    MySQL -->|"ResultSet"| BackendAPI
+
+    %% Estilo de las flechas
+    linkStyle 0 stroke:#880e4f,stroke-width:2px
+    linkStyle 1 stroke:#6a1b9a,stroke-width:2px
+    linkStyle 2 stroke:#01579b,stroke-width:2px
+    linkStyle 3 stroke:#4a148c,stroke-width:2px
+    linkStyle 4 stroke:#e65100,stroke-width:3px
+    linkStyle 5 stroke:#f57f17,stroke-width:2px
+    linkStyle 6 stroke:#e65100,stroke-width:3px
+    linkStyle 7 stroke:#e65100,stroke-width:3px
+    linkStyle 8 stroke:#1b5e20,stroke-width:2px
+    linkStyle 9 stroke:#1b5e20,stroke-width:2px
+                            </div>
+                        </div>
                         <p class="text-sm text-gray-600 mt-4 italic">
                             El diagrama sigue el modelo C4. El componente <strong class="text-orange-600">Motor RAG</strong> 
                             está destacado en naranja para indicar su naturaleza inteligente.
@@ -152,80 +284,230 @@
                     </div>
                 </div>
 
-                <!-- Slide 2: Mockup Wizard -->
+                <!-- Slide 2: Mockup Wizard Animado -->
                 <div class="carousel-slide">
                     <div class="text-center">
-                        <h3 class="text-2xl font-semibold mb-4 univalle-red">Wizard de Evaluación con IA</h3>
-                        <div class="bg-white rounded-lg shadow-md p-8 max-w-4xl mx-auto">
-                            <div class="border-2 border-gray-200 rounded-lg p-6">
-                                <div class="flex items-center justify-between mb-4">
-                                    <h4 class="text-lg font-semibold">Evaluación de Riesgo Residual</h4>
-                                    <span class="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-semibold">
-                                        🤖 Sugerencias IA
-                                    </span>
-                                </div>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                    <div class="bg-blue-50 p-4 rounded">
-                                        <p class="text-sm font-semibold text-blue-900 mb-2">Riesgo Inherente</p>
-                                        <p class="text-2xl font-bold text-blue-600">Alto</p>
-                                        <p class="text-xs text-gray-600">Probabilidad: Media | Impacto: Alto</p>
+                        <h3 class="text-2xl font-semibold mb-4 univalle-red">Wizard de Evaluación con IA - Proceso Completo</h3>
+                        <div class="bg-white rounded-lg shadow-md p-6 max-w-5xl mx-auto">
+                            <!-- Contenedor del Wizard Animado -->
+                            <div class="wizard-animation-container relative" style="min-height: 500px;">
+                                <!-- Paso 1: Selección de Activo -->
+                                <div class="wizard-step step-1 absolute inset-0 w-full">
+                                    <div class="border-2 border-blue-300 rounded-lg p-4 bg-blue-50">
+                                        <div class="flex items-center justify-between mb-3">
+                                            <h4 class="text-lg font-semibold text-blue-900">Paso 1: Selección de Activo</h4>
+                                            <span class="bg-blue-200 text-blue-800 px-2 py-1 rounded text-xs">Activo: Servidor Web</span>
+                                        </div>
+                                        <div class="bg-white rounded p-3 mb-2">
+                                            <p class="text-sm text-gray-700">📦 <strong>Servidor Web Principal</strong></p>
+                                            <p class="text-xs text-gray-600">Tipo: Infraestructura | Criticidad: Alta</p>
+                                        </div>
+                                        <div class="flex items-center text-xs text-gray-600">
+                                            <span class="animate-pulse">⏳ Consultando sugerencias IA...</span>
+                                        </div>
                                     </div>
-                                    <div class="bg-green-50 p-4 rounded">
-                                        <p class="text-sm font-semibold text-green-900 mb-2">Riesgo Residual</p>
-                                        <p class="text-2xl font-bold text-green-600">Medio</p>
-                                        <p class="text-xs text-gray-600">Reducción mediante controles</p>
-                                    </div>
                                 </div>
-                                <div class="border-t pt-4">
-                                    <p class="text-sm font-semibold mb-2 text-gray-700">Justificaciones Generadas por IA:</p>
-                                    <div class="space-y-2">
-                                        <div class="bg-orange-50 border-l-4 border-orange-500 p-3 rounded">
-                                            <p class="text-sm text-gray-700">
-                                                <strong>ISO 27005:2022 A.8.1</strong> - La reducción del riesgo se justifica mediante 
-                                                la implementación de controles preventivos conforme a ISO 27002:A.6.2.1...
+
+                                <!-- Paso 2: Identificación de Amenaza -->
+                                <div class="wizard-step step-2 absolute inset-0 w-full">
+                                    <div class="border-2 border-purple-300 rounded-lg p-4 bg-purple-50">
+                                        <div class="flex items-center justify-between mb-3">
+                                            <h4 class="text-lg font-semibold text-purple-900">Paso 2: Identificación de Amenaza</h4>
+                                            <span class="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs">🤖 IA Sugiere</span>
+                                        </div>
+                                        <div class="bg-white rounded p-3 mb-2">
+                                            <p class="text-sm font-semibold text-gray-800 mb-1">Amenaza Identificada:</p>
+                                            <p class="text-sm text-gray-700">🔥 <strong>Ataque DDoS</strong> - Ataque distribuido de denegación de servicio</p>
+                                        </div>
+                                        <div class="bg-orange-50 border-l-4 border-orange-500 rounded p-2 mb-2">
+                                            <p class="text-xs text-gray-700">
+                                                <strong>💡 Sugerencia IA:</strong> Basado en el tipo de activo, se sugiere considerar 
+                                                vulnerabilidades de disponibilidad...
                                             </p>
                                         </div>
-                                        <div class="bg-orange-50 border-l-4 border-orange-500 p-3 rounded">
-                                            <p class="text-sm text-gray-700">
-                                                <strong>Resolución 2277 de 2025</strong> - El análisis de riesgo residual cumple con 
-                                                los requisitos establecidos para la gestión de riesgos...
+                                    </div>
+                                </div>
+
+                                <!-- Paso 3: Evaluación Inherente -->
+                                <div class="wizard-step step-3 absolute inset-0 w-full">
+                                    <div class="border-2 border-indigo-300 rounded-lg p-4 bg-indigo-50">
+                                        <div class="flex items-center justify-between mb-3">
+                                            <h4 class="text-lg font-semibold text-indigo-900">Paso 3: Evaluación Inherente</h4>
+                                            <span class="bg-indigo-200 text-indigo-800 px-2 py-1 rounded text-xs">Riesgo: Alto</span>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-3 mb-3">
+                                            <div class="bg-white rounded p-3">
+                                                <p class="text-xs font-semibold text-gray-600 mb-1">Probabilidad</p>
+                                                <p class="text-xl font-bold text-orange-600">Media</p>
+                                            </div>
+                                            <div class="bg-white rounded p-3">
+                                                <p class="text-xs font-semibold text-gray-600 mb-1">Impacto</p>
+                                                <p class="text-xl font-bold text-red-600">Alto</p>
+                                            </div>
+                                        </div>
+                                        <div class="bg-orange-50 border-l-4 border-orange-500 rounded p-2">
+                                            <p class="text-xs text-gray-700">
+                                                <strong>📋 Justificación IA:</strong> ISO 27005:2022 A.8.1 - El riesgo inherente 
+                                                se evalúa considerando la exposición del activo sin controles...
                                             </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Paso 4: Selección de Controles -->
+                                <div class="wizard-step step-4 absolute inset-0 w-full">
+                                    <div class="border-2 border-green-300 rounded-lg p-4 bg-green-50">
+                                        <div class="flex items-center justify-between mb-3">
+                                            <h4 class="text-lg font-semibold text-green-900">Paso 4: Selección de Controles</h4>
+                                            <span class="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs">🤖 3 Sugerencias</span>
+                                        </div>
+                                        <div class="space-y-2 mb-3">
+                                            <div class="bg-white rounded p-2 border-l-4 border-green-500">
+                                                <p class="text-xs font-semibold text-gray-800">✅ A.12.4.1 - Firewall de Red</p>
+                                                <p class="text-xs text-gray-600">Eficacia: Muy Alta | Confianza: 0.92</p>
+                                            </div>
+                                            <div class="bg-white rounded p-2 border-l-4 border-green-500">
+                                                <p class="text-xs font-semibold text-gray-800">✅ A.17.1.2 - Plan de Continuidad</p>
+                                                <p class="text-xs text-gray-600">Eficacia: Alta | Confianza: 0.85</p>
+                                            </div>
+                                            <div class="bg-white rounded p-2 border-l-4 border-blue-500">
+                                                <p class="text-xs font-semibold text-gray-800">💡 A.18.1.3 - Monitoreo Continuo</p>
+                                                <p class="text-xs text-gray-600">Sugerido por IA | Confianza: 0.78</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Paso 5: Evaluación Residual con Justificaciones -->
+                                <div class="wizard-step step-5 absolute inset-0 w-full">
+                                    <div class="border-2 border-teal-300 rounded-lg p-4 bg-teal-50">
+                                        <div class="flex items-center justify-between mb-3">
+                                            <h4 class="text-lg font-semibold text-teal-900">Paso 5: Evaluación Residual</h4>
+                                            <span class="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs">🤖 Justificaciones IA</span>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-3 mb-3">
+                                            <div class="bg-blue-50 rounded p-3 border-2 border-blue-300">
+                                                <p class="text-xs font-semibold text-blue-900 mb-1">Riesgo Inherente</p>
+                                                <p class="text-2xl font-bold text-blue-600">Alto</p>
+                                                <p class="text-xs text-gray-600">Prob: Media | Impacto: Alto</p>
+                                            </div>
+                                            <div class="bg-green-50 rounded p-3 border-2 border-green-300">
+                                                <p class="text-xs font-semibold text-green-900 mb-1">Riesgo Residual</p>
+                                                <p class="text-2xl font-bold text-green-600">Medio</p>
+                                                <p class="text-xs text-gray-600">Reducción lograda</p>
+                                            </div>
+                                        </div>
+                                        <div class="space-y-2">
+                                            <div class="bg-orange-50 border-l-4 border-orange-500 rounded p-3">
+                                                <p class="text-xs font-semibold text-orange-900 mb-1">📋 Justificación 1 (Confianza: 0.89)</p>
+                                                <p class="text-xs text-gray-700">
+                                                    <strong>ISO 27005:2022 A.8.1</strong> - La reducción del riesgo desde Alto a Medio 
+                                                    se justifica mediante la implementación de controles preventivos conforme a 
+                                                    ISO 27002:A.12.4.1 (Firewall) y A.17.1.2 (Continuidad)...
+                                                </p>
+                                            </div>
+                                            <div class="bg-orange-50 border-l-4 border-orange-500 rounded p-3">
+                                                <p class="text-xs font-semibold text-orange-900 mb-1">📋 Justificación 2 (Confianza: 0.82)</p>
+                                                <p class="text-xs text-gray-700">
+                                                    <strong>Resolución 2277 de 2025</strong> - El análisis de riesgo residual cumple 
+                                                    con los requisitos establecidos para la gestión de riesgos residuales en 
+                                                    entidades públicas...
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
+                            <p class="text-xs text-gray-500 mt-4 italic text-center">
+                                Animación que muestra el proceso completo del wizard paso a paso con sugerencias IA en tiempo real
+                            </p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Slide 3: Flujo RAG -->
+                <!-- Slide 3: Flujo RAG Mejorado -->
                 <div class="carousel-slide">
                     <div class="text-center">
                         <h3 class="text-2xl font-semibold mb-4 univalle-red">Flujo RAG - Generación de Justificaciones</h3>
-                        <div class="bg-white rounded-lg shadow-md p-6 max-w-5xl mx-auto">
+                        <div class="bg-white rounded-lg shadow-md p-6 max-w-6xl mx-auto">
                             <div class="mermaid">
-graph LR
-    A["👤 Gestor de Riesgos<br/>Solicita Justificación"] -->|"HTTPS/JSON"| B["⚛️ Frontend React<br/>Wizard"]
-    B -->|"HTTP POST"| C["🔧 Backend API<br/>/api/predictive/suggestions"]
-    C -->|"Context Extraction"| D["🤖 Motor RAG<br/>Retrieval"]
-    D -->|"SQL Query"| E["🗄️ MySQL<br/>Controles ISO"]
-    D -->|"Semantic Search"| F["📊 Vector DB<br/>Embeddings ISO"]
-    E -->|"ResultSet"| D
-    F -->|"Vectores Relevantes"| D
-    D -->|"Template Generation"| G["🤖 Motor RAG<br/>Generation"]
-    G -->|"JSON Response"| C
-    C -->|"HTTPS/JSON"| B
-    B -->|"Render UI"| A
+graph TB
+    subgraph UserLayer["👤 Capa de Usuario"]
+        A["👤 Gestor de Riesgos<br/>Solicita Justificación<br/>de Riesgo Residual"]
+    end
+    
+    subgraph FrontendLayer["⚛️ Capa Frontend"]
+        B["⚛️ Frontend React<br/>Wizard de Evaluación<br/>Componente: ResidualJustificationSuggestions"]
+    end
+    
+    subgraph BackendLayer["🔧 Capa Backend"]
+        C["🔧 Backend API Flask<br/>POST /api/predictive/suggestions/<br/>residual-justifications"]
+        C1["📝 Extracción de Contexto<br/>• Riesgo Inherente<br/>• Riesgo Residual<br/>• Controles Seleccionados"]
+    end
+    
+    subgraph RAGLayer["🤖 Motor RAG - Proceso Inteligente"]
+        D["🔍 Fase 1: Retrieval<br/>Búsqueda Semántica"]
+        D1["📊 Consulta Vector DB<br/>Embeddings ISO 27005<br/>Similitud Coseno"]
+        D2["🗄️ Consulta MySQL<br/>Tabla: controles_seguridad<br/>Códigos ISO 27002"]
+        D3["📚 Knowledge Base JSON<br/>Mapeo Amenazas-Vulnerabilidades<br/>Relaciones Contextuales"]
+        G["✍️ Fase 2: Generation<br/>Generación Contextual"]
+        G1["📋 Template Engine<br/>Plantillas Normativas"]
+        G2["🎯 Cálculo de Confianza<br/>Heurística: 0.0 - 1.0"]
+    end
+    
+    subgraph DataLayer["💾 Capa de Datos"]
+        E["🗄️ MySQL 8.0<br/>• activos<br/>• riesgos<br/>• controles_seguridad<br/>• evaluacion_riesgo_activo"]
+        F["📊 Vector DB<br/>ChromaDB / Pinecone<br/>• Embeddings ISO 27001:2022<br/>• Embeddings ISO 27002:2022<br/>• Embeddings ISO 27005:2022<br/>• Embeddings Normativa Colombia"]
+    end
+    
+    A -->|"1. Usuario completa<br/>evaluación residual"| B
+    B -->|"2. HTTP POST<br/>JSON Request"| C
+    C -->|"3. Extrae contexto<br/>del request"| C1
+    C1 -->|"4. Envía contexto<br/>al Motor RAG"| D
+    
+    D -->|"5a. Búsqueda<br/>Semántica"| D1
+    D -->|"5b. Consulta<br/>Controles"| D2
+    D -->|"5c. Mapeo<br/>Relaciones"| D3
+    
+    D1 -->|"Vectores<br/>Relevantes"| F
+    D2 -->|"ResultSet<br/>SQL"| E
+    D3 -->|"Knowledge<br/>Graph"| D
+    
+    D1 -->|"6. Combina<br/>Resultados"| G
+    D2 -->|"6. Combina<br/>Resultados"| G
+    D3 -->|"6. Combina<br/>Resultados"| G
+    
+    G -->|"7a. Genera<br/>Plantillas"| G1
+    G -->|"7b. Calcula<br/>Confianza"| G2
+    
+    G1 -->|"8. Justificaciones<br/>Completas"| G
+    G2 -->|"8. Niveles<br/>Confianza"| G
+    
+    G -->|"9. JSON Response<br/>Array de Sugerencias"| C
+    C -->|"10. HTTP Response<br/>JSON"| B
+    B -->|"11. Renderiza Cards<br/>Interactivas"| A
     
     style D fill:#fff3e0,stroke:#e65100,stroke-width:3px
     style G fill:#fff3e0,stroke:#e65100,stroke-width:3px
+    style D1 fill:#fff9c4,stroke:#f57f17,stroke-width:2px
     style F fill:#fff9c4,stroke:#f57f17,stroke-width:2px
     style E fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    style D2 fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
                             </div>
-                            <p class="text-sm text-gray-600 mt-4 italic">
-                                El Motor RAG combina <strong>Retrieval</strong> (búsqueda en bases de conocimiento) 
-                                con <strong>Generation</strong> (generación contextual de justificaciones normativas).
-                            </p>
+                            <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
+                                <div class="bg-blue-50 rounded-lg p-3">
+                                    <p class="text-xs font-semibold text-blue-900 mb-1">🔍 Retrieval</p>
+                                    <p class="text-xs text-gray-700">Búsqueda en bases de conocimiento estructuradas (MySQL) y semántica (Vector DB)</p>
+                                </div>
+                                <div class="bg-orange-50 rounded-lg p-3">
+                                    <p class="text-xs font-semibold text-orange-900 mb-1">✍️ Generation</p>
+                                    <p class="text-xs text-gray-700">Generación contextual de justificaciones normativas con cálculo de confianza</p>
+                                </div>
+                                <div class="bg-green-50 rounded-lg p-3">
+                                    <p class="text-xs font-semibold text-green-900 mb-1">📋 Resultado</p>
+                                    <p class="text-xs text-gray-700">Múltiples justificaciones con referencias ISO y normativa colombiana</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
