@@ -232,40 +232,17 @@
             border-color: #aa1916;
         }
         
-        /* Carrusel */
-        .carousel-container {
-            position: relative;
-            overflow: hidden;
-            min-height: 600px;
+        /* Diagramas en vertical */
+        .diagram-section {
+            margin-bottom: 3rem;
+            page-break-inside: avoid;
         }
         
-        .carousel-slide {
-            display: none;
-            opacity: 0;
-            transition: opacity 0.6s ease-in-out, transform 0.6s ease-in-out;
-            transform: translateX(20px);
-        }
-        
-        .carousel-slide.active {
-            display: block;
-            opacity: 1;
-            transform: translateX(0);
-        }
-        
-        .carousel-slide.fade-out {
-            opacity: 0;
-            transform: translateX(-20px);
-        }
-        
-        @keyframes fadeIn {
-            from { 
-                opacity: 0;
-                transform: translateX(20px);
-            }
-            to { 
-                opacity: 1;
-                transform: translateX(0);
-            }
+        .diagram-container {
+            background: white;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         
         /* Smooth scroll */
@@ -292,16 +269,12 @@
             .page-break-before {
                 page-break-before: always;
             }
-            /* Mostrar todas las slides del carrusel en PDF */
-            .carousel-container {
-                page-break-inside: avoid;
-            }
-            .carousel-slide {
-                display: block !important;
+            /* Espaciado para diagramas en PDF */
+            .diagram-section {
                 page-break-inside: avoid;
                 margin-bottom: 2cm;
             }
-            .carousel-slide:not(:last-child) {
+            .diagram-section:not(:last-child) {
                 page-break-after: always;
             }
             .wizard-animation-container {
@@ -417,6 +390,7 @@
                 <div class="hidden md:flex space-x-8">
                     <a href="#inicio" class="text-gray-700 hover:text-univalle-red transition">Inicio</a>
                     <a href="#arquitectura" class="text-gray-700 hover:text-univalle-red transition">Arquitectura</a>
+                    <a href="#wireframe" class="text-gray-700 hover:text-univalle-red transition">Wireframe</a>
                     <a href="#componentes" class="text-gray-700 hover:text-univalle-red transition">Componentes Smart</a>
                     <a href="#normativa" class="text-gray-700 hover:text-univalle-red transition">Normativa</a>
                 </div>
@@ -507,13 +481,13 @@
                 </p>
             </div>
 
-            <!-- Carrusel -->
-            <div class="carousel-container bg-gray-50 rounded-lg shadow-lg p-6 mb-8">
-                <!-- Slide 1: Diagrama de Contexto (Mermaid embebido) -->
-                <div class="carousel-slide active">
-                    <div class="text-center">
+            <!-- Diagramas de Arquitectura - Mostrados en vertical -->
+            <div class="space-y-8">
+                <!-- Diagrama 1: Contexto C4 -->
+                <div class="diagram-section">
+                    <div class="text-center mb-6">
                         <h3 class="text-2xl font-semibold mb-4 univalle-red">Diagrama de Contexto C4</h3>
-                        <div class="bg-white rounded-lg p-6 max-w-6xl mx-auto">
+                        <div class="diagram-container max-w-6xl mx-auto">
                             <div class="mermaid" id="mermaid-c4-diagram">
 graph LR
     %% Definir estilos
@@ -595,11 +569,11 @@ graph LR
                     </div>
                 </div>
 
-                <!-- Slide 2: Flujo 1 - Evaluación con RAG -->
-                <div class="carousel-slide">
-                    <div class="text-center">
+                <!-- Diagrama 2: Flujo 1 - Evaluación con RAG -->
+                <div class="diagram-section">
+                    <div class="text-center mb-6">
                         <h3 class="text-2xl font-semibold mb-4 univalle-red">Flujo 1: Evaluación de Riesgos con RAG</h3>
-                        <div class="bg-white rounded-lg shadow-md p-6 max-w-6xl mx-auto">
+                        <div class="diagram-container max-w-6xl mx-auto">
                             <div class="mermaid" id="mermaid-flujo1">
 graph LR
     A["👤 Gestor de Riesgos"] -->|"HTTPS/JSON"| B["⚛️ Frontend<br/>Wizard"]
@@ -623,11 +597,11 @@ graph LR
                     </div>
                 </div>
 
-                <!-- Slide 3: Flujo 2 - Sincronización ETL -->
-                <div class="carousel-slide">
-                    <div class="text-center">
+                <!-- Diagrama 3: Flujo 2 - Sincronización ETL -->
+                <div class="diagram-section">
+                    <div class="text-center mb-6">
                         <h3 class="text-2xl font-semibold mb-4 univalle-red">Flujo 2: Sincronización GLPI mediante ETL</h3>
-                        <div class="bg-white rounded-lg shadow-md p-6 max-w-6xl mx-auto">
+                        <div class="diagram-container max-w-6xl mx-auto">
                             <div class="mermaid" id="mermaid-flujo2">
 graph LR
     A["🔌 GLPI<br/>MySQL"] -->|"MySQL/SQL<br/>Extracción"| B["🔄 Módulo ETL<br/>Extract"]
@@ -651,11 +625,11 @@ graph LR
                     </div>
                 </div>
 
-                <!-- Slide 4: Flujo 3 - Sugerencias Predictivas -->
-                <div class="carousel-slide">
-                    <div class="text-center">
+                <!-- Diagrama 4: Flujo 3 - Sugerencias Predictivas -->
+                <div class="diagram-section">
+                    <div class="text-center mb-6">
                         <h3 class="text-2xl font-semibold mb-4 univalle-red">Flujo 3: Sugerencias Predictivas Inteligentes</h3>
-                        <div class="bg-white rounded-lg shadow-md p-6 max-w-6xl mx-auto">
+                        <div class="diagram-container max-w-6xl mx-auto">
                             <div class="mermaid" id="mermaid-flujo3">
 graph LR
     A["⚛️ Frontend<br/>Tipo Activo"] -->|"HTTPS/JSON"| B["🔧 Backend API"]
@@ -682,11 +656,11 @@ graph LR
                     </div>
                 </div>
 
-                <!-- Slide 5: Mockup Wizard Animado -->
-                <div class="carousel-slide">
-                    <div class="text-center">
+                <!-- Diagrama 5: Wizard de Evaluación -->
+                <div class="diagram-section">
+                    <div class="text-center mb-6">
                         <h3 class="text-2xl font-semibold mb-4 univalle-red">Wizard de Evaluación con IA - Proceso Completo</h3>
-                        <div class="bg-white rounded-lg shadow-md p-6 max-w-5xl mx-auto">
+                        <div class="diagram-container max-w-5xl mx-auto">
                             <!-- Contenedor del Wizard Animado -->
                             <div class="wizard-animation-container relative" style="min-height: 500px;">
                                 <!-- Paso 1: Selección de Activo -->
@@ -823,11 +797,11 @@ graph LR
                     </div>
                 </div>
 
-                <!-- Slide 3: Flujo RAG Mejorado -->
-                <div class="carousel-slide">
-                    <div class="text-center">
+                <!-- Diagrama 6: Flujo RAG Detallado -->
+                <div class="diagram-section">
+                    <div class="text-center mb-6">
                         <h3 class="text-2xl font-semibold mb-4 univalle-red">Flujo RAG - Generación de Justificaciones</h3>
-                        <div class="bg-white rounded-lg shadow-md p-6 max-w-6xl mx-auto">
+                        <div class="diagram-container max-w-6xl mx-auto">
                             <div class="mermaid" id="mermaid-rag-detallado">
 graph TB
     subgraph UserLayer["👤 Capa de Usuario"]
@@ -910,23 +884,183 @@ graph TB
                     </div>
                 </div>
             </div>
+        </div>
+    </section>
 
-            <!-- Controles del Carrusel -->
-            <div class="flex justify-center items-center space-x-4 mb-8">
-                <button onclick="previousSlide()" class="bg-univalle-red text-white px-6 py-2 rounded-lg hover:bg-opacity-90 transition">
-                    ← Anterior
-                </button>
-                <div class="flex space-x-2">
-                    <button onclick="goToSlide(0)" class="carousel-dot w-3 h-3 rounded-full bg-univalle-red" title="Diagrama C4"></button>
-                    <button onclick="goToSlide(1)" class="carousel-dot w-3 h-3 rounded-full bg-gray-300" title="Flujo 1: Evaluación RAG"></button>
-                    <button onclick="goToSlide(2)" class="carousel-dot w-3 h-3 rounded-full bg-gray-300" title="Flujo 2: ETL"></button>
-                    <button onclick="goToSlide(3)" class="carousel-dot w-3 h-3 rounded-full bg-gray-300" title="Flujo 3: Sugerencias"></button>
-                    <button onclick="goToSlide(4)" class="carousel-dot w-3 h-3 rounded-full bg-gray-300" title="Wizard Animado"></button>
-                    <button onclick="goToSlide(5)" class="carousel-dot w-3 h-3 rounded-full bg-gray-300" title="Flujo RAG Detallado"></button>
+    <!-- Sección Wireframe / Storyboard -->
+    <section id="wireframe" class="py-16 bg-gray-50 page-break-before">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12">
+                <h2 class="text-4xl font-bold univalle-red mb-4">Wireframe y Storyboard</h2>
+                <p class="text-lg text-gray-600 max-w-3xl mx-auto">
+                    Capturas de pantalla del sistema SmartAuditorIA mostrando el flujo completo de interacción 
+                    del usuario con la aplicación, desde el inicio hasta la evaluación de riesgos con IA.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Pantalla 1 -->
+                <div class="wireframe-item bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
+                    <div class="p-4 border-b">
+                        <h4 class="text-sm font-semibold text-gray-700">Pantalla 1</h4>
+                    </div>
+                    <div class="bg-gray-100">
+                        <img src="assets/wireframe-pantalla-1.jpeg" alt="Wireframe SmartAuditorIA - Pantalla 1" class="w-full h-auto object-contain" loading="lazy">
+                    </div>
                 </div>
-                <button onclick="nextSlide()" class="bg-univalle-red text-white px-6 py-2 rounded-lg hover:bg-opacity-90 transition">
-                    Siguiente →
-                </button>
+                <!-- Pantalla 2 -->
+                <div class="wireframe-item bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
+                    <div class="p-4 border-b">
+                        <h4 class="text-sm font-semibold text-gray-700">Pantalla 2</h4>
+                    </div>
+                    <div class="bg-gray-100">
+                        <img src="assets/wireframe-pantalla-2.jpeg" alt="Wireframe SmartAuditorIA - Pantalla 2" class="w-full h-auto object-contain" loading="lazy">
+                    </div>
+                </div>
+                <!-- Pantalla 3 -->
+                <div class="wireframe-item bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
+                    <div class="p-4 border-b">
+                        <h4 class="text-sm font-semibold text-gray-700">Pantalla 3</h4>
+                    </div>
+                    <div class="bg-gray-100">
+                        <img src="assets/wireframe-pantalla-3.jpeg" alt="Wireframe SmartAuditorIA - Pantalla 3" class="w-full h-auto object-contain" loading="lazy">
+                    </div>
+                </div>
+                <!-- Pantalla 4 -->
+                <div class="wireframe-item bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
+                    <div class="p-4 border-b">
+                        <h4 class="text-sm font-semibold text-gray-700">Pantalla 4</h4>
+                    </div>
+                    <div class="bg-gray-100">
+                        <img src="assets/wireframe-pantalla-4.jpeg" alt="Wireframe SmartAuditorIA - Pantalla 4" class="w-full h-auto object-contain" loading="lazy">
+                    </div>
+                </div>
+                <!-- Pantalla 5 -->
+                <div class="wireframe-item bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
+                    <div class="p-4 border-b">
+                        <h4 class="text-sm font-semibold text-gray-700">Pantalla 5</h4>
+                    </div>
+                    <div class="bg-gray-100">
+                        <img src="assets/wireframe-pantalla-5.jpeg" alt="Wireframe SmartAuditorIA - Pantalla 5" class="w-full h-auto object-contain" loading="lazy">
+                    </div>
+                </div>
+                <!-- Pantalla 6 -->
+                <div class="wireframe-item bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
+                    <div class="p-4 border-b">
+                        <h4 class="text-sm font-semibold text-gray-700">Pantalla 6</h4>
+                    </div>
+                    <div class="bg-gray-100">
+                        <img src="assets/wireframe-pantalla-6.jpeg" alt="Wireframe SmartAuditorIA - Pantalla 6" class="w-full h-auto object-contain" loading="lazy">
+                    </div>
+                </div>
+                <!-- Pantalla 7 -->
+                <div class="wireframe-item bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
+                    <div class="p-4 border-b">
+                        <h4 class="text-sm font-semibold text-gray-700">Pantalla 7</h4>
+                    </div>
+                    <div class="bg-gray-100">
+                        <img src="assets/wireframe-pantalla-7.jpeg" alt="Wireframe SmartAuditorIA - Pantalla 7" class="w-full h-auto object-contain" loading="lazy">
+                    </div>
+                </div>
+                <!-- Pantalla 8 -->
+                <div class="wireframe-item bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
+                    <div class="p-4 border-b">
+                        <h4 class="text-sm font-semibold text-gray-700">Pantalla 8</h4>
+                    </div>
+                    <div class="bg-gray-100">
+                        <img src="assets/wireframe-pantalla-8.jpeg" alt="Wireframe SmartAuditorIA - Pantalla 8" class="w-full h-auto object-contain" loading="lazy">
+                    </div>
+                </div>
+                <!-- Pantalla 9 -->
+                <div class="wireframe-item bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
+                    <div class="p-4 border-b">
+                        <h4 class="text-sm font-semibold text-gray-700">Pantalla 9</h4>
+                    </div>
+                    <div class="bg-gray-100">
+                        <img src="assets/wireframe-pantalla-9.jpeg" alt="Wireframe SmartAuditorIA - Pantalla 9" class="w-full h-auto object-contain" loading="lazy">
+                    </div>
+                </div>
+                <!-- Pantalla 10 -->
+                <div class="wireframe-item bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
+                    <div class="p-4 border-b">
+                        <h4 class="text-sm font-semibold text-gray-700">Pantalla 10</h4>
+                    </div>
+                    <div class="bg-gray-100">
+                        <img src="assets/wireframe-pantalla-10.jpeg" alt="Wireframe SmartAuditorIA - Pantalla 10" class="w-full h-auto object-contain" loading="lazy">
+                    </div>
+                </div>
+                <!-- Pantalla 11 -->
+                <div class="wireframe-item bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
+                    <div class="p-4 border-b">
+                        <h4 class="text-sm font-semibold text-gray-700">Pantalla 11</h4>
+                    </div>
+                    <div class="bg-gray-100">
+                        <img src="assets/wireframe-pantalla-11.jpeg" alt="Wireframe SmartAuditorIA - Pantalla 11" class="w-full h-auto object-contain" loading="lazy">
+                    </div>
+                </div>
+                <!-- Pantalla 12 -->
+                <div class="wireframe-item bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
+                    <div class="p-4 border-b">
+                        <h4 class="text-sm font-semibold text-gray-700">Pantalla 12</h4>
+                    </div>
+                    <div class="bg-gray-100">
+                        <img src="assets/wireframe-pantalla-12.jpeg" alt="Wireframe SmartAuditorIA - Pantalla 12" class="w-full h-auto object-contain" loading="lazy">
+                    </div>
+                </div>
+                <!-- Pantalla 13 -->
+                <div class="wireframe-item bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
+                    <div class="p-4 border-b">
+                        <h4 class="text-sm font-semibold text-gray-700">Pantalla 13</h4>
+                    </div>
+                    <div class="bg-gray-100">
+                        <img src="assets/wireframe-pantalla-13.jpeg" alt="Wireframe SmartAuditorIA - Pantalla 13" class="w-full h-auto object-contain" loading="lazy">
+                    </div>
+                </div>
+                <!-- Pantalla 14 -->
+                <div class="wireframe-item bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
+                    <div class="p-4 border-b">
+                        <h4 class="text-sm font-semibold text-gray-700">Pantalla 14</h4>
+                    </div>
+                    <div class="bg-gray-100">
+                        <img src="assets/wireframe-pantalla-14.jpeg" alt="Wireframe SmartAuditorIA - Pantalla 14" class="w-full h-auto object-contain" loading="lazy">
+                    </div>
+                </div>
+                <!-- Pantalla 15 -->
+                <div class="wireframe-item bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
+                    <div class="p-4 border-b">
+                        <h4 class="text-sm font-semibold text-gray-700">Pantalla 15</h4>
+                    </div>
+                    <div class="bg-gray-100">
+                        <img src="assets/wireframe-pantalla-15.jpeg" alt="Wireframe SmartAuditorIA - Pantalla 15" class="w-full h-auto object-contain" loading="lazy">
+                    </div>
+                </div>
+                <!-- Pantalla 16 -->
+                <div class="wireframe-item bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
+                    <div class="p-4 border-b">
+                        <h4 class="text-sm font-semibold text-gray-700">Pantalla 16</h4>
+                    </div>
+                    <div class="bg-gray-100">
+                        <img src="assets/wireframe-pantalla-16.jpeg" alt="Wireframe SmartAuditorIA - Pantalla 16" class="w-full h-auto object-contain" loading="lazy">
+                    </div>
+                </div>
+                <!-- Pantalla 17 -->
+                <div class="wireframe-item bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
+                    <div class="p-4 border-b">
+                        <h4 class="text-sm font-semibold text-gray-700">Pantalla 17</h4>
+                    </div>
+                    <div class="bg-gray-100">
+                        <img src="assets/wireframe-pantalla-17.jpeg" alt="Wireframe SmartAuditorIA - Pantalla 17" class="w-full h-auto object-contain" loading="lazy">
+                    </div>
+                </div>
+                <!-- Pantalla 18 -->
+                <div class="wireframe-item bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
+                    <div class="p-4 border-b">
+                        <h4 class="text-sm font-semibold text-gray-700">Pantalla 18</h4>
+                    </div>
+                    <div class="bg-gray-100">
+                        <img src="assets/wireframe-pantalla-18.jpeg" alt="Wireframe SmartAuditorIA - Pantalla 18" class="w-full h-auto object-contain" loading="lazy">
+                    </div>
+                </div>
             </div>
         </div>
     </section>
@@ -1451,23 +1585,11 @@ graph LR
         </button>
     </div>
 
-    <!-- JavaScript para el Carrusel -->
+    <!-- JavaScript para preparar PDF -->
     <script>
-        let currentSlide = 0;
-        const slides = document.querySelectorAll('.carousel-slide');
-        const dots = document.querySelectorAll('.carousel-dot');
-        const totalSlides = slides.length;
-        
-        // Para PDF: mostrar todas las slides y renderizar todos los diagramas
+        // Para PDF: renderizar todos los diagramas
         function prepareForPrint() {
             if (window.matchMedia('print').matches) {
-                slides.forEach((slide, index) => {
-                    slide.classList.add('active');
-                    slide.style.display = 'block';
-                    slide.style.opacity = '1';
-                    slide.style.transform = 'none';
-                });
-                
                 // Renderizar todos los diagramas Mermaid
                 setTimeout(() => {
                     if (window.renderAllMermaidDiagrams) {
@@ -1484,92 +1606,6 @@ graph LR
         if (window.matchMedia('print').matches) {
             prepareForPrint();
         }
-
-        function showSlide(n) {
-            // Asegurar que el índice esté en rango
-            if (n >= totalSlides) {
-                currentSlide = 0;
-            } else if (n < 0) {
-                currentSlide = totalSlides - 1;
-            } else {
-                currentSlide = n;
-            }
-
-            // Transición suave: primero ocultar la actual
-            const currentActive = document.querySelector('.carousel-slide.active');
-            if (currentActive) {
-                currentActive.classList.add('fade-out');
-                setTimeout(() => {
-                    currentActive.classList.remove('active', 'fade-out');
-                }, 300);
-            }
-
-            // Actualizar dots
-            dots.forEach(dot => {
-                dot.classList.remove('bg-univalle-red');
-                dot.classList.add('bg-gray-300');
-            });
-
-            // Mostrar la nueva slide con transición
-            setTimeout(() => {
-                slides[currentSlide].classList.add('active');
-                dots[currentSlide].classList.remove('bg-gray-300');
-                dots[currentSlide].classList.add('bg-univalle-red');
-                
-                // Renderizar diagramas Mermaid en la nueva slide
-                if (window.renderMermaidOnSlideChange) {
-                    window.renderMermaidOnSlideChange();
-                }
-            }, 300);
-            
-            // Asegurar renderizado después de la transición
-            setTimeout(() => {
-                if (window.renderMermaidOnSlideChange) {
-                    window.renderMermaidOnSlideChange();
-                }
-            }, 1000);
-        }
-
-        function nextSlide() {
-            showSlide(currentSlide + 1);
-        }
-
-        function previousSlide() {
-            showSlide(currentSlide - 1);
-        }
-
-        function goToSlide(n) {
-            showSlide(n);
-        }
-
-        // Auto-avance del carrusel cada 12 segundos (solo si no está en modo impresión)
-        let autoAdvanceInterval;
-        if (!window.matchMedia('print').matches) {
-            autoAdvanceInterval = setInterval(() => {
-                nextSlide();
-            }, 12000);
-        }
-        
-        // Pausar auto-avance al hacer hover sobre el carrusel
-        const carouselContainer = document.querySelector('.carousel-container');
-        if (carouselContainer) {
-            carouselContainer.addEventListener('mouseenter', () => {
-                if (autoAdvanceInterval) {
-                    clearInterval(autoAdvanceInterval);
-                }
-            });
-            
-            carouselContainer.addEventListener('mouseleave', () => {
-                if (!window.matchMedia('print').matches) {
-                    autoAdvanceInterval = setInterval(() => {
-                        nextSlide();
-                    }, 12000);
-                }
-            });
-        }
-
-        // Inicializar
-        showSlide(0);
     </script>
 </body>
 </html>
