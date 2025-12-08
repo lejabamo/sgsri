@@ -25,7 +25,7 @@ git add GITHUB_PAGES_SETUP.md
 git commit -m "feat: Agregar reporte Smart Context Diagram para GitHub Pages"
 
 # Subir a GitHub
-git push origin evaluation
+git push origin launch01
 ```
 
 ### Paso 2: Habilitar GitHub Pages (Método Manual)
@@ -39,7 +39,7 @@ git push origin evaluation
 
 3. **Configura la fuente**
    - En **Source**, selecciona:
-     - **Branch**: `evaluation` (o tu rama principal)
+     - **Branch**: `launch01`
      - **Folder**: `/docs`
    - Haz clic en **Save** (Guardar)
 

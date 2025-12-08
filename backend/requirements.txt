@@ -12,6 +12,7 @@ PyMySQL==1.1.0
 # Autenticación y Seguridad
 PyJWT==2.8.0
 cryptography==41.0.7
+bcrypt==4.0.1
 werkzeug==3.0.1
 
 # Utilidades

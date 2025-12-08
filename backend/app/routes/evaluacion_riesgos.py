@@ -176,9 +176,8 @@ def get_niveles_impacto():
 def get_controles():
     """Obtener todos los controles de seguridad"""
     try:
-        controles = controles_seguridad.query.filter(
-            controles_seguridad.activo == True
-        ).all()
+        # Obtener todos los controles (el modelo no tiene campo 'activo')
+        controles = controles_seguridad.query.all()
         controles_list = []
         for control in controles:
             try:

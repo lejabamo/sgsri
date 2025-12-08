@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from ..models import db, Activo, Riesgo, Incidente, UsuarioSistema, RiesgoActivo, evaluacion_riesgo_activo
-from sqlalchemy import func, text
+from sqlalchemy import func, text, case
 from datetime import datetime, timedelta
 
 dashboard_bp = Blueprint('dashboard', __name__)
@@ -1827,46 +1827,121 @@ def get_riesgos_activos_mitigados():
 
 @dashboard_bp.route('/top-riesgos-criticos', methods=['GET'])
 def get_top_riesgos_criticos():
-    """Obtener top 5 riesgos críticos desde evaluaciones"""
+    """Obtener top 5 riesgos críticos desde riesgo_activo y evaluaciones"""
     try:
-        sql = text("""
-            SELECT 
-                r.Nombre as riesgo_nombre,
-                a.Nombre as activo_nombre,
-                COALESCE(nr_res.Nombre, nr_inh.Nombre) as nivel_riesgo,
-                COALESCE(era.fecha_evaluacion_residual, era.fecha_evaluacion_inherente) as fecha_evaluacion
-            FROM evaluacion_riesgo_activo era
-            JOIN riesgos r ON era.ID_Riesgo = r.ID_Riesgo
-            JOIN activos a ON era.ID_Activo = a.ID_Activo
-            JOIN nivelesriesgo nr_inh ON era.id_nivel_riesgo_inherente_calculado = nr_inh.ID_NivelRiesgo
-            LEFT JOIN nivelesriesgo nr_res ON era.id_nivel_riesgo_residual_calculado = nr_res.ID_NivelRiesgo
-            WHERE COALESCE(nr_res.Nombre, nr_inh.Nombre) IN ('ALTO', 'MEDIO')
-            ORDER BY 
-                CASE COALESCE(nr_res.Nombre, nr_inh.Nombre)
-                    WHEN 'ALTO' THEN 1
-                    WHEN 'MEDIO' THEN 2
-                    ELSE 3
-                END,
-                COALESCE(era.fecha_evaluacion_residual, era.fecha_evaluacion_inherente) DESC
-            LIMIT 5
-        """)
-        
-        rows = db.session.execute(sql).fetchall()
-        
         riesgos = []
-        for row in rows:
-            riesgos.append({
-                'nombre': row.riesgo_nombre,
-                'activo': row.activo_nombre,
-                'nivel': row.nivel_riesgo,
-                'severidad': 'HIGH' if row.nivel_riesgo == 'ALTO' else 'MEDIUM',
-                'categoria': 'Crítico'
-            })
+        riesgos_vistos = set()  # Para evitar duplicados
+        
+        # Primero obtener desde riesgo_activo (más común)
+        riesgo_activos = db.session.query(
+            Riesgo, Activo, RiesgoActivo
+        ).join(
+            RiesgoActivo, Riesgo.ID_Riesgo == RiesgoActivo.id_riesgo
+        ).join(
+            Activo, RiesgoActivo.ID_Activo == Activo.ID_Activo
+        ).filter(
+            Riesgo.Estado_Riesgo_General == 'Activo'
+        ).order_by(
+            case(
+                (RiesgoActivo.nivel_riesgo_calculado == 'Alto', 1),
+                (RiesgoActivo.nivel_riesgo_calculado == 'Medio', 2),
+                else_=3
+            ),
+            Riesgo.Fecha_Identificacion.desc()
+        ).limit(10).all()
+        
+        for riesgo, activo, riesgo_activo in riesgo_activos:
+            clave = f"{riesgo.ID_Riesgo}_{activo.ID_Activo}"
+            if clave not in riesgos_vistos and len(riesgos) < 5:
+                nivel = riesgo_activo.nivel_riesgo_calculado or 'Medio'
+                riesgos.append({
+                    'nombre': riesgo.Nombre,
+                    'activo': activo.Nombre,
+                    'nivel': nivel,
+                    'severidad': 'HIGH' if nivel == 'Alto' else 'MEDIUM',
+                    'categoria': riesgo.tipo_riesgo or 'General'
+                })
+                riesgos_vistos.add(clave)
+        
+        # Si aún no hay suficientes, obtener desde evaluacion_riesgo_activo
+        if len(riesgos) < 5:
+            sql_eval = text("""
+                SELECT 
+                    r.Nombre as riesgo_nombre,
+                    a.Nombre as activo_nombre,
+                    COALESCE(nr_res.Nombre, nr_inh.Nombre) as nivel_riesgo,
+                    r.ID_Riesgo,
+                    a.ID_Activo
+                FROM evaluacion_riesgo_activo era
+                JOIN riesgos r ON era.ID_Riesgo = r.ID_Riesgo
+                JOIN activos a ON era.ID_Activo = a.ID_Activo
+                JOIN nivelesriesgo nr_inh ON era.id_nivel_riesgo_inherente_calculado = nr_inh.ID_NivelRiesgo
+                LEFT JOIN nivelesriesgo nr_res ON era.id_nivel_riesgo_residual_calculado = nr_res.ID_NivelRiesgo
+                WHERE r.Estado_Riesgo_General = 'Activo'
+                ORDER BY 
+                    CASE COALESCE(nr_res.Nombre, nr_inh.Nombre)
+                        WHEN 'Alto' THEN 1
+                        WHEN 'Medio' THEN 2
+                        ELSE 3
+                    END
+                LIMIT :limit
+            """)
+            
+            limit = 5 - len(riesgos)
+            rows_eval = db.session.execute(sql_eval, {'limit': limit}).fetchall()
+            
+            for row in rows_eval:
+                clave = f"{row.ID_Riesgo}_{row.ID_Activo}"
+                if clave not in riesgos_vistos:
+                    riesgos.append({
+                        'nombre': row.riesgo_nombre,
+                        'activo': row.activo_nombre,
+                        'nivel': row.nivel_riesgo,
+                        'severidad': 'HIGH' if row.nivel_riesgo == 'Alto' else 'MEDIUM',
+                        'categoria': 'Crítico'
+                    })
+                    riesgos_vistos.add(clave)
+                    if len(riesgos) >= 5:
+                        break
+        
+        # Si aún no hay suficientes, obtener desde la tabla riesgos directamente
+        if len(riesgos) < 5:
+            riesgos_directos = Riesgo.query.filter(
+                Riesgo.Estado_Riesgo_General == 'Activo'
+            ).order_by(Riesgo.Fecha_Identificacion.desc()).limit(5 - len(riesgos)).all()
+            
+            for riesgo in riesgos_directos:
+                if len(riesgos) >= 5:
+                    break
+                    
+                # Obtener el primer activo asociado si existe
+                riesgo_activo = RiesgoActivo.query.filter_by(id_riesgo=riesgo.ID_Riesgo).first()
+                activo_nombre = 'Sin activo asociado'
+                nivel = 'Medio'
+                
+                if riesgo_activo:
+                    activo = Activo.query.get(riesgo_activo.ID_Activo)
+                    if activo:
+                        activo_nombre = activo.Nombre
+                        nivel = riesgo_activo.nivel_riesgo_calculado or 'Medio'
+                
+                # Evitar duplicados
+                if not any(r['nombre'] == riesgo.Nombre and r['activo'] == activo_nombre for r in riesgos):
+                    riesgos.append({
+                        'nombre': riesgo.Nombre,
+                        'activo': activo_nombre,
+                        'nivel': nivel,
+                        'severidad': 'HIGH' if nivel == 'Alto' else 'MEDIUM',
+                        'categoria': riesgo.tipo_riesgo or 'General'
+                    })
         
         return jsonify({'riesgos': riesgos}), 200
     except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
         print(f"Error obteniendo top riesgos críticos: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        print(f"Traceback: {error_trace}")
+        return jsonify({'error': str(e), 'traceback': error_trace}), 500
 
 @dashboard_bp.route('/resumen', methods=['GET'])
 def get_resumen_general():

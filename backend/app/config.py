@@ -9,31 +9,35 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev')
     
     # Configuración de base de datos desde variables de entorno
-    DB_USER = os.environ.get('DB_USER', 'root')
-    DB_PASSWORD = os.environ.get('DB_PASSWORD', 'toor')
-    DB_HOST = os.environ.get('DB_HOST', 'localhost')
-    DB_PORT = os.environ.get('DB_PORT', '3306')
-    DB_NAME = os.environ.get('DB_NAME', 'sgri')
+    # Si DATABASE_URL está definido, usarlo (para SQLite)
+    # Si no, usar configuración MySQL
+    DATABASE_URL = os.environ.get('DATABASE_URL')
     
-    # Construir la URI de la base de datos
-    SQLALCHEMY_DATABASE_URI = f'mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?auth_plugin=mysql_native_password&charset=utf8mb4'
+    if DATABASE_URL:
+        # Usar SQLite si DATABASE_URL está configurado
+        SQLALCHEMY_DATABASE_URI = DATABASE_URL
+    else:
+        # Configuración MySQL por defecto
+        DB_USER = os.environ.get('DB_USER', 'root')
+        DB_PASSWORD = os.environ.get('DB_PASSWORD', 'toor')
+        DB_HOST = os.environ.get('DB_HOST', 'localhost')
+        DB_PORT = os.environ.get('DB_PORT', '3306')
+        DB_NAME = os.environ.get('DB_NAME', 'sgri')
+        
+        # Construir la URI de la base de datos MySQL
+        SQLALCHEMY_DATABASE_URI = f'mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?auth_plugin=mysql_native_password&charset=utf8mb4'
+    
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # Configuración adicional para UTF-8 y optimización de pool de conexiones
+    # Opciones de engine para SQLAlchemy (compatibles con mysql-connector-python)
+    # Se evitan parámetros no soportados como read_timeout / write_timeout.
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_pre_ping': True,
-        'pool_recycle': 3600,  # Reciclar conexiones cada hora
-        'pool_size': 10,  # Tamaño del pool de conexiones
-        'max_overflow': 20,  # Conexiones adicionales permitidas
-        'pool_timeout': 30,  # Timeout para obtener conexión del pool
-        'connect_args': {
-            'charset': 'utf8mb4',
-            'use_unicode': True,
-            'autocommit': True,
-            'connect_timeout': 10,  # Timeout de conexión
-            'read_timeout': 30,  # Timeout de lectura
-            'write_timeout': 30,  # Timeout de escritura
-        }
+        'pool_recycle': 3600,
+        'pool_size': 10,
+        'max_overflow': 20,
+        'pool_timeout': 30,
     }
     
     # Configuración para archivos

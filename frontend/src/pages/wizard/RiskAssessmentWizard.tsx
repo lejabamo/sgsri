@@ -863,14 +863,13 @@ const RiskAssessmentWizard: React.FC = () => {
         throw new Error('No hay activo seleccionado');
       }
 
-      // Obtener el ID del riesgo (siempre creamos uno nuevo desde newRiesgo)
+      // Obtener el ID del riesgo (crear nuevo o reutilizar existente)
       let riesgoId = null;
       
-      // Crear el riesgo nuevo
       // Verificar si hay amenaza y vulnerabilidad (requisitos mínimos para crear un riesgo)
       if (wizardData.newRiesgo.amenaza && wizardData.newRiesgo.vulnerabilidad) {
         try {
-          const { apiRequest } = await import('../../services/api');
+          const api = (await import('../../services/api')).default;
           // Generar nombre y descripción del riesgo
           const nombreRiesgo = wizardData.newRiesgo.descripcion 
             ? wizardData.newRiesgo.descripcion 
@@ -879,20 +878,51 @@ const RiskAssessmentWizard: React.FC = () => {
             ? wizardData.newRiesgo.descripcion 
             : `Riesgo asociado a la amenaza "${wizardData.newRiesgo.amenaza}" y la vulnerabilidad "${wizardData.newRiesgo.vulnerabilidad}"`;
           
-          const nuevoRiesgo = await apiRequest<any>('/riesgos/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+          try {
+            // Intentar crear el riesgo nuevo usando axios (que proporciona mejor información de error)
+            const response = await api.post('/riesgos/', {
               Nombre: nombreRiesgo,
               Descripcion: descripcionRiesgo,
               tipo_riesgo: wizardData.newRiesgo.tipoRiesgo || null,
               Estado_Riesgo_General: 'Identificado',
-            }),
-          });
-          riesgoId = nuevoRiesgo.ID_Riesgo || nuevoRiesgo.id;
+            });
+            riesgoId = response.data.ID_Riesgo || response.data.id;
+          } catch (createError: any) {
+            // Si el error es 409 (duplicado), usar el riesgo existente
+            if (createError?.response?.status === 409) {
+              const errorData = createError?.response?.data || {};
+              if (errorData.existing_id) {
+                riesgoId = errorData.existing_id;
+                console.log(`Riesgo ya existe, reutilizando ID: ${riesgoId}`);
+              } else {
+                // Si no viene el ID, buscar el riesgo por nombre
+                try {
+                  const response = await api.get('/riesgos/');
+                  const riesgos = response.data || [];
+                  const riesgoExistente = riesgos.find((r: any) => 
+                    (r.Nombre || r.nombre || '').trim() === nombreRiesgo.trim()
+                  );
+                  if (riesgoExistente) {
+                    riesgoId = riesgoExistente.ID_Riesgo || riesgoExistente.id;
+                    console.log(`Riesgo encontrado por nombre, usando ID: ${riesgoId}`);
+                  } else {
+                    throw new Error(`No se pudo encontrar el riesgo existente con nombre "${nombreRiesgo}"`);
+                  }
+                } catch (searchError) {
+                  console.error('Error buscando riesgo existente:', searchError);
+                  throw new Error(`Ya existe un riesgo con el nombre "${nombreRiesgo}", pero no se pudo obtener su ID. Por favor, verifica la base de datos.`);
+                }
+              }
+            } else {
+              // Si es otro tipo de error, lanzarlo
+              console.error('Error creando riesgo:', createError);
+              const errorMessage = createError?.response?.data?.error || createError?.message || 'No se pudo crear el riesgo';
+              throw new Error(errorMessage);
+            }
+          }
         } catch (error: any) {
-          console.error('Error creando riesgo:', error);
-          const errorMessage = error?.message || 'No se pudo crear el riesgo';
+          console.error('Error procesando riesgo:', error);
+          const errorMessage = error?.message || 'No se pudo crear o encontrar el riesgo';
           throw new Error(errorMessage);
         }
       }
@@ -907,14 +937,24 @@ const RiskAssessmentWizard: React.FC = () => {
       const nivelesImp = await evaluacionRiesgosService.getNivelesImpacto();
       
       // Mapeo de valores del wizard a valores de la base de datos
-      // La BD tiene: 'Alto', 'Bajo', 'Medio', 'Muy Alto', 'Muy Bajo'
-      // El wizard usa: 'Frecuente', 'Probable', 'Ocasional', 'Posible', 'Improbable'
+      // La BD tiene: 'Muy Alta', 'Alta', 'Media', 'Baja', 'Muy Baja' para probabilidad
+      // La BD tiene: 'Muy Alto', 'Alto', 'Medio', 'Bajo', 'Muy Bajo' para impacto
+      // El wizard usa: 'Frecuente', 'Probable', 'Ocasional', 'Posible', 'Improbable' para probabilidad
+      // El wizard usa: 'Insignificante', 'Menor', 'Moderado', 'Mayor', 'Catastrófico' para impacto
       const probabilidadMapping: { [key: string]: string[] } = {
-        'Frecuente': ['Muy Alto', 'Alto'],
-        'Probable': ['Alto', 'Medio'],
-        'Ocasional': ['Medio'],
-        'Posible': ['Bajo', 'Medio'],
-        'Improbable': ['Muy Bajo', 'Bajo']
+        'Frecuente': ['Muy Alta', 'Alta'],
+        'Probable': ['Alta', 'Media'],
+        'Ocasional': ['Media'],
+        'Posible': ['Baja', 'Media'],
+        'Improbable': ['Muy Baja', 'Baja']
+      };
+      
+      const impactoMapping: { [key: string]: string[] } = {
+        'Insignificante': ['Muy Bajo', 'Bajo'],
+        'Menor': ['Bajo', 'Medio'],
+        'Moderado': ['Medio'],
+        'Mayor': ['Alto', 'Muy Alto'],
+        'Catastrófico': ['Muy Alto', 'Alto']
       };
       
       // Función helper para normalizar nombres (case-insensitive, sin acentos, sin espacios extra)
@@ -929,9 +969,11 @@ const RiskAssessmentWizard: React.FC = () => {
         probDbNames.some(dbName => normalizeName(p.nombre) === normalizeName(dbName))
       );
       
-      // Los impactos coinciden directamente
+      // Buscar impacto usando el mapeo
+      const impWizardValue = wizardData.evaluacionInherente.impacto;
+      const impDbNames = impactoMapping[impWizardValue] || [impWizardValue];
       const impInherente = nivelesImp.find(i => 
-        normalizeName(i.nombre) === normalizeName(wizardData.evaluacionInherente.impacto)
+        impDbNames.some(dbName => normalizeName(i.nombre) === normalizeName(dbName))
       );
 
       if (!probInherente || !impInherente) {
@@ -958,8 +1000,10 @@ const RiskAssessmentWizard: React.FC = () => {
         const probResidual = nivelesProb.find(p => 
           probResidualDbNames.some(dbName => normalizeName(p.nombre) === normalizeName(dbName))
         );
+        const impResidualWizardValue = wizardData.evaluacionResidual.impacto;
+        const impResidualDbNames = impactoMapping[impResidualWizardValue] || [impResidualWizardValue];
         const impResidual = nivelesImp.find(i => 
-          normalizeName(i.nombre) === normalizeName(wizardData.evaluacionResidual.impacto)
+          impResidualDbNames.some(dbName => normalizeName(i.nombre) === normalizeName(dbName))
         );
 
         if (probResidual && impResidual) {

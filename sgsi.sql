@@ -10,8 +10,8 @@
 -- -----------------------------------------------------
 -- Creación de la Base de Datos
 -- -----------------------------------------------------
-CREATE DATABASE IF NOT EXISTS `sgri_final` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `sgri_final`;
+CREATE DATABASE IF NOT EXISTS `sgsri` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `sgsri`;
 
 -- =================================================================
 -- SECCIÓN 1: CREACIÓN DE TABLAS

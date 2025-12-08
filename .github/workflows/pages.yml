@@ -3,7 +3,7 @@ name: Deploy GitHub Pages
 on:
   push:
     branches:
-      - evaluation  # Cambia por tu rama principal (main, master, etc.)
+      - launch01  # Rama para GitHub Pages
     paths:
       - 'docs/**'
   workflow_dispatch:

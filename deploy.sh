@@ -19,9 +19,10 @@ if [ ! -f "backend/run.py" ] || [ ! -f "frontend/package.json" ]; then
     exit 1
 fi
 
-# 1. Actualizar código desde Git
-echo -e "${YELLOW}📥 Actualizando código desde Git...${NC}"
-git pull origin main || git pull origin master
+# 1. Actualizar código desde Git (rama evaluation)
+echo -e "${YELLOW}📥 Actualizando código desde Git (rama evaluation)...${NC}"
+git checkout evaluation
+git pull origin evaluation
 
 # 2. Backend
 echo -e "${YELLOW}🔧 Configurando backend...${NC}"

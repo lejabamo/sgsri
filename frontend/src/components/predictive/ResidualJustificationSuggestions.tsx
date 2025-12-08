@@ -93,18 +93,18 @@ const ResidualJustificationSuggestions: React.FC<ResidualJustificationSuggestion
         })
       });
 
-      if (response.success && response.suggestions) {
+      if (response.success && response.suggestions && response.suggestions.length > 0) {
         setSuggestions(response.suggestions);
       } else {
         // Sugerencias de fallback basadas en normativa ISO
         const fallbackSuggestions = generateFallbackSuggestions();
-        setSuggestions(fallbackSuggestions);
+        setSuggestions(fallbackSuggestions.length > 0 ? fallbackSuggestions : []);
       }
     } catch (err) {
       console.error('Error loading residual justification suggestions:', err);
       // Sugerencias de fallback
       const fallbackSuggestions = generateFallbackSuggestions();
-      setSuggestions(fallbackSuggestions);
+      setSuggestions(fallbackSuggestions.length > 0 ? fallbackSuggestions : []);
     } finally {
       setIsLoading(false);
     }
@@ -116,6 +116,14 @@ const ResidualJustificationSuggestions: React.FC<ResidualJustificationSuggestion
     // Analizar la reducción del riesgo
     const inherentLevel = inherentRisk.nivel;
     const residualLevel = residualRisk.nivel;
+    const nivelMap: { [key: string]: string } = {
+      'HIGH': 'Alto',
+      'MEDIUM': 'Medio',
+      'LOW': 'Bajo',
+      'Alto': 'Alto',
+      'Medio': 'Medio',
+      'Bajo': 'Bajo'
+    };
     
     // Sugerencia 1: Reducción de probabilidad
     if (inherentRisk.probabilidad !== residualRisk.probabilidad) {
@@ -147,12 +155,6 @@ const ResidualJustificationSuggestions: React.FC<ResidualJustificationSuggestion
 
     // Sugerencia 3: Reducción general del nivel de riesgo
     if (inherentLevel !== residualLevel) {
-      const nivelMap: { [key: string]: string } = {
-        'HIGH': 'Alto',
-        'MEDIUM': 'Medio',
-        'LOW': 'Bajo'
-      };
-      
       suggestions.push({
         id: '3',
         titulo: 'Reducción del Nivel de Riesgo',
@@ -165,7 +167,7 @@ const ResidualJustificationSuggestions: React.FC<ResidualJustificationSuggestion
       });
     }
 
-    // Sugerencia 4: Eficacia de controles específicos
+    // Sugerencia 4: Eficacia de controles específicos (SIEMPRE generar si hay controles)
     if (selectedControls.length > 0) {
       suggestions.push({
         id: '4',
@@ -175,6 +177,20 @@ const ResidualJustificationSuggestions: React.FC<ResidualJustificationSuggestion
         articulo: 'A.8.2',
         confianza: 0.75,
         relacion_inherente: `Los controles implementados han mitigado el riesgo inherente ${nivelMap[inherentLevel] || inherentLevel} al nivel residual ${nivelMap[residualLevel] || residualLevel}.`,
+        controles_mencionados: selectedControls
+      });
+    }
+
+    // Si no hay sugerencias generadas, crear una sugerencia genérica
+    if (suggestions.length === 0 && selectedControls.length > 0) {
+      suggestions.push({
+        id: 'default',
+        titulo: 'Evaluación Residual con Controles',
+        descripcion: `La evaluación residual considera el riesgo después de aplicar los controles seleccionados (${selectedControls.slice(0, 3).join(', ')}). Según ISO 27005, la evaluación residual debe reflejar la efectividad de los controles implementados.`,
+        norma: 'ISO 27005',
+        articulo: 'A.8.1',
+        confianza: 0.70,
+        relacion_inherente: `El riesgo residual (${residualRisk.probabilidad} probabilidad, ${residualRisk.impacto} impacto) refleja la mitigación lograda mediante los controles aplicados sobre el riesgo inherente (${inherentRisk.probabilidad} probabilidad, ${inherentRisk.impacto} impacto).`,
         controles_mencionados: selectedControls
       });
     }
@@ -214,6 +230,10 @@ const ResidualJustificationSuggestions: React.FC<ResidualJustificationSuggestion
   useEffect(() => {
     if (residualRisk.probabilidad && residualRisk.impacto && selectedControls.length > 0) {
       loadJustificationSuggestions();
+    } else {
+      // Limpiar sugerencias si no se cumplen las condiciones
+      setSuggestions([]);
+      setError(null);
     }
   }, [residualRisk.probabilidad, residualRisk.impacto, selectedControls.length]);
 
@@ -250,11 +270,13 @@ const ResidualJustificationSuggestions: React.FC<ResidualJustificationSuggestion
     );
   }
 
-  if (suggestions.length === 0) {
+  if (suggestions.length === 0 && !isLoading) {
     return (
       <Box sx={{ textAlign: 'center', py: 2 }}>
         <Typography variant="body2" color="text.secondary">
-          No hay sugerencias disponibles. Asegúrate de haber seleccionado controles y completado la evaluación residual.
+          {selectedControls.length > 0 && residualRisk.probabilidad && residualRisk.impacto
+            ? 'No se pudieron generar sugerencias automáticas. Puedes escribir tu justificación manualmente basándote en los controles seleccionados y la evaluación residual.'
+            : 'No hay sugerencias disponibles. Asegúrate de haber seleccionado controles y completado la evaluación residual.'}
         </Typography>
       </Box>
     );

@@ -68,8 +68,6 @@ def create_app(config=None):
     # Importar modelos después de inicializar db
     with app.app_context():
         from . import models
-        from .auth import models as auth_models
-        from .modelos.documentos import DocumentoAdjunto
 
     # Importar y registrar blueprints aquí
     # Autenticación (sin prefijo para endpoints básicos)

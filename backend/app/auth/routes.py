@@ -26,8 +26,9 @@ def login():
         if not username or not password:
             return jsonify({'error': 'Username y password son requeridos'}), 400
         
-        # Buscar usuario
-        usuario = UsuarioAuth.query.filter_by(username=username).first()
+        # Buscar usuario con relación de rol cargada
+        from sqlalchemy.orm import joinedload
+        usuario = UsuarioAuth.query.options(joinedload(UsuarioAuth.rol)).filter_by(username=username).first()
         
         if not usuario:
             return jsonify({'error': 'Credenciales inválidas'}), 401
@@ -80,7 +81,14 @@ def login():
         
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"❌ Error en login: {str(e)}")
+        print(error_trace)
+        # En desarrollo, devolver el traceback completo para debugging
+        if current_app.config.get('DEBUG', False):
+            return jsonify({'error': str(e), 'traceback': error_trace}), 500
+        return jsonify({'error': 'Error interno del servidor'}), 500
 
 @auth_bp.route('/logout', methods=['POST'])
 def logout():

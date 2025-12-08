@@ -20,8 +20,6 @@ class ProductionConfig(Config):
             'use_unicode': True,
             'autocommit': True,
             'connect_timeout': 10,
-            'read_timeout': 30,
-            'write_timeout': 30,
         }
     }
     

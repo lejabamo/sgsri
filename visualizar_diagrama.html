@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SGRI - Smart Context Diagram</title>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            themeVariables: {
+                primaryColor: '#f3e5f5',
+                primaryTextColor: '#000',
+                primaryBorderColor: '#4a148c',
+                lineColor: '#4a148c',
+                secondaryColor: '#fff3e0',
+                tertiaryColor: '#e8f5e9'
+            }
+        });
+    </script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #1a73e8;
+            border-bottom: 3px solid #1a73e8;
+            padding-bottom: 10px;
+        }
+        .mermaid {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .info {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            border-left: 4px solid #2196f3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏗️ Smart Context Diagram (SCD) - Sistema SGRI</h1>
+        <h2>Diagrama de Contexto C4 - Arquitectura SGRI</h2>
+        
+        <div class="mermaid">
+graph TB
+    %% Definir estilos
+    classDef userStyle fill:#e1f5ff,stroke:#01579b,stroke-width:2px,color:#000
+    classDef systemStyle fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#000
+    classDef aiStyle fill:#fff3e0,stroke:#e65100,stroke-width:3px,color:#000
+    classDef dbStyle fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px,color:#000
+    classDef externalStyle fill:#fce4ec,stroke:#880e4f,stroke-width:2px,color:#000
+    classDef vectorStyle fill:#fff9c4,stroke:#f57f17,stroke-width:2px,color:#000
+
+    %% Usuario
+    GestorRiesgos["👤 Gestor de Riesgos<br/>Usuario del Sistema"]
+    class GestorRiesgos userStyle
+
+    %% Sistema Central
+    SGRI["🛡️ SGRI<br/>Sistema de Gestión de<br/>Riesgos de Información<br/><br/>• Gestión de Activos<br/>• Evaluación de Riesgos<br/>• Dashboard Analytics<br/>• Gestión de Incidentes"]
+    class SGRI systemStyle
+
+    %% Frontend
+    Frontend["⚛️ Frontend React<br/>Interfaz de Usuario<br/><br/>• Wizard de Evaluación<br/>• Dashboard Interactivo<br/>• Gestión de Activos<br/>• Visualización de Riesgos"]
+    class Frontend systemStyle
+
+    %% Backend
+    BackendAPI["🔧 Backend Flask API<br/>Servicios REST<br/><br/>• /api/activos<br/>• /api/riesgos<br/>• /api/evaluacion<br/>• /api/dashboard"]
+    class BackendAPI systemStyle
+
+    %% Motor RAG / IA (Destacado)
+    MotorRAG["🤖 Motor RAG / Servicio de IA<br/>Sistema Predictivo Inteligente<br/><br/>• Retrieval Augmented Generation<br/>• Sugerencias ISO 27005<br/>• Justificaciones Normativas<br/>• Búsqueda Semántica<br/>• Generación Contextual"]
+    class MotorRAG aiStyle
+
+    %% Base de Datos Principal
+    MySQL["🗄️ Base de Datos MySQL<br/>Almacenamiento Principal<br/><br/>• Activos<br/>• Riesgos<br/>• Evaluaciones<br/>• Controles<br/>• Incidentes<br/>• Usuarios"]
+    class MySQL dbStyle
+
+    %% Base de Datos Vectorial
+    VectorDB["📊 Base de Datos Vectorial<br/>Almacén de Embeddings<br/><br/>• Embeddings ISO 27001/27002/27005<br/>• Vectores de Controles<br/>• Vectores de Amenazas<br/>• Índices Semánticos"]
+    class VectorDB vectorStyle
+
+    %% Sistema Externo GLPI
+    GLPI["🔌 GLPI<br/>Sistema de Gestión de<br/>Activos de TI<br/><br/>• Inventario Hardware<br/>• Inventario Software<br/>• Usuarios<br/>• Tickets"]
+    class GLPI externalStyle
+
+    %% Conexiones Usuario -> Sistema
+    GestorRiesgos -->|"HTTPS/JSON<br/>Solicitudes de Gestión<br/>• Crear/Editar Activos<br/>• Evaluar Riesgos<br/>• Consultar Dashboard"| Frontend
+
+    %% Conexiones Frontend -> Backend
+    Frontend -->|"HTTPS/JSON<br/>API REST<br/>• Datos de Activos<br/>• Evaluaciones<br/>• Métricas Dashboard"| BackendAPI
+
+    %% Conexiones Backend -> Motor RAG
+    BackendAPI -->|"HTTP/JSON<br/>Solicitud de Justificación Normativa<br/>• Contexto de Riesgo<br/>• Controles Seleccionados<br/>• Tipo de Activo"| MotorRAG
+    MotorRAG -->|"HTTP/JSON<br/>Sugerencias Generadas<br/>• Justificaciones ISO<br/>• Referencias Normativas<br/>• Nivel de Confianza"| BackendAPI
+
+    %% Conexiones Motor RAG -> Vector DB
+    MotorRAG -->|"API/Embeddings<br/>Búsqueda Semántica<br/>• Query Vectorial<br/>• Retrieval de Contexto<br/>• Similitud Coseno"| VectorDB
+    VectorDB -->|"Vectores/JSON<br/>Resultados de Búsqueda<br/>• Documentos Relevantes<br/>• Scores de Similitud<br/>• Metadatos ISO"| MotorRAG
+
+    %% Conexiones Backend -> MySQL
+    BackendAPI -->|"SQL/SQLAlchemy ORM<br/>Operaciones CRUD<br/>• Consultas de Activos<br/>• Persistencia de Riesgos<br/>• Transacciones"| MySQL
+    MySQL -->|"ResultSet/JSON<br/>Datos Estructurados<br/>• Registros de Activos<br/>• Evaluaciones<br/>• Métricas Agregadas"| BackendAPI
+
+    %% Conexiones GLPI -> Backend (ETL)
+    GLPI -->|"MySQL/ETL Scripts<br/>Sincronización de Activos<br/>• Extracción de Hardware<br/>• Extracción de Software<br/>• Extracción de Usuarios"| BackendAPI
+    BackendAPI -->|"SQL INSERT/UPDATE<br/>Carga de Datos<br/>• Activos Sincronizados<br/>• Metadatos GLPI<br/>• IDs Externos"| MySQL
+
+    %% Estilo de las flechas
+    linkStyle 0 stroke:#01579b,stroke-width:2px
+    linkStyle 1 stroke:#4a148c,stroke-width:2px
+    linkStyle 2 stroke:#e65100,stroke-width:3px
+    linkStyle 3 stroke:#e65100,stroke-width:3px
+    linkStyle 4 stroke:#f57f17,stroke-width:2px
+    linkStyle 5 stroke:#f57f17,stroke-width:2px
+    linkStyle 6 stroke:#1b5e20,stroke-width:2px
+    linkStyle 7 stroke:#1b5e20,stroke-width:2px
+    linkStyle 8 stroke:#880e4f,stroke-width:2px
+    linkStyle 9 stroke:#880e4f,stroke-width:2px
+        </div>
+
+        <div class="info">
+            <h3>📋 Información del Diagrama</h3>
+            <p><strong>Color Naranja:</strong> Motor RAG / Servicio de IA (componente inteligente destacado)</p>
+            <p><strong>Color Púrpura:</strong> Componentes del sistema SGRI</p>
+            <p><strong>Color Verde:</strong> Bases de datos</p>
+            <p><strong>Color Amarillo:</strong> Base de datos vectorial</p>
+            <p><strong>Color Rosa:</strong> Sistemas externos</p>
+            <p><strong>Color Azul:</strong> Usuarios</p>
+        </div>
+    </div>
+</body>
+</html>
+
