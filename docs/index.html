@@ -78,18 +78,49 @@
             body {
                 print-color-adjust: exact;
                 -webkit-print-color-adjust: exact;
+                background: white;
             }
             .page-break {
                 page-break-after: always;
             }
+            .page-break-after {
+                page-break-after: always;
+            }
+            .page-break-before {
+                page-break-before: always;
+            }
+            /* Mostrar todas las slides del carrusel en PDF */
             .carousel-container {
                 page-break-inside: avoid;
+            }
+            .carousel-slide {
+                display: block !important;
+                page-break-inside: avoid;
+                margin-bottom: 2cm;
+            }
+            .carousel-slide:not(:last-child) {
+                page-break-after: always;
             }
             .wizard-animation-container {
                 page-break-inside: avoid;
             }
             .fixed {
                 position: static !important;
+            }
+            /* Asegurar que Mermaid se renderice */
+            .mermaid {
+                page-break-inside: avoid;
+            }
+            .mermaid svg {
+                max-width: 100% !important;
+                height: auto !important;
+            }
+            /* Mejorar espaciado */
+            section {
+                page-break-inside: avoid;
+            }
+            h2, h3 {
+                page-break-after: avoid;
             }
         }
         
@@ -190,8 +221,62 @@
         </div>
     </nav>
 
+    <!-- Portada Académica -->
+    <section id="portada" class="bg-white py-16 page-break-after">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center border-2 border-gray-300 rounded-lg p-12 bg-gradient-to-br from-gray-50 to-white">
+                <!-- Logo/Encabezado Universidad -->
+                <div class="mb-8">
+                    <h1 class="text-4xl font-bold univalle-red mb-2">Universidad del Valle</h1>
+                    <h2 class="text-2xl font-semibold text-gray-700 mb-1">Escuela de Ingeniería de Sistemas y Computación</h2>
+                    <h3 class="text-lg text-gray-600">Maestría en Computación para el Desarrollo de Aplicaciones Inteligentes</h3>
+                </div>
+                
+                <!-- Línea divisoria -->
+                <div class="border-t-2 border-univalle-red my-8 mx-auto w-32"></div>
+                
+                <!-- Título del Proyecto -->
+                <div class="mb-8">
+                    <h4 class="text-3xl font-bold text-gray-900 mb-4">
+                        SmartAuditorIA
+                    </h4>
+                    <h5 class="text-xl font-semibold text-gray-700 mb-2">
+                        Sistema de Gestión de Riesgos Basado en Inteligencia Artificial
+                    </h5>
+                    <p class="text-lg text-gray-600 italic">
+                        Cumplimiento de ISO 27001 y Normativa Colombiana mediante<br/>
+                        Retrieval Augmented Generation (RAG)
+                    </p>
+                </div>
+                
+                <!-- Línea divisoria -->
+                <div class="border-t-2 border-univalle-red my-8 mx-auto w-32"></div>
+                
+                <!-- Información del Curso y Autor -->
+                <div class="space-y-4 text-gray-700">
+                    <div>
+                        <p class="text-lg font-semibold">Materia:</p>
+                        <p class="text-xl univalle-red font-bold">Introducción al Desarrollo de Aplicaciones Inteligentes</p>
+                    </div>
+                    <div class="mt-6">
+                        <p class="text-lg font-semibold">Presentado por:</p>
+                        <p class="text-xl font-bold text-gray-900">Ing. Leonardo Javier Bastidas Moreno</p>
+                    </div>
+                    <div class="mt-6">
+                        <p class="text-sm text-gray-500">
+                            Maestría en Computación para el Desarrollo de Aplicaciones Inteligentes
+                        </p>
+                        <p class="text-sm text-gray-500 mt-2">
+                            Universidad del Valle - 2025
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Hero Section -->
-    <section id="inicio" class="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white py-20">
+    <section id="inicio" class="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white py-20 no-print">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h1 class="text-5xl md:text-6xl font-bold mb-6">
                 SmartAuditorIA
@@ -307,7 +392,94 @@ graph LR
                     </div>
                 </div>
 
-                <!-- Slide 2: Mockup Wizard Animado -->
+                <!-- Slide 2: Flujo 1 - Evaluación con RAG -->
+                <div class="carousel-slide">
+                    <div class="text-center">
+                        <h3 class="text-2xl font-semibold mb-4 univalle-red">Flujo 1: Evaluación de Riesgos con RAG</h3>
+                        <div class="bg-white rounded-lg shadow-md p-6 max-w-6xl mx-auto">
+                            <div class="mermaid">
+graph LR
+    A["👤 Gestor de Riesgos"] -->|"HTTPS/JSON"| B["⚛️ Frontend<br/>Wizard"]
+    B -->|"HTTPS/JSON"| C["🔧 Backend API"]
+    C -->|"HTTP/JSON<br/>Solicitud"| D["🤖 Motor RAG<br/>Context Extraction"]
+    D -->|"API/Embeddings"| E["📊 Vector DB<br/>Semantic Search"]
+    E -->|"Vectores/JSON"| D
+    D -->|"HTTP/JSON<br/>Sugerencias"| C
+    C -->|"HTTPS/JSON"| B
+    B -->|"Render UI"| A
+    
+    style D fill:#fff3e0,stroke:#e65100,stroke-width:3px
+    style E fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+                            </div>
+                            <p class="text-sm text-gray-600 mt-4">
+                                El usuario solicita una justificación de riesgo residual. El sistema extrae el contexto, 
+                                consulta la base vectorial mediante búsqueda semántica, y genera justificaciones normativas 
+                                que se presentan al usuario en el wizard.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide 3: Flujo 2 - Sincronización ETL -->
+                <div class="carousel-slide">
+                    <div class="text-center">
+                        <h3 class="text-2xl font-semibold mb-4 univalle-red">Flujo 2: Sincronización GLPI mediante ETL</h3>
+                        <div class="bg-white rounded-lg shadow-md p-6 max-w-6xl mx-auto">
+                            <div class="mermaid">
+graph LR
+    A["🔌 GLPI<br/>MySQL"] -->|"MySQL/SQL<br/>Extracción"| B["🔄 Módulo ETL<br/>Extract"]
+    B -->|"Transform<br/>Mapeo Datos"| C["🔄 Módulo ETL<br/>Transform"]
+    C -->|"SQL INSERT/UPDATE<br/>Carga"| D["🔄 Módulo ETL<br/>Load"]
+    D -->|"SQL INSERT"| E["🗄️ MySQL<br/>SmartAuditorIA"]
+    E -->|"SQL/ORM"| F["🔧 Backend API"]
+    F -->|"HTTPS/JSON"| G["⚛️ Frontend"]
+    
+    style B fill:#e1bee7,stroke:#6a1b9a,stroke-width:2px
+    style C fill:#e1bee7,stroke:#6a1b9a,stroke-width:2px
+    style D fill:#e1bee7,stroke:#6a1b9a,stroke-width:2px
+    style E fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+                            </div>
+                            <p class="text-sm text-gray-600 mt-4">
+                                El módulo ETL extrae datos de activos (hardware, software, usuarios) desde GLPI, 
+                                los transforma según el esquema de SmartAuditorIA, y los carga en la base de datos MySQL. 
+                                Los datos quedan disponibles para el backend y frontend.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide 4: Flujo 3 - Sugerencias Predictivas -->
+                <div class="carousel-slide">
+                    <div class="text-center">
+                        <h3 class="text-2xl font-semibold mb-4 univalle-red">Flujo 3: Sugerencias Predictivas Inteligentes</h3>
+                        <div class="bg-white rounded-lg shadow-md p-6 max-w-6xl mx-auto">
+                            <div class="mermaid">
+graph LR
+    A["⚛️ Frontend<br/>Tipo Activo"] -->|"HTTPS/JSON"| B["🔧 Backend API"]
+    B -->|"HTTP/JSON"| C["🤖 Motor RAG<br/>Knowledge Query"]
+    C -->|"SQL/ORM"| D["🗄️ MySQL<br/>Controles ISO"]
+    C -->|"API/Embeddings"| E["📊 Vector DB<br/>Semantic Matching"]
+    D -->|"ResultSet"| C
+    E -->|"Vectores"| C
+    C -->|"Template<br/>Generation"| F["🤖 Motor RAG<br/>Response"]
+    F -->|"HTTP/JSON<br/>Sugerencias"| B
+    B -->|"HTTPS/JSON"| G["⚛️ Frontend<br/>Cards Interactivas"]
+    
+    style C fill:#fff3e0,stroke:#e65100,stroke-width:3px
+    style F fill:#fff3e0,stroke:#e65100,stroke-width:3px
+    style E fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style D fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+                            </div>
+                            <p class="text-sm text-gray-600 mt-4">
+                                Cuando el usuario selecciona un tipo de activo, el sistema consulta tanto la base de datos 
+                                relacional (controles ISO) como la base vectorial (búsqueda semántica) para generar sugerencias 
+                                inteligentes de amenazas, vulnerabilidades y controles, presentadas como cards interactivas.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide 5: Mockup Wizard Animado -->
                 <div class="carousel-slide">
                     <div class="text-center">
                         <h3 class="text-2xl font-semibold mb-4 univalle-red">Wizard de Evaluación con IA - Proceso Completo</h3>
@@ -542,9 +714,12 @@ graph TB
                     ← Anterior
                 </button>
                 <div class="flex space-x-2">
-                    <button onclick="goToSlide(0)" class="carousel-dot w-3 h-3 rounded-full bg-univalle-red"></button>
-                    <button onclick="goToSlide(1)" class="carousel-dot w-3 h-3 rounded-full bg-gray-300"></button>
-                    <button onclick="goToSlide(2)" class="carousel-dot w-3 h-3 rounded-full bg-gray-300"></button>
+                    <button onclick="goToSlide(0)" class="carousel-dot w-3 h-3 rounded-full bg-univalle-red" title="Diagrama C4"></button>
+                    <button onclick="goToSlide(1)" class="carousel-dot w-3 h-3 rounded-full bg-gray-300" title="Flujo 1: Evaluación RAG"></button>
+                    <button onclick="goToSlide(2)" class="carousel-dot w-3 h-3 rounded-full bg-gray-300" title="Flujo 2: ETL"></button>
+                    <button onclick="goToSlide(3)" class="carousel-dot w-3 h-3 rounded-full bg-gray-300" title="Flujo 3: Sugerencias"></button>
+                    <button onclick="goToSlide(4)" class="carousel-dot w-3 h-3 rounded-full bg-gray-300" title="Wizard Animado"></button>
+                    <button onclick="goToSlide(5)" class="carousel-dot w-3 h-3 rounded-full bg-gray-300" title="Flujo RAG Detallado"></button>
                 </div>
                 <button onclick="nextSlide()" class="bg-univalle-red text-white px-6 py-2 rounded-lg hover:bg-opacity-90 transition">
                     Siguiente →
@@ -1079,6 +1254,14 @@ graph LR
         const slides = document.querySelectorAll('.carousel-slide');
         const dots = document.querySelectorAll('.carousel-dot');
         const totalSlides = slides.length;
+        
+        // Para PDF: mostrar todas las slides
+        if (window.matchMedia('print').matches) {
+            slides.forEach(slide => {
+                slide.classList.add('active');
+                slide.style.display = 'block';
+            });
+        }
 
         function showSlide(n) {
             // Ocultar todas las slides
@@ -1113,10 +1296,12 @@ graph LR
             showSlide(n);
         }
 
-        // Auto-avance del carrusel cada 8 segundos
-        setInterval(() => {
-            nextSlide();
-        }, 8000);
+        // Auto-avance del carrusel cada 10 segundos (solo si no está en modo impresión)
+        if (!window.matchMedia('print').matches) {
+            setInterval(() => {
+                nextSlide();
+            }, 10000);
+        }
 
         // Inicializar
         showSlide(0);
