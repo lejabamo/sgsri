@@ -70,6 +70,29 @@
             scroll-behavior: smooth;
         }
         
+        /* Estilos para impresión/PDF */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+            }
+            .page-break {
+                page-break-after: always;
+            }
+            .carousel-container {
+                page-break-inside: avoid;
+            }
+            .wizard-animation-container {
+                page-break-inside: avoid;
+            }
+            .fixed {
+                position: static !important;
+            }
+        }
+        
         /* Cards hover effect */
         .card-hover {
             transition: transform 0.3s, box-shadow 0.3s;
