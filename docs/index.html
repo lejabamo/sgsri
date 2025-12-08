@@ -34,60 +34,79 @@
         mermaidInitialized = true;
         
         // Función para renderizar todos los diagramas Mermaid
-        function renderAllMermaidDiagrams() {
-            const mermaidElements = document.querySelectorAll('.mermaid');
+        window.renderAllMermaidDiagrams = function() {
+            const mermaidElements = document.querySelectorAll('.mermaid:not([data-rendered])');
             mermaidElements.forEach((element, index) => {
                 // Asignar ID único si no lo tiene
                 if (!element.id) {
-                    element.id = `mermaid-diagram-${index}`;
+                    element.id = `mermaid-diagram-${Date.now()}-${index}`;
                 }
                 
                 // Solo renderizar si no está renderizado
-                if (!element.querySelector('svg')) {
+                if (!element.querySelector('svg') && !element.hasAttribute('data-rendered')) {
                     const graphDefinition = element.textContent.trim();
                     if (graphDefinition) {
+                        element.setAttribute('data-rendered', 'true');
                         mermaid.run({
                             nodes: [element],
                             suppressErrors: false
+                        }).then(() => {
+                            console.log('Diagrama Mermaid renderizado:', element.id);
                         }).catch(err => {
                             console.warn('Error renderizando diagrama Mermaid:', err);
+                            element.removeAttribute('data-rendered');
                         });
                     }
                 }
             });
-        }
-        
-        // Renderizar cuando el DOM esté listo
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => {
-                setTimeout(renderAllMermaidDiagrams, 500);
-            });
-        } else {
-            setTimeout(renderAllMermaidDiagrams, 500);
-        }
+        };
         
         // Re-renderizar cuando se cambia de slide
         window.renderMermaidOnSlideChange = function() {
             setTimeout(() => {
                 const activeSlide = document.querySelector('.carousel-slide.active');
                 if (activeSlide) {
-                    const mermaidInSlide = activeSlide.querySelectorAll('.mermaid');
+                    const mermaidInSlide = activeSlide.querySelectorAll('.mermaid:not([data-rendered])');
                     mermaidInSlide.forEach((element, index) => {
                         if (!element.querySelector('svg')) {
+                            if (!element.id) {
+                                element.id = `mermaid-slide-${Date.now()}-${index}`;
+                            }
                             const graphDefinition = element.textContent.trim();
                             if (graphDefinition) {
+                                element.setAttribute('data-rendered', 'true');
                                 mermaid.run({
                                     nodes: [element],
                                     suppressErrors: false
+                                }).then(() => {
+                                    console.log('Diagrama renderizado en slide:', element.id);
                                 }).catch(err => {
                                     console.warn('Error renderizando diagrama:', err);
+                                    element.removeAttribute('data-rendered');
                                 });
                             }
                         }
                     });
                 }
-            }, 300);
+            }, 400);
         };
+        
+        // Renderizar cuando el DOM esté listo
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                setTimeout(() => {
+                    if (window.renderAllMermaidDiagrams) {
+                        window.renderAllMermaidDiagrams();
+                    }
+                }, 800);
+            });
+        } else {
+            setTimeout(() => {
+                if (window.renderAllMermaidDiagrams) {
+                    window.renderAllMermaidDiagrams();
+                }
+            }, 800);
+        }
     </script>
     
     <style>
@@ -1230,7 +1249,7 @@ graph LR
                 <div class="bg-gray-50 rounded-lg p-6 border-l-4 border-purple-500">
                     <h3 class="text-xl font-semibold text-gray-800 mb-4">Flujo 2: Sincronización GLPI mediante ETL</h3>
                     <div class="bg-white rounded-lg p-4">
-                        <div class="mermaid">
+                        <div class="mermaid" id="mermaid-flujo2-detalle">
 graph LR
     A["🔌 GLPI<br/>MySQL"] -->|"MySQL/SQL<br/>Extracción"| B["🔄 Módulo ETL<br/>Extract"]
     B -->|"Transform<br/>Mapeo Datos"| C["🔄 Módulo ETL<br/>Transform"]
@@ -1256,7 +1275,7 @@ graph LR
                 <div class="bg-gray-50 rounded-lg p-6 border-l-4 border-orange-500">
                     <h3 class="text-xl font-semibold text-gray-800 mb-4">Flujo 3: Sugerencias Predictivas Inteligentes</h3>
                     <div class="bg-white rounded-lg p-4">
-                        <div class="mermaid">
+                        <div class="mermaid" id="mermaid-flujo3-detalle">
 graph LR
     A["⚛️ Frontend<br/>Tipo Activo"] -->|"HTTPS/JSON"| B["🔧 Backend API"]
     B -->|"HTTP/JSON"| C["🤖 Motor RAG<br/>Knowledge Query"]
