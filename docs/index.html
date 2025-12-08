@@ -17,10 +17,10 @@
     <script type="module">
         import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
         
-        let mermaidInitialized = false;
+        let mermaidReady = false;
         
         mermaid.initialize({ 
-            startOnLoad: false, // Desactivamos auto-render para control manual
+            startOnLoad: false,
             theme: 'default',
             flowchart: {
                 useMaxWidth: true,
@@ -28,85 +28,94 @@
                 curve: 'basis',
                 padding: 20
             },
-            securityLevel: 'loose'
+            securityLevel: 'loose',
+            fontFamily: 'Inter, sans-serif'
         });
         
-        mermaidInitialized = true;
+        mermaidReady = true;
+        console.log('✅ Mermaid inicializado');
+        
+        // Función para renderizar un diagrama Mermaid específico
+        async function renderMermaidDiagram(element) {
+            if (!element || element.hasAttribute('data-rendered') || element.querySelector('svg')) {
+                return;
+            }
+            
+            const graphDefinition = element.textContent.trim();
+            if (!graphDefinition) {
+                return;
+            }
+            
+            // Asignar ID único si no lo tiene
+            if (!element.id) {
+                element.id = `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            }
+            
+            try {
+                element.setAttribute('data-rendered', 'true');
+                await mermaid.run({
+                    nodes: [element],
+                    suppressErrors: false
+                });
+                console.log('✅ Diagrama renderizado:', element.id);
+            } catch (err) {
+                console.warn('❌ Error renderizando diagrama:', element.id, err);
+                element.removeAttribute('data-rendered');
+            }
+        }
         
         // Función para renderizar todos los diagramas Mermaid
-        window.renderAllMermaidDiagrams = function() {
+        window.renderAllMermaidDiagrams = async function() {
+            if (!mermaidReady) {
+                console.warn('Mermaid no está listo aún');
+                return;
+            }
+            
             const mermaidElements = document.querySelectorAll('.mermaid:not([data-rendered])');
-            mermaidElements.forEach((element, index) => {
-                // Asignar ID único si no lo tiene
-                if (!element.id) {
-                    element.id = `mermaid-diagram-${Date.now()}-${index}`;
-                }
-                
-                // Solo renderizar si no está renderizado
-                if (!element.querySelector('svg') && !element.hasAttribute('data-rendered')) {
-                    const graphDefinition = element.textContent.trim();
-                    if (graphDefinition) {
-                        element.setAttribute('data-rendered', 'true');
-                        mermaid.run({
-                            nodes: [element],
-                            suppressErrors: false
-                        }).then(() => {
-                            console.log('Diagrama Mermaid renderizado:', element.id);
-                        }).catch(err => {
-                            console.warn('Error renderizando diagrama Mermaid:', err);
-                            element.removeAttribute('data-rendered');
-                        });
-                    }
-                }
-            });
+            console.log(`Renderizando ${mermaidElements.length} diagramas Mermaid...`);
+            
+            // Renderizar todos en paralelo
+            await Promise.all(Array.from(mermaidElements).map(el => renderMermaidDiagram(el)));
+            
+            console.log('✅ Todos los diagramas renderizados');
         };
         
         // Re-renderizar cuando se cambia de slide
-        window.renderMermaidOnSlideChange = function() {
-            setTimeout(() => {
+        window.renderMermaidOnSlideChange = async function() {
+            if (!mermaidReady) return;
+            
+            setTimeout(async () => {
                 const activeSlide = document.querySelector('.carousel-slide.active');
                 if (activeSlide) {
                     const mermaidInSlide = activeSlide.querySelectorAll('.mermaid:not([data-rendered])');
-                    mermaidInSlide.forEach((element, index) => {
-                        if (!element.querySelector('svg')) {
-                            if (!element.id) {
-                                element.id = `mermaid-slide-${Date.now()}-${index}`;
-                            }
-                            const graphDefinition = element.textContent.trim();
-                            if (graphDefinition) {
-                                element.setAttribute('data-rendered', 'true');
-                                mermaid.run({
-                                    nodes: [element],
-                                    suppressErrors: false
-                                }).then(() => {
-                                    console.log('Diagrama renderizado en slide:', element.id);
-                                }).catch(err => {
-                                    console.warn('Error renderizando diagrama:', err);
-                                    element.removeAttribute('data-rendered');
-                                });
-                            }
-                        }
-                    });
+                    if (mermaidInSlide.length > 0) {
+                        console.log(`Renderizando ${mermaidInSlide.length} diagramas en slide activa...`);
+                        await Promise.all(Array.from(mermaidInSlide).map(el => renderMermaidDiagram(el)));
+                    }
                 }
-            }, 400);
+            }, 500);
         };
         
         // Renderizar cuando el DOM esté listo
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => {
+        function initMermaidDiagrams() {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => {
+                    setTimeout(() => {
+                        if (window.renderAllMermaidDiagrams) {
+                            window.renderAllMermaidDiagrams();
+                        }
+                    }, 1000);
+                });
+            } else {
                 setTimeout(() => {
                     if (window.renderAllMermaidDiagrams) {
                         window.renderAllMermaidDiagrams();
                     }
-                }, 800);
-            });
-        } else {
-            setTimeout(() => {
-                if (window.renderAllMermaidDiagrams) {
-                    window.renderAllMermaidDiagrams();
-                }
-            }, 800);
+                }, 1000);
+            }
         }
+        
+        initMermaidDiagrams();
     </script>
     
     <style>
