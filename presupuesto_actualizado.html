@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presupuesto Realista de SmartAuditorIA</title>
+    <style>
+        body {
+            font-family: 'Calibri', 'Arial', sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        h1 {
+            color: #1e3a8a;
+            border-bottom: 3px solid #1e3a8a;
+            padding-bottom: 10px;
+            margin-top: 30px;
+        }
+        h2 {
+            color: #2563eb;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+        h3 {
+            color: #3b82f6;
+            margin-top: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        th {
+            background-color: #1e3a8a;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: bold;
+        }
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+        tr:hover {
+            background-color: #f3f4f6;
+        }
+        .total-row {
+            background-color: #1e3a8a !important;
+            color: white;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        .subtotal-row {
+            background-color: #3b82f6 !important;
+            color: white;
+            font-weight: bold;
+        }
+        ul {
+            margin: 10px 0;
+            padding-left: 30px;
+        }
+        li {
+            margin: 5px 0;
+        }
+        .highlight {
+            background-color: #fef3c7;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .justification {
+            background-color: #ecfdf5;
+            padding: 15px;
+            border-left: 4px solid #10b981;
+            margin: 20px 0;
+        }
+        .note {
+            background-color: #eff6ff;
+            padding: 15px;
+            border-left: 4px solid #3b82f6;
+            margin: 20px 0;
+        }
+        .checkmark {
+            color: #10b981;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Presupuesto Realista de SmartAuditorIA (Revisión Técnica)</h1>
+
+    <h2>1. Valor del Desarrollador Especializado</h2>
+    <p>Dado el perfil del desarrollador (IA, seguridad, full-stack, sector público, arquitecturas RAG, dev senior), el valor de mercado en Colombia para este perfil es:</p>
+    
+    <ul>
+        <li><strong>Desarrollador IA Senior</strong>: 14–22 M COP/mes</li>
+        <li><strong>Arquitecto de Soluciones IA / RAG</strong>: 18–28 M COP/mes</li>
+        <li><strong>Ingeniero de Datos + Seguridad</strong>: 17–25 M COP/mes</li>
+    </ul>
+    
+    <p><strong>Valor aplicado:</strong> <span class="highlight">20.000.000 COP/mes</span></p>
+    
+    <p><em>Justificación:</em> Rol múltiple que incluye backend, IA, arquitectura, seguridad, modelo predictivo, frontend y despliegue.</p>
+    
+    <p><strong>Duración del proyecto:</strong> 6.5 meses</p>
+    
+    <p><strong>Aporte en especie del desarrollador:</strong> <span class="highlight">130.000.000 COP</span></p>
+
+    <hr>
+
+    <h2>2. Recursos Tecnológicos (Actualizados)</h2>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Recurso</th>
+                <th>Costo Mensual</th>
+                <th>Costo Proyecto<br>(6.5 meses)</th>
+                <th>Comentario</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>VPS (4–8 GB RAM)</td>
+                <td>200.000 – 350.000</td>
+                <td>~2.100.000</td>
+                <td>SmartAuditorIA usa RAG, requiere mayor RAM que un CRUD tradicional</td>
+            </tr>
+            <tr>
+                <td>Vector DB (Pinecone / Chroma Server)</td>
+                <td>60.000–120.000</td>
+                <td>~480.000</td>
+                <td>Fundamental para almacenamiento de embeddings</td>
+            </tr>
+            <tr>
+                <td>API LLM (OpenAI / Bedrock)</td>
+                <td>80.000–120.000</td>
+                <td>~640.000</td>
+                <td>Según uso en pruebas y producción</td>
+            </tr>
+            <tr>
+                <td>Suscripciones técnicas<br>(Cursor Pro, GitHub Copilot, IDE)</td>
+                <td>70.000–150.000</td>
+                <td>~900.000</td>
+                <td>Totalmente justificable para desarrollo profesional</td>
+            </tr>
+            <tr>
+                <td>Dominios / SSL</td>
+                <td>150.000 (1 año)</td>
+                <td>150.000</td>
+                <td>Certificado SSL para producción</td>
+            </tr>
+            <tr>
+                <td>Herramientas de monitoreo / logs (opcional)</td>
+                <td>40.000</td>
+                <td>240.000</td>
+                <td>Recomendado para producción</td>
+            </tr>
+            <tr class="subtotal-row">
+                <td><strong>SUBTOTAL RECURSOS TECNOLÓGICOS</strong></td>
+                <td></td>
+                <td><strong>4.510.000</strong></td>
+                <td></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h2>3. Hardware (Depreciación)</h2>
+    <p><strong>Especificaciones:</strong> Máquina de desarrollo con 32 GB RAM + GPU</p>
+    <p><strong>Depreciación mensual:</strong> 120.000 COP/mes</p>
+    <p><strong>Duración:</strong> 6.5 meses</p>
+    <p><strong>Total depreciación hardware:</strong> <span class="highlight">780.000 COP</span></p>
+
+    <hr>
+
+    <h2>4. Material Académico y de Especialización</h2>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Costo Estimado</th>
+                <th>Comentario</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Libros técnicos (Packt, O'Reilly)</td>
+                <td>~500.000</td>
+                <td>5–10 libros sobre IA, RAG, Seguridad</td>
+            </tr>
+            <tr>
+                <td>Cursos especializados</td>
+                <td>300.000–800.000</td>
+                <td>FastAPI, RAG, Seguridad, Arquitecturas IA</td>
+            </tr>
+            <tr>
+                <td>Certificaciones (opcional)</td>
+                <td>700.000 – 1.500.000</td>
+                <td>Certificaciones en seguridad y IA</td>
+            </tr>
+            <tr class="subtotal-row">
+                <td><strong>SUBTOTAL FORMACIÓN</strong></td>
+                <td><strong>1.800.000</strong></td>
+                <td>Cifra razonable considerando nivel de especialización</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h1>RESUMEN PRESUPUESTO REALISTA</h1>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Rubro</th>
+                <th>Valor (COP)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Aporte de trabajo (ingeniero IA senior)</td>
+                <td>130.000.000</td>
+            </tr>
+            <tr>
+                <td>Infraestructura y APIs</td>
+                <td>4.510.000</td>
+            </tr>
+            <tr>
+                <td>Hardware (depreciación)</td>
+                <td>780.000</td>
+            </tr>
+            <tr>
+                <td>Formación y herramientas</td>
+                <td>1.800.000</td>
+            </tr>
+            <tr>
+                <td>Dominio y SSL</td>
+                <td>150.000</td>
+            </tr>
+            <tr class="total-row">
+                <td><strong>TOTAL REAL</strong></td>
+                <td><strong>137.240.000</strong></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h2>Desglose de Financiación</h2>
+    <ul>
+        <li><strong>Valor efectivo a pagar por infraestructura:</strong> ~4.5M COP</li>
+        <li><strong>Aporte del desarrollador (contrapartida académica):</strong> 130M COP</li>
+    </ul>
+
+    <hr>
+
+    <h2>Justificación del Presupuesto</h2>
+    <div class="justification">
+        <p>Este presupuesto es:</p>
+        <ul>
+            <li><span class="checkmark">✓</span> <strong>DEFENDIBLE:</strong> Basado en valores de mercado reales para perfiles especializados</li>
+            <li><span class="checkmark">✓</span> <strong>PROFESIONAL:</strong> Refleja el nivel de seniority y especialización requerido</li>
+            <li><span class="checkmark">✓</span> <strong>ACADÉMICO:</strong> Apropiado para evaluación en contexto universitario</li>
+            <li><span class="checkmark">✓</span> <strong>REALISTA:</strong> Considera todos los componentes necesarios para un sistema RAG de producción</li>
+        </ul>
+    </div>
+
+    <h2>Notas Adicionales</h2>
+    
+    <h3>1. Valor del desarrollador</h3>
+    <div class="note">
+        <p>El valor de 20M/mes está justificado por el rol múltiple que incluye:</p>
+        <ul>
+            <li>Desarrollo backend (Flask, Python)</li>
+            <li>Implementación de sistemas RAG</li>
+            <li>Arquitectura de soluciones IA</li>
+            <li>Seguridad de la información</li>
+            <li>Desarrollo frontend (React, TypeScript)</li>
+            <li>Despliegue y DevOps</li>
+        </ul>
+    </div>
+
+    <h3>2. Infraestructura</h3>
+    <div class="note">
+        <p>Los costos reflejan las necesidades reales de un sistema RAG en producción, que requiere:</p>
+        <ul>
+            <li>Mayor capacidad de procesamiento (VPS con más RAM)</li>
+            <li>Base de datos vectorial para embeddings</li>
+            <li>APIs de LLM para generación</li>
+            <li>Herramientas profesionales de desarrollo</li>
+        </ul>
+    </div>
+
+    <h3>3. Formación continua</h3>
+    <div class="note">
+        <p>Esencial para mantenerse actualizado en tecnologías emergentes como RAG, LLMs y seguridad de la información.</p>
+    </div>
+
+    <hr>
+    <p style="text-align: center; color: #6b7280; margin-top: 40px;">
+        <em>Documento generado para SmartAuditorIA - Universidad del Valle</em>
+    </p>
+</body>
+</html>
+
