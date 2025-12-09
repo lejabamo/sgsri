@@ -1628,8 +1628,126 @@ graph LR
             <div class="text-center mb-12">
                 <h2 class="text-4xl font-bold univalle-red mb-4">Metodología y Cronograma</h2>
                 <p class="text-lg text-gray-600 max-w-3xl mx-auto">
-                    Desarrollo basado en prácticas ágiles, distribuido en 3 momentos conforme al programa de la maestría.
+                    Desarrollo basado en metodología híbrida: <strong>Prácticas Ágiles + CRISP-DM</strong>, distribuido en 3 momentos conforme al programa de la maestría.
                 </p>
+            </div>
+
+            <!-- Metodología Híbrida -->
+            <div class="mb-12 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg shadow-lg p-8 border-l-4 border-blue-900">
+                <h3 class="text-2xl font-bold text-gray-900 mb-6">Metodología Híbrida: Ágil + CRISP-DM</h3>
+                <div class="grid md:grid-cols-2 gap-8">
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                            <span class="text-2xl mr-2">🔄</span>
+                            Metodología Ágil
+                        </h4>
+                        <ul class="space-y-2 text-gray-700 text-sm">
+                            <li class="flex items-start">
+                                <span class="text-blue-900 mr-2">✓</span>
+                                <span><strong>Sprints de 2-3 semanas</strong> con entregas incrementales</span>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-blue-900 mr-2">✓</span>
+                                <span><strong>Revisión continua</strong> y adaptación basada en feedback</span>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-blue-900 mr-2">✓</span>
+                                <span><strong>Validación temprana</strong> de funcionalidades</span>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-blue-900 mr-2">✓</span>
+                                <span><strong>Desarrollo iterativo</strong> con mejoras continuas</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                            <span class="text-2xl mr-2">📊</span>
+                            CRISP-DM (Cross-Industry Standard Process for Data Mining)
+                        </h4>
+                        <ul class="space-y-2 text-gray-700 text-sm">
+                            <li class="flex items-start">
+                                <span class="text-purple-900 mr-2">✓</span>
+                                <span><strong>Business Understanding:</strong> Comprensión del negocio y objetivos</span>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-purple-900 mr-2">✓</span>
+                                <span><strong>Data Understanding:</strong> Análisis y exploración de datos</span>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-purple-900 mr-2">✓</span>
+                                <span><strong>Data Preparation:</strong> Preparación y limpieza de datos</span>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-purple-900 mr-2">✓</span>
+                                <span><strong>Modeling:</strong> Desarrollo de modelos RAG y ML</span>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-purple-900 mr-2">✓</span>
+                                <span><strong>Evaluation:</strong> Evaluación y validación de modelos</span>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="text-purple-900 mr-2">✓</span>
+                                <span><strong>Deployment:</strong> Despliegue y puesta en producción</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="mt-6 p-4 bg-white rounded-lg border border-blue-200">
+                    <p class="text-gray-700 text-sm leading-relaxed">
+                        <strong>Integración:</strong> La metodología híbrida combina la flexibilidad y rapidez de las prácticas ágiles 
+                        con la estructura sistemática de CRISP-DM, permitiendo un desarrollo iterativo que sigue las fases de ciencia 
+                        de datos mientras mantiene la capacidad de adaptación y entrega continua característica de metodologías ágiles.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Gráfico Gantt -->
+            <div class="mb-12 bg-white rounded-lg shadow-lg p-8">
+                <h3 class="text-2xl font-bold text-gray-900 mb-6">Cronograma de Desarrollo - Diagrama de Gantt</h3>
+                <p class="text-gray-600 mb-6 text-sm">
+                    Cronograma detallado de 6.5 meses mostrando la integración de fases CRISP-DM dentro de sprints ágiles.
+                </p>
+                <div class="overflow-x-auto bg-gray-50 p-4 rounded-lg">
+                    <div class="mermaid" id="mermaid-gantt">
+gantt
+    title Cronograma SmartAuditorIA - Metodología Híbrida (Ágil + CRISP-DM)
+    dateFormat YYYY-MM-DD
+    section Momento 1: Fundamentación
+    Business Understanding :crit, m1-bu, 2025-01-15, 3w
+    Data Understanding :m1-du, after m1-bu, 2w
+    Arquitectura C4 y Diseño :m1-arch, 2025-01-15, 4w
+    Configuración Entorno :m1-env, after m1-du, 2w
+    Sprint 1 - Setup :m1-s1, 2025-01-15, 2w
+    Sprint 2 - Diseño :m1-s2, after m1-s1, 2w
+    section Momento 2: Implementación RAG
+    Data Preparation :m2-dp, 2025-02-26, 2w
+    Procesamiento Docs ISO :m2-iso, after m2-dp, 2w
+    Modeling - Motor RAG :crit, m2-model, after m2-iso, 4w
+    Vector DB Setup :m2-vec, after m2-dp, 3w
+    Sprint 3 - ETL y Datos :m2-s3, 2025-02-26, 2w
+    Sprint 4 - RAG Base :m2-s4, after m2-s3, 2w
+    Sprint 5 - Integración :m2-s5, after m2-s4, 2w
+    Sprint 6 - Wizard + RAG :m2-s6, after m2-s5, 2w
+    section Momento 3: Optimización
+    Evaluation - Testing :m3-eval, 2025-05-05, 2w
+    Optimización RAG :m3-opt, after m3-eval, 2w
+    Deployment - Cloud :crit, m3-deploy, after m3-opt, 3w
+    Sprint 7 - Testing :m3-s7, 2025-05-05, 2w
+    Sprint 8 - Optimización :m3-s8, after m3-s7, 2w
+    Sprint 9 - Despliegue :m3-s9, after m3-s8, 2w
+    Sprint 10 - Beta :m3-s10, after m3-s9, 1w
+                    </div>
+                </div>
+                <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+                    <h4 class="font-semibold text-gray-900 mb-2">Leyenda del Cronograma:</h4>
+                    <ul class="text-sm text-gray-700 space-y-1">
+                        <li><strong>Fases CRISP-DM:</strong> Business Understanding, Data Understanding, Data Preparation, Modeling, Evaluation, Deployment</li>
+                        <li><strong>Sprints Ágiles:</strong> Iteraciones de 2-3 semanas con entregas incrementales</li>
+                        <li><strong>Actividades críticas:</strong> Marcadas en rojo, son hitos importantes del proyecto</li>
+                        <li><strong>Duración total:</strong> 6.5 meses (26 semanas aprox.)</li>
+                    </ul>
+                </div>
             </div>
 
             <div class="space-y-8">
@@ -1813,14 +1931,121 @@ graph LR
                 </div>
             </div>
 
-            <div class="mt-8 p-6 bg-gray-50 rounded-lg">
-                <h3 class="text-lg font-semibold text-gray-900 mb-3">Metodología Ágil</h3>
-                <p class="text-gray-700 text-sm leading-relaxed">
-                    El desarrollo sigue metodología de <strong>prácticas ágiles</strong> con sprints de 2-3 semanas, 
-                    entregas incrementales, revisión continua y adaptación basada en feedback. Cada momento incluye 
-                    múltiples iteraciones (sprints) que permiten validar funcionalidades de forma temprana y ajustar 
-                    el desarrollo según las necesidades identificadas.
+            <!-- Tabla de Cronograma Detallado -->
+            <div class="mt-8 bg-white rounded-lg shadow-lg p-8">
+                <h3 class="text-2xl font-bold text-gray-900 mb-6">Cronograma Detallado por Momentos y Sprints</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-blue-900">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Momento</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Sprint</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Fase CRISP-DM</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Duración</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Actividades Principales</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <!-- Momento 1 -->
+                            <tr class="bg-blue-50">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900" rowspan="3">Momento 1<br/>Fundamentación</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Sprint 1</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">Business Understanding</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">2 semanas</td>
+                                <td class="px-6 py-4 text-sm text-gray-600">Análisis de requisitos, configuración entorno, benchmarking</td>
+                            </tr>
+                            <tr class="bg-blue-50">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Sprint 2</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">Data Understanding</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">2 semanas</td>
+                                <td class="px-6 py-4 text-sm text-gray-600">Diseño arquitectura C4, modelo de datos, esquema BD</td>
+                            </tr>
+                            <tr class="bg-blue-50">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">-</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">Data Preparation</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">1 semana</td>
+                                <td class="px-6 py-4 text-sm text-gray-600">Preparación estructura de datos y esquemas</td>
+                            </tr>
+                            <!-- Momento 2 -->
+                            <tr class="bg-purple-50">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900" rowspan="4">Momento 2<br/>Implementación RAG</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Sprint 3</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">Data Preparation</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">2 semanas</td>
+                                <td class="px-6 py-4 text-sm text-gray-600">Módulo ETL, sincronización GLPI, preparación datos</td>
+                            </tr>
+                            <tr class="bg-purple-50">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Sprint 4</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">Data Preparation</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">2 semanas</td>
+                                <td class="px-6 py-4 text-sm text-gray-600">Procesamiento documentos ISO, generación embeddings</td>
+                            </tr>
+                            <tr class="bg-purple-50">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Sprint 5</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">Modeling</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">2 semanas</td>
+                                <td class="px-6 py-4 text-sm text-gray-600">Implementación Motor RAG, Vector DB, APIs REST</td>
+                            </tr>
+                            <tr class="bg-purple-50">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Sprint 6</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">Modeling</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">2 semanas</td>
+                                <td class="px-6 py-4 text-sm text-gray-600">Integración Wizard + RAG, sugerencias inteligentes</td>
+                            </tr>
+                            <!-- Momento 3 -->
+                            <tr class="bg-orange-50">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900" rowspan="4">Momento 3<br/>Optimización</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Sprint 7</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">Evaluation</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">2 semanas</td>
+                                <td class="px-6 py-4 text-sm text-gray-600">Testing TDD, validación modelos, pruebas funcionales</td>
+                            </tr>
+                            <tr class="bg-orange-50">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Sprint 8</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">Evaluation</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">2 semanas</td>
+                                <td class="px-6 py-4 text-sm text-gray-600">Optimización RAG, pruebas rendimiento, escalabilidad</td>
+                            </tr>
+                            <tr class="bg-orange-50">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Sprint 9</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">Deployment</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">2 semanas</td>
+                                <td class="px-6 py-4 text-sm text-gray-600">Configuración cloud, VPS, Nginx, Gunicorn, SSL</td>
+                            </tr>
+                            <tr class="bg-orange-50">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Sprint 10</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">Deployment</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">1 semana</td>
+                                <td class="px-6 py-4 text-sm text-gray-600">Despliegue Beta, documentación, reportes finales</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+                    <h4 class="font-semibold text-gray-900 mb-2">Resumen del Cronograma:</h4>
+                    <ul class="text-sm text-gray-700 space-y-1">
+                        <li><strong>Duración total:</strong> 6.5 meses (26 semanas)</li>
+                        <li><strong>Total de sprints:</strong> 10 sprints (2-3 semanas cada uno)</li>
+                        <li><strong>Fases CRISP-DM:</strong> Integradas en los sprints ágiles</li>
+                        <li><strong>Entregas incrementales:</strong> Al final de cada sprint</li>
+                        <li><strong>Hitos principales:</strong> Final de cada momento (3 hitos)</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="mt-8 p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border-l-4 border-blue-900">
+                <h3 class="text-lg font-semibold text-gray-900 mb-3">Metodología Híbrida: Ágil + CRISP-DM</h3>
+                <p class="text-gray-700 text-sm leading-relaxed mb-4">
+                    El desarrollo combina <strong>prácticas ágiles</strong> (sprints de 2-3 semanas, entregas incrementales, 
+                    revisión continua) con la estructura sistemática de <strong>CRISP-DM</strong> (fases de ciencia de datos). 
+                    Esta metodología híbrida permite:
                 </p>
+                <ul class="text-gray-700 text-sm space-y-2 list-disc list-inside">
+                    <li><strong>Flexibilidad ágil:</strong> Adaptación rápida a cambios y feedback continuo</li>
+                    <li><strong>Rigor científico:</strong> Seguimiento estructurado de fases CRISP-DM para garantizar calidad en el desarrollo de IA</li>
+                    <li><strong>Entregas incrementales:</strong> Validación temprana de funcionalidades en cada sprint</li>
+                    <li><strong>Trazabilidad:</strong> Cada actividad está alineada con fases CRISP-DM y sprints ágiles</li>
+                </ul>
             </div>
         </div>
     </section>
