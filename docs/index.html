@@ -2112,72 +2112,146 @@
                 </p>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <!-- Stack Tecnológico -->
-                <div class="bg-white rounded-lg shadow-md p-8">
-                    <h3 class="text-2xl font-bold univalle-red mb-6 flex items-center">
-                        <span class="text-3xl mr-3">🛠️</span>
+                <div class="bg-white rounded-xl shadow-md p-8 border border-gray-100 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-5">
+                        <span class="text-9xl">🛠️</span>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-800 mb-8 flex items-center border-b pb-4">
+                        <span class="text-3xl mr-3">🚀</span>
                         Stack Tecnológico
                     </h3>
-                    <div class="space-y-4">
-                        <div>
-                            <h4 class="font-semibold text-gray-800 mb-2">Backend</h4>
-                            <ul class="text-gray-600 space-y-1 text-sm">
-                                <li>• Python 3.8+</li>
-                                <li>• Flask 2.3+</li>
-                                <li>• SQLAlchemy ORM</li>
-                                <li>• PyJWT (Autenticación)</li>
-                                <li>• LangChain (RAG Framework)</li>
-                                <li>• LlamaIndex (Vector Search)</li>
-                                <li>• sentence-transformers (Embeddings)</li>
-                            </ul>
+
+                    <div class="space-y-6 relative z-10">
+                        <!-- Backend -->
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-100 hover:shadow-md transition">
+                            <h4 class="font-bold text-gray-800 mb-3 flex items-center text-univalle-red">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01">
+                                    </path>
+                                </svg>
+                                Backend & IA
+                            </h4>
+                            <div class="grid grid-cols-2 gap-2 text-sm text-gray-700">
+                                <div class="flex items-center"><img
+                                        src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg"
+                                        class="w-4 h-4 mr-2" /> Python 3.8+</div>
+                                <div class="flex items-center"><img
+                                        src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/flask/flask-original.svg"
+                                        class="w-4 h-4 mr-2" /> Flask 2.3+</div>
+                                <div class="flex items-center"><img
+                                        src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/sqlalchemy/sqlalchemy-original.svg"
+                                        class="w-4 h-4 mr-2" /> SQLAlchemy ORM</div>
+                                <div class="flex items-center"><span
+                                        class="w-4 h-4 inline-flex items-center justify-center bg-yellow-100 text-yellow-700 rounded-sm mr-2 text-xs font-bold">JWT</span>
+                                    PyJWT</div>
+                                <div class="flex items-center"><span class="w-4 h-4 mr-2 text-lg">🦜</span> LangChain
+                                    (RAG)</div>
+                                <div class="flex items-center"><span class="w-4 h-4 mr-2 text-lg">🦙</span> LlamaIndex
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <h4 class="font-semibold text-gray-800 mb-2">Frontend</h4>
-                            <ul class="text-gray-600 space-y-1 text-sm">
-                                <li>• React 18+</li>
-                                <li>• TypeScript</li>
-                                <li>• Material-UI</li>
-                                <li>• React Query</li>
-                                <li>• Tailwind CSS</li>
-                            </ul>
+
+                        <!-- Frontend -->
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-100 hover:shadow-md transition">
+                            <h4 class="font-bold text-gray-800 mb-3 flex items-center text-univalle-red">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z">
+                                    </path>
+                                </svg>
+                                Frontend & UI
+                            </h4>
+                            <div class="grid grid-cols-2 gap-2 text-sm text-gray-700">
+                                <div class="flex items-center"><img
+                                        src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg"
+                                        class="w-4 h-4 mr-2" /> React 18+</div>
+                                <div class="flex items-center"><img
+                                        src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/typescript/typescript-original.svg"
+                                        class="w-4 h-4 mr-2" /> TypeScript</div>
+                                <div class="flex items-center"><img
+                                        src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/materialui/materialui-original.svg"
+                                        class="w-4 h-4 mr-2" /> Material-UI</div>
+                                <div class="flex items-center"><img
+                                        src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/tailwindcss/tailwindcss-original.svg"
+                                        class="w-4 h-4 mr-2" /> Tailwind CSS</div>
+                            </div>
                         </div>
-                        <div>
-                            <h4 class="font-semibold text-gray-800 mb-2">Bases de Datos</h4>
-                            <ul class="text-gray-600 space-y-1 text-sm">
-                                <li>• MySQL 8.0+ (Relacional)</li>
-                                <li>• ChromaDB / Pinecone (Vectorial)</li>
-                            </ul>
+
+                        <!-- Bases de Datos -->
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-100 hover:shadow-md transition">
+                            <h4 class="font-bold text-gray-800 mb-3 flex items-center text-univalle-red">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4">
+                                    </path>
+                                </svg>
+                                Bases de Datos
+                            </h4>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-700">
+                                <div class="flex items-center"><img
+                                        src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/mysql/mysql-original.svg"
+                                        class="w-4 h-4 mr-2" /> MySQL 8.0+ (Relacional)</div>
+                                <div class="flex items-center"><span class="w-4 h-4 mr-2 text-lg">🗂️</span> Chroma /
+                                    Pinecone (Vector DDBB)</div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Marco Normativo -->
-                <div class="bg-white rounded-lg shadow-md p-8">
-                    <h3 class="text-2xl font-bold univalle-red mb-6 flex items-center">
-                        <span class="text-3xl mr-3">⚖️</span>
-                        Marco Normativo
+                <div class="bg-white rounded-xl shadow-md p-8 border border-gray-100 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-5">
+                        <span class="text-9xl">⚖️</span>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-800 mb-8 flex items-center border-b pb-4">
+                        <span class="text-3xl mr-3">📜</span>
+                        Marco Normativo Evaluado
                     </h3>
-                    <div class="space-y-4">
-                        <div>
-                            <h4 class="font-semibold text-gray-800 mb-2">Estándares Internacionales ISO</h4>
-                            <ul class="text-gray-600 space-y-1 text-sm">
-                                <li>• <strong>ISO 27001:2022</strong> - Sistema de Gestión de Seguridad de la
-                                    Información</li>
-                                <li>• <strong>ISO 27002:2022</strong> - Controles de Seguridad de la Información</li>
-                                <li>• <strong>ISO 27005:2022</strong> - Gestión de Riesgos de Seguridad de la
-                                    Información</li>
+
+                    <div class="space-y-6 relative z-10">
+                        <div class="bg-blue-50/50 rounded-lg p-5 border-l-4 border-blue-600 hover:shadow-md transition">
+                            <h4 class="font-bold text-blue-900 mb-3 flex items-center">
+                                <span class="text-xl mr-2">🌐</span> Estándares Internacionales ISO
+                            </h4>
+                            <ul class="space-y-3 text-sm text-gray-700">
+                                <li class="flex items-start">
+                                    <span class="text-blue-500 mr-2 mt-0.5">•</span>
+                                    <span><strong>ISO 27001:2022</strong><br /><span
+                                            class="text-gray-500 text-xs">Sistema de Gestión de Seguridad de la
+                                            Información (SGSI)</span></span>
+                                </li>
+                                <li class="flex items-start">
+                                    <span class="text-blue-500 mr-2 mt-0.5">•</span>
+                                    <span><strong>ISO 27002:2022</strong><br /><span
+                                            class="text-gray-500 text-xs">Controles de Seguridad de la
+                                            Información</span></span>
+                                </li>
+                                <li class="flex items-start">
+                                    <span class="text-blue-500 mr-2 mt-0.5">•</span>
+                                    <span><strong>ISO 27005:2022</strong><br /><span
+                                            class="text-gray-500 text-xs">Gestión de Riesgos de Seguridad de la
+                                            Información</span></span>
+                                </li>
                             </ul>
                         </div>
-                        <div>
-                            <h4 class="font-semibold text-gray-800 mb-2">Marco Legal Colombia</h4>
-                            <ul class="text-gray-600 space-y-1 text-sm">
-                                <li>• <strong>Decreto 767 de 2022</strong> - Política de Gobierno Digital</li>
-                                <li>• <strong>CONPES 3995 de 2020</strong> - Política de Seguridad Digital</li>
-                                <li>• <strong>Resolución 500 de 2021</strong> - Requisitos Mínimos de Seguridad</li>
-                                <li>• <strong>Resolución 2277 de 2025</strong> - Gestión de Riesgos Residuales</li>
-                                <li>• <strong>Ley 1581 de 2012</strong> - Protección de Datos Personales</li>
-                                <li>• <strong>Ley 1273 de 2009</strong> - Delitos Informáticos</li>
+
+                        <div
+                            class="bg-yellow-50/50 rounded-lg p-5 border-l-4 border-yellow-500 hover:shadow-md transition">
+                            <h4 class="font-bold text-yellow-800 mb-3 flex items-center">
+                                <span class="text-xl mr-2">🇨🇴</span> Cumplimiento Legal Colombia
+                            </h4>
+                            <ul class="space-y-2 text-sm text-gray-700">
+                                <li class="flex items-start"><span class="text-yellow-600 mr-2 text-lg">›</span>
+                                    <strong>Decreto 767 de 2022</strong> - Política de Gobierno Digital</li>
+                                <li class="flex items-start"><span class="text-yellow-600 mr-2 text-lg">›</span>
+                                    <strong>CONPES 3995 de 2020</strong> - Política de Seguridad Digital</li>
+                                <li class="flex items-start"><span class="text-yellow-600 mr-2 text-lg">›</span>
+                                    <strong>Resolución 500 de 2021</strong> - Requisitos de Seguridad</li>
+                                <li class="flex items-start"><span class="text-yellow-600 mr-2 text-lg">›</span>
+                                    <strong>Ley 1581 de 2012</strong> - Protección de Datos Personales</li>
                             </ul>
                         </div>
                     </div>
@@ -2231,45 +2305,60 @@
                         Inteligente (SBPMN)</h3>
                     <div class="diagram-container max-w-5xl mx-auto bg-white p-6 rounded-lg shadow-inner">
                         <div class="mermaid">
-                            %%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#f4f4f4',
-                            'edgeLabelBackground':'#ffffff', 'tertiaryColor': '#fff0f0'}}}%%
-                            flowchart TD
-                            classDef gestor fill:#e1f5ff,stroke:#01579b,stroke-width:2px,color:#000
-                            classDef sys fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#000
-                            classDef rag fill:#fff3e0,stroke:#e65100,stroke-width:3px,color:#000
-                            classDef gateway fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#000
-                            classDef event fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#000
+                            %%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#fff3cd',
+                            'edgeLabelBackground':'#ffffff', 'tertiaryColor': '#f8f9fa'}}}%%
+                            flowchart LR
+                            classDef startEvent fill:#fff,stroke:#ff6b6b,stroke-width:3px,color:#000
+                            classDef endEvent fill:#fff,stroke:#ff6b6b,stroke-width:5px,color:#000
+                            classDef userTask fill:#fff3cd,stroke:#ffe69c,stroke-width:2px,color:#000
+                            classDef sysTask fill:#cff4fc,stroke:#b6effb,stroke-width:2px,color:#000
+                            classDef gateway fill:#495057,stroke:#343a40,stroke-width:2px,color:#fff
+                            classDef ragTask fill:#d1e7dd,stroke:#a3cfbb,stroke-width:2px,color:#000
 
-                            Start((Inicio)):::event --> T1
+                            Start((Inicio)):::startEvent
 
-                            subgraph SG["Pool: Oficial de Seguridad (Gestor)"]
-                            direction TB
-                            T1[Identificar Activo<br>y Contexto]:::gestor --> T2
-                            T2[Seleccionar Amenazas<br>y Vulnerabilidades]:::gestor --> T3
-                            T3[Calificar Riesgo Inherente<br>Probabilidad x Impacto]:::gestor
+                            subgraph Lane1 ["Gestión de Riesgos (Gestor)"]
+                            direction LR
+                            T1(Identificar Activo<br />y Contexto):::userTask
+                            T2(Seleccionar Amenazas<br />y Vulnerabilidades):::userTask
+                            T3(Calificar Riesgo<br />Inherente):::userTask
+                            T4(Validar Sugerencias<br />de Controles ISO):::userTask
+                            T5(Sellar Justificación<br />y Aceptar Riesgo):::userTask
                             end
 
-                            subgraph SS["Pool: Sistema SmartAuditorIA"]
-                            direction TB
-                            T3 --> GW1{¿Riesgo ><br>Umbral?}:::gateway
-                            GW1 -- Sí --> RAG1
-                            GW1 -- No --> T6[Registrar Riesgo<br>Aceptado]:::sys
+                            Start --> T1
 
-                            RAG1[Motor RAG:<br>Analiza contexto ISO 27002]:::rag --> RAG2
-                            RAG2[Genera sugerencia de<br>Controles Mitigantes]:::rag --> T4
-
-                            T4[Presentar sugerencias<br>al Gestor]:::sys --> T5
+                            subgraph Lane2 ["SmartAuditorIA & IA (Sistema)"]
+                            direction LR
+                            GW1{Riesgo ><br />Umbral?}:::gateway
+                            SYS1(Registrar Riesgo<br />Bajo/Aceptado):::sysTask
+                            RAG1(Motor RAG:<br />Extraer Contexto):::ragTask
+                            RAG2(Generar<br />Controles):::ragTask
+                            GW2{Controles<br />Suficientes?}:::gateway
                             end
 
-                            subgraph SG2["Pool: Oficial de Seguridad (Gestor)"]
-                            direction TB
-                            T5[Validar Controles<br>y Generar Justificación]:::gestor --> GW2
-                            GW2{¿Controles<br>Suficientes?}:::gateway
-                            GW2 -- No --> T2
-                            GW2 -- Sí --> T6
-                            end
+                            %% Flujo Lane 1
+                            T1 --> T2
+                            T2 --> T3
 
-                            T6 --> End((Fin)):::event
+                            %% Cruce a Lane 2
+                            T3 --> GW1
+                            GW1 -- "Sí" --> RAG1
+                            GW1 -- "No" --> SYS1
+
+                            RAG1 --> RAG2
+
+                            %% Retorno a Lane 1
+                            RAG2 --> T4
+                            T4 --> GW2
+
+                            %% Decision final en Lane 2
+                            GW2 -- "No" --> T2
+                            GW2 -- "Sí" --> T5
+
+                            End((Fin)):::endEvent
+                            T5 --> End
+                            SYS1 --> End
                         </div>
                     </div>
                     <div class="mt-8 prose prose-lg max-w-none text-gray-700 text-justify">
