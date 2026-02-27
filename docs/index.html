@@ -2433,6 +2433,93 @@
                 </div>
             </div>
         </div>
+
+        <!-- Vector Database & RAG Processing -->
+        <div class="mt-8 bg-white rounded-xl shadow-md p-8 border border-gray-100 relative overflow-hidden">
+            <div class="absolute top-0 right-0 p-4 opacity-5">
+                <span class="text-9xl">🧠</span>
+            </div>
+            <h3 class="text-2xl font-bold text-gray-800 mb-6 flex items-center border-b pb-4">
+                <span class="text-3xl mr-3">🧠</span>
+                Procesamiento de Embeddings y Base de Datos Vectorial (Motor RAG)
+            </h3>
+
+            <p class="text-gray-600 mb-8 max-w-4xl text-justify">
+                Para dotar a SmartAuditorIA de inteligencia contextual, el marco normativo (ISO 27001, 27002, 27005) es
+                sometido a un riguroso pipeline de procesamiento de Lenguaje Natural (NLP). Los textos legales se
+                segmentan en <strong>Chunks</strong> semánticos, se convierten en vectores densos (Embeddings) y se
+                almacenan espacialmente para permitir búsquedas por similitud al momento de sugerir controles o evaluar
+                riesgos.
+            </p>
+
+            <div class="diagram-container bg-gray-50 p-6 rounded-lg mb-8 shadow-inner overflow-x-auto text-center">
+                <div class="mermaid" id="mermaid-rag-pipeline">
+                    graph LR
+                    classDef rawDoc fill:#fce4ec,stroke:#880e4f,stroke-width:2px,color:#000
+                    classDef chunk fill:#e1f5ff,stroke:#01579b,stroke-width:2px,color:#000
+                    classDef model fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#000
+                    classDef vector fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px,color:#000
+
+                    subgraph Fase 1: Ingesta Normativa
+                    D1[📄 ISO 27001<br />Requisitos]:::rawDoc
+                    D2[📄 ISO 27002<br />Controles]:::rawDoc
+                    D3[📄 Leyes Col.<br />Decretos]:::rawDoc
+                    end
+
+                    subgraph Fase 2: Chunking Strategy
+                    C1[🧩 Chunk 1<br />Contexto A]:::chunk
+                    C2[🧩 Chunk 2<br />Contexto B]:::chunk
+                    C3[🧩 Chunk N<br />Contexto N]:::chunk
+                    end
+
+                    subgraph Fase 3: Embedding Model
+                    M1((🤖 Modelo de<br />Embeddings<br />text-embedding-ada-002<br />o BGE-Large)):::model
+                    end
+
+                    subgraph Fase 4: Vector Storage
+                    VDB[(🗂️ BD Vectorial<br />Chroma / Pinecone<br />Dimensionalidad: 1536d)]:::vector
+                    end
+
+                    D1 --> C1
+                    D2 --> C2
+                    D3 --> C3
+
+                    C1 --> M1
+                    C2 --> M1
+                    C3 --> M1
+
+                    M1 -->|"[0.12, -0.45, ..., 0.88]"| VDB
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-8 text-sm">
+                <div class="bg-blue-50/50 p-5 rounded-lg border-l-4 border-blue-500">
+                    <h4 class="font-bold text-gray-800 mb-3 flex items-center"><span
+                            class="text-blue-500 mr-2">🧩</span> Estrategia de Chunking</h4>
+                    <ul class="space-y-2 text-gray-700">
+                        <li><strong>Limitación de Tokens:</strong> División en fragmentos de ~500 a 1000 tokens para no
+                            diluir el contexto de las normativas de seguridad.</li>
+                        <li><strong>Overlap (Solapamiento):</strong> 10% a 15% de overlap entre chunks consecutivos para
+                            no perder ideas divididas entre dos párrafos.</li>
+                        <li><strong>Enriquecimiento de Metadata:</strong> Cada chunk guarda el origen exacto (ej. ISO
+                            27002, Capítulo 5, Sección 5.1) para trazar la fuente real de la IA.</li>
+                    </ul>
+                </div>
+                <div class="bg-green-50/50 p-5 rounded-lg border-l-4 border-green-500">
+                    <h4 class="font-bold text-gray-800 mb-3 flex items-center"><span
+                            class="text-green-600 mr-2">🗂️</span> Estructura Vector DB</h4>
+                    <ul class="space-y-2 text-gray-700">
+                        <li><strong>Índices Espaciales (HNSW):</strong> Algoritmo Hierarchical Navigable Small World
+                            para búsqueda de vecinos más cercanos ultra-rápida.</li>
+                        <li><strong>Métrica de Distancia:</strong> "Coseno de Similitud" para emparejar la descripción
+                            del activo del usuario con los controles normativos más relevantes.</li>
+                        <li><strong>Arquitectura Híbrida:</strong> Los vectores manejan la semántica, pero se filtran
+                            por metadata (ej. `norma=27001`) antes de ir al LLM (Retriever).</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        </div>
     </section>
 
     <div class="group-separator"></div>
