@@ -553,13 +553,23 @@
         }
 
         .section-header-banner {
-            background: linear-gradient(135deg, #aa1916 0%, #7a100f 100%)
+            background: linear-gradient(135deg, #2b2d42 0%, #1a1b26 100%);
+        }
+
+        .section-header-banner>div {
+            padding-top: 0.5rem !important;
+            padding-bottom: 0.5rem !important;
+        }
+
+        .section-header-banner .text-5xl {
+            font-size: 2.5rem !important;
         }
 
         .group-separator {
-            height: 4px;
-            background: linear-gradient(90deg, #aa1916, #e65100, #aa1916);
-            margin-top: 2rem
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #2b2d42, transparent);
+            margin-top: 1.5rem;
+            margin-bottom: 1.5rem;
         }
     </style>
 </head>
@@ -1165,11 +1175,66 @@
             <!-- Diagramas de Arquitectura -->
             <div class="space-y-16">
 
+                <!-- Nivel 0: Bases de Datos -->
+                <div class="diagram-section pt-4">
+                    <div class="text-center mb-6">
+                        <h3 class="text-2xl font-semibold mb-6 univalle-red">0. Diagrama Entidad-Relación (Base de Datos
+                            Inicial)</h3>
+                        <div class="diagram-container max-w-6xl mx-auto bg-white p-6 rounded-lg border shadow-sm">
+                            <div class="mermaid" id="mermaid-db-er-diagram">
+                                erDiagram
+                                ACTIVOS ||--o{ RIESGO_ACTIVO : "posee"
+                                RIESGOS ||--o{ RIESGO_ACTIVO : "es evaluado en"
+                                ACTIVOS ||--o{ AMENAZAACTIVO : "tiene"
+                                AMENAZAS ||--o{ AMENAZAACTIVO : "afecta"
+                                ACTIVOS ||--o{ VULNERABILIDADACTIVO : "tiene"
+                                VULNERABILIDADES ||--o{ VULNERABILIDADACTIVO : "afecta"
+                                ACTIVOS }o--|| USUARIOS_SISTEMA : "es custodiado/propiedad de"
+                                ACTIVOS ||--o{ ACTIVOS_DETALLES_TECNOLOGICOS : "detalla"
+                                ACTIVOS ||--o{ EVALUACION_RIESGO_ACTIVO : "historial"
+                                RIESGOS ||--o{ EVALUACION_RIESGO_ACTIVO : "historial"
+
+                                ACTIVOS {
+                                int ID_Activo PK
+                                varchar Nombre
+                                enum Tipo_Activo
+                                enum Nivel_Clasificacion
+                                enum estado_activo
+                                }
+                                RIESGOS {
+                                int ID_Riesgo PK
+                                varchar Nombre
+                                varchar Descripcion
+                                varchar Tipo_Riesgo
+                                }
+                                CONTROLES {
+                                int ID_Control PK
+                                varchar Nombre
+                                enum Tipo_Control
+                                enum estado_implementacion
+                                }
+                                USUARIOS_SISTEMA {
+                                int id_usuario PK
+                                varchar nombre_completo
+                                varchar email_institucional
+                                enum estado_usuario
+                                }
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-600 mt-6 max-w-3xl mx-auto text-justify">
+                            El modelo relacional centraliza la gestión de <strong>Activos de Información</strong> y su
+                            vinculación directa con <strong>Riesgos, Amenazas, Vulnerabilidades</strong> y
+                            <strong>Controles</strong>. Cuenta con tablas de relaciones (ej. <code>riesgo_activo</code>)
+                            que mapean las correspondencias M:N permitiendo evaluaciones iterativas.
+                        </p>
+                    </div>
+                </div>
+
                 <!-- Nivel 1: Contexto C4 -->
                 <div class="diagram-section border-t border-gray-200 pt-12">
                     <div class="text-center mb-6">
                         <h3 class="text-2xl font-semibold mb-6 univalle-red">1. Diagrama C4 — Nivel de Contexto</h3>
-                        <div class="diagram-container max-w-4xl mx-auto">
+                        <div class="diagram-container max-w-4xl mx-auto bg-white p-6 rounded-lg border shadow-sm">
                             <div class="mermaid" id="mermaid-c4-context-diagram">
                                 graph TD
                                 %% Definir estilos
@@ -2181,7 +2246,8 @@
                             <li><strong>Validación (Gateway Humano):</strong> El Oficial de Seguridad, usando un enfoque
                                 <i>Human-in-the-loop</i>, analiza y valida las recomendaciones prescriptivas sugeridas.
                                 En caso de no ser exhaustivas, reitera la mitigación; si son aceptadas, el sistema sella
-                                normativamente la justificación del riesgo residual.</li>
+                                normativamente la justificación del riesgo residual.
+                            </li>
                             <li><strong>Evento de Fin:</strong> Cierre auditable y procedimental de la fase evaluativa.
                             </li>
                         </ul>
