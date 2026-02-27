@@ -1359,46 +1359,46 @@
                                 %% Core
                                 ACTIVOS {
                                 int ID_Activo PK
-                                varchar Nombre
-                                varchar Tipo_Activo
-                                varchar Nivel_Clasificacion
-                                varchar estado_activo
-                                varchar criticidad_negocio
+                                string Nombre
+                                string Tipo_Activo
+                                string Nivel_Clasificacion
+                                string estado_activo
+                                string criticidad_negocio
                                 }
                                 USUARIOS_SISTEMA {
                                 int id_usuario PK
-                                varchar nombre_completo
-                                varchar email_institucional
-                                varchar puesto_organizacion
-                                varchar estado_usuario
+                                string nombre_completo
+                                string email_institucional
+                                string puesto_organizacion
+                                string estado_usuario
                                 }
 
                                 %% Detalles
                                 ACTIVOS_DET_TECNOLOGICOS {
                                 int ID_Activo FK
-                                varchar sistema_operativo
-                                varchar direccion_ip
+                                string sistema_operativo
+                                string direccion_ip
                                 int memoria_ram_gb
                                 }
                                 ACTIVOS_DET_SISTEMAS {
                                 int ID_Activo FK
-                                varchar tecnologia_principal
-                                varchar tipo_arquitectura
+                                string tecnologia_principal
+                                string tipo_arquitectura
                                 }
 
                                 %% Riesgos y Evaluacion
                                 RIESGOS {
                                 int ID_Riesgo PK
-                                varchar Nombre
-                                varchar Tipo_Riesgo
+                                string Nombre
+                                string Tipo_Riesgo
                                 date Fecha_Identificacion
-                                varchar Estado_Riesgo
+                                string Estado_Riesgo
                                 }
                                 RIESGO_ACTIVO {
                                 int id PK
                                 int probabilidad
                                 int impacto
-                                varchar nivel_riesgo_calculado
+                                string nivel_riesgo_calculado
                                 }
                                 EVAL_RIESGO_ACTIVO {
                                 int id_evaluacion PK
@@ -1410,31 +1410,31 @@
                                 %% Amenazas y Vulnerabilidades
                                 AMENAZAS {
                                 int ID_Amenaza PK
-                                varchar Nombre
-                                varchar Tipo_Amenaza
+                                string Nombre
+                                string Tipo_Amenaza
                                 }
                                 VULNERABILIDADES {
                                 int ID_Vulnerabilidad PK
-                                varchar Nombre
-                                varchar Tipo_Vulnerabilidad
+                                string Nombre
+                                string Tipo_Vulnerabilidad
                                 }
 
                                 %% Controles
                                 CONTROLES {
                                 int ID_Control PK
-                                varchar Nombre
-                                varchar Tipo_Control
-                                varchar estado_implementacion
+                                string Nombre
+                                string Tipo_Control
+                                string estado_implementacion
                                 }
 
                                 %% Relaciones
-                                USUARIOS_SISTEMA ||--o{ ACTIVOS : "custodia o posee"
-                                ACTIVOS ||--|| ACTIVOS_DET_TECNOLOGICOS : "detalla hardware"
-                                ACTIVOS ||--|| ACTIVOS_DET_SISTEMAS : "detalla software"
-                                ACTIVOS ||--o{ RIESGO_ACTIVO : "evaluado actualmente"
-                                RIESGOS ||--o{ RIESGO_ACTIVO : "se asocia"
-                                ACTIVOS ||--o{ EVAL_RIESGO_ACTIVO : "historial calificacion"
-                                RIESGOS ||--o{ EVAL_RIESGO_ACTIVO : "historial mitigacion"
+                                USUARIOS_SISTEMA ||--o{ ACTIVOS : "custodia_posee"
+                                ACTIVOS ||--|| ACTIVOS_DET_TECNOLOGICOS : "detalla_hardware"
+                                ACTIVOS ||--|| ACTIVOS_DET_SISTEMAS : "detalla_software"
+                                ACTIVOS ||--o{ RIESGO_ACTIVO : "evaluado_actualmente"
+                                RIESGOS ||--o{ RIESGO_ACTIVO : "se_asocia"
+                                ACTIVOS ||--o{ EVAL_RIESGO_ACTIVO : "historial_calificacion"
+                                RIESGOS ||--o{ EVAL_RIESGO_ACTIVO : "historial_mitigacion"
                             </div>
                         </div>
                         <p class="text-sm text-gray-600 mt-6 max-w-3xl mx-auto text-justify">
@@ -1458,18 +1458,16 @@
                                 classDef systemStyle fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#000
                                 classDef externalStyle fill:#fce4ec,stroke:#880e4f,stroke-width:2px,color:#000
 
-                                Gestor["👤 Gestor de Riesgos<br />Oficial de Seguridad"]
-                                SmartAuditoria["🛡️ SmartAuditorIA<br />Sistema Integral de Gestión de Riesgos
-                                Inteligente"]
-                                GLPI["🔌 GLPI<br />Sistema Externo de Inventario TI corporativo"]
+                                Gestor["👤 Gestor de Riesgos"]
+                                SmartAuditoria["🛡️ SmartAuditorIA"]
+                                GLPI["🔌 GLPI"]
 
                                 class Gestor userStyle
                                 class SmartAuditoria systemStyle
                                 class GLPI externalStyle
 
-                                Gestor -->|"Consulta sugerencias, evalúa<br />riesgos e implementa controles"|
-                                SmartAuditoria
-                                SmartAuditoria -->|"Extrae y sincroniza base<br />instalada de activos"| GLPI
+                                Gestor -->|"Consulta sugerencias y evalúa riesgos"| SmartAuditoria
+                                SmartAuditoria -->|"Extrae base instalada"| GLPI
 
                                 linkStyle 0 stroke:#01579b,stroke-width:2px
                                 linkStyle 1 stroke:#4a148c,stroke-width:2px
