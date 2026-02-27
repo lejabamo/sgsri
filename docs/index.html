@@ -1277,44 +1277,49 @@
                         <div class="diagram-container max-w-6xl mx-auto bg-white p-6 rounded-lg border shadow-sm">
                             <div class="mermaid" id="mermaid-db-er-diagram">
                                 erDiagram
+                                %% Core
                                 ACTIVOS {
                                 int ID_Activo PK
-                                string Nombre
-                                string Tipo_Activo
-                                string Nivel_Clasificacion
-                                string estado_activo
-                                string criticidad_negocio
+                                varchar Nombre
+                                varchar Tipo_Activo
+                                varchar Nivel_Clasificacion
+                                varchar estado_activo
+                                varchar criticidad_negocio
                                 }
                                 USUARIOS_SISTEMA {
                                 int id_usuario PK
-                                string nombre_completo
-                                string email_institucional
-                                string puesto_organizacion
-                                string estado_usuario
+                                varchar nombre_completo
+                                varchar email_institucional
+                                varchar puesto_organizacion
+                                varchar estado_usuario
                                 }
+
+                                %% Detalles
                                 ACTIVOS_DET_TECNOLOGICOS {
-                                int ID_Activo FK
-                                string sistema_operativo
-                                string direccion_ip
+                                int ID_Activo PK_FK
+                                varchar sistema_operativo
+                                varchar direccion_ip
                                 int memoria_ram_gb
                                 }
                                 ACTIVOS_DET_SISTEMAS {
-                                int ID_Activo FK
-                                string tecnologia_principal
-                                string tipo_arquitectura
+                                int ID_Activo PK_FK
+                                varchar tecnologia_principal
+                                varchar tipo_arquitectura
                                 }
+
+                                %% Riesgos y Evaluacion
                                 RIESGOS {
                                 int ID_Riesgo PK
-                                string Nombre
-                                string Tipo_Riesgo
+                                varchar Nombre
+                                varchar Tipo_Riesgo
                                 date Fecha_Identificacion
-                                string Estado_Riesgo
+                                varchar Estado_Riesgo
                                 }
                                 RIESGO_ACTIVO {
                                 int id PK
                                 int probabilidad
                                 int impacto
-                                string nivel_riesgo_calculado
+                                varchar nivel_riesgo_calculado
                                 }
                                 EVAL_RIESGO_ACTIVO {
                                 int id_evaluacion PK
@@ -1322,30 +1327,35 @@
                                 int riesgo_residual_calc
                                 date fecha_evaluacion
                                 }
+
+                                %% Amenazas y Vulnerabilidades
                                 AMENAZAS {
                                 int ID_Amenaza PK
-                                string Nombre
-                                string Tipo_Amenaza
+                                varchar Nombre
+                                varchar Tipo_Amenaza
                                 }
                                 VULNERABILIDADES {
                                 int ID_Vulnerabilidad PK
-                                string Nombre
-                                string Tipo_Vulnerabilidad
-                                }
-                                CONTROLES {
-                                int ID_Control PK
-                                string Nombre
-                                string Tipo_Control
-                                string estado_implementacion
+                                varchar Nombre
+                                varchar Tipo_Vulnerabilidad
                                 }
 
-                                USUARIOS_SISTEMA ||--o{ ACTIVOS : "custodia_posee"
-                                ACTIVOS ||--|| ACTIVOS_DET_TECNOLOGICOS : "detalla_hardware"
-                                ACTIVOS ||--|| ACTIVOS_DET_SISTEMAS : "detalla_software"
-                                ACTIVOS ||--o{ RIESGO_ACTIVO : "evaluado_actualmente"
-                                RIESGOS ||--o{ RIESGO_ACTIVO : "se_asocia"
-                                ACTIVOS ||--o{ EVAL_RIESGO_ACTIVO : "historial_calificacion"
-                                RIESGOS ||--o{ EVAL_RIESGO_ACTIVO : "historial_mitigacion"
+                                %% Controles
+                                CONTROLES {
+                                int ID_Control PK
+                                varchar Nombre
+                                varchar Tipo_Control
+                                varchar estado_implementacion
+                                }
+
+                                %% Relaciones
+                                USUARIOS_SISTEMA ||--o{ ACTIVOS : "custodia o posee"
+                                ACTIVOS ||--|| ACTIVOS_DET_TECNOLOGICOS : "detalla hardware"
+                                ACTIVOS ||--|| ACTIVOS_DET_SISTEMAS : "detalla software"
+                                ACTIVOS ||--o{ RIESGO_ACTIVO : "evaluado actualmente"
+                                RIESGOS ||--o{ RIESGO_ACTIVO : "se asocia"
+                                ACTIVOS ||--o{ EVAL_RIESGO_ACTIVO : "historial calificacion"
+                                RIESGOS ||--o{ EVAL_RIESGO_ACTIVO : "historial mitigacion"
                             </div>
                         </div>
                         <p class="text-sm text-gray-600 mt-6 max-w-3xl mx-auto text-justify">
