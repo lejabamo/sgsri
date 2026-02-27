@@ -1183,42 +1183,89 @@
                         <div class="diagram-container max-w-6xl mx-auto bg-white p-6 rounded-lg border shadow-sm">
                             <div class="mermaid" id="mermaid-db-er-diagram">
                                 erDiagram
-                                ACTIVOS ||--o{ RIESGO_ACTIVO : "posee"
-                                RIESGOS ||--o{ RIESGO_ACTIVO : "es evaluado en"
-                                ACTIVOS ||--o{ AMENAZAACTIVO : "tiene"
-                                AMENAZAS ||--o{ AMENAZAACTIVO : "afecta"
-                                ACTIVOS ||--o{ VULNERABILIDADACTIVO : "tiene"
-                                VULNERABILIDADES ||--o{ VULNERABILIDADACTIVO : "afecta"
-                                ACTIVOS }o--|| USUARIOS_SISTEMA : "es custodiado/propiedad de"
-                                ACTIVOS ||--o{ ACTIVOS_DETALLES_TECNOLOGICOS : "detalla"
-                                ACTIVOS ||--o{ EVALUACION_RIESGO_ACTIVO : "historial"
-                                RIESGOS ||--o{ EVALUACION_RIESGO_ACTIVO : "historial"
-
+                                %% Core
                                 ACTIVOS {
                                 int ID_Activo PK
                                 varchar Nombre
                                 enum Tipo_Activo
                                 enum Nivel_Clasificacion
                                 enum estado_activo
+                                enum criticidad_negocio
                                 }
+                                USUARIOS_SISTEMA {
+                                int id_usuario PK
+                                varchar nombre_completo
+                                varchar email_institucional
+                                varchar puesto_organizacion
+                                enum estado_usuario
+                                }
+
+                                %% Detalles
+                                ACTIVOS_DET_TECNOLOGICOS {
+                                int ID_Activo PK_FK
+                                varchar sistema_operativo
+                                varchar direccion_ip
+                                int memoria_ram_gb
+                                }
+                                ACTIVOS_DET_SISTEMAS {
+                                int ID_Activo PK_FK
+                                varchar tecnologia_principal
+                                varchar tipo_arquitectura
+                                }
+
+                                %% Riesgos y Evaluacion
                                 RIESGOS {
                                 int ID_Riesgo PK
                                 varchar Nombre
-                                varchar Descripcion
                                 varchar Tipo_Riesgo
+                                date Fecha_Identificacion
+                                varchar Estado_Riesgo
                                 }
+                                RIESGO_ACTIVO {
+                                int id PK
+                                int probabilidad
+                                int impacto
+                                varchar nivel_riesgo_calculado
+                                }
+                                EVAL_RIESGO_ACTIVO {
+                                int id_evaluacion PK
+                                int riesgo_inherente_calc
+                                int riesgo_residual_calc
+                                date fecha_evaluacion
+                                }
+
+                                %% Amenazas y Vulnerabilidades
+                                AMENAZAS {
+                                int ID_Amenaza PK
+                                varchar Nombre
+                                enum Tipo_Amenaza
+                                }
+                                VULNERABILIDADES {
+                                int ID_Vulnerabilidad PK
+                                varchar Nombre
+                                enum Tipo_Vulnerabilidad
+                                }
+
+                                %% Controles
                                 CONTROLES {
                                 int ID_Control PK
                                 varchar Nombre
                                 enum Tipo_Control
                                 enum estado_implementacion
                                 }
-                                USUARIOS_SISTEMA {
-                                int id_usuario PK
-                                varchar nombre_completo
-                                varchar email_institucional
-                                enum estado_usuario
-                                }
+
+                                %% Relaciones (Ordenadas para mejor layout)
+                                USUARIOS_SISTEMA ||--o{ ACTIVOS : "custodia / posee"
+                                ACTIVOS ||--|| ACTIVOS_DET_TECNOLOGICOS : "detalla hardware"
+                                ACTIVOS ||--|| ACTIVOS_DET_SISTEMAS : "detalla software"
+                                ACTIVOS ||--o{ AMENAZAACTIVO : "tiene exposición"
+                                AMENAZAACTIVO }o--|| AMENAZAS : "es catalogada"
+                                ACTIVOS ||--o{ VULNERABILIDADACTIVO : "presenta"
+                                VULNERABILIDADACTIVO }o--|| VULNERABILIDADES : "es catalogada"
+                                ACTIVOS ||--o{ RIESGO_ACTIVO : "evaluación actual"
+                                RIESGO_ACTIVO }o--|| RIESGOS : "se asocia a"
+                                ACTIVOS ||--o{ EVAL_RIESGO_ACTIVO : "historial"
+                                EVAL_RIESGO_ACTIVO }o--|| RIESGOS : "evaluado en"
                             </div>
                         </div>
                         <p class="text-sm text-gray-600 mt-6 max-w-3xl mx-auto text-justify">
@@ -1243,17 +1290,17 @@
                                 classDef externalStyle fill:#fce4ec,stroke:#880e4f,stroke-width:2px,color:#000
 
                                 Gestor["👤 Gestor de Riesgos<br />Oficial de Seguridad"]
-                                SmartAuditoria["🛡️ SmartAuditorIA<br />Sistema Integral de Gestión de Riesgos
+                                SmartAuditoria["🛡️ SmartAuditorIA<br />Sistema Integral de Gestión<br />de Riesgos
                                 Inteligente"]
-                                GLPI["🔌 GLPI<br />Sistema Externo de Inventario TI corporativo"]
+                                GLPI["🔌 GLPI<br />Sistema Externo de<br />Inventario TI corporativo"]
 
                                 class Gestor userStyle
                                 class SmartAuditoria systemStyle
                                 class GLPI externalStyle
 
-                                Gestor -->|"Consulta sugerencias, evalúa<br />riesgos e implementa controles"|
+                                Gestor -->|"Consulta sugerencias,<br />evalúa riesgos e implementa controles"|
                                 SmartAuditoria
-                                SmartAuditoria -->|"Extrae y sincroniza base<br />instalada de activos"| GLPI
+                                SmartAuditoria -->|"Extrae y sincroniza<br />base instalada de activos"| GLPI
 
                                 linkStyle 0 stroke:#01579b,stroke-width:2px
                                 linkStyle 1 stroke:#4a148c,stroke-width:2px
