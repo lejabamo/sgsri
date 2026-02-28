@@ -3946,6 +3946,9 @@
                 genericModal.classList.add('hidden');
                 genericModal.classList.remove('flex');
                 genericModalContent.innerHTML = '';
+                // Restaurar clases al estado original
+                genericModalContent.classList.remove('w-full');
+                genericModalContent.classList.add('w-auto');
                 document.body.style.overflow = 'auto'; // Restaurar barra de scroll
             }, 300);
         }
@@ -4011,11 +4014,20 @@
                         // Asegurarnos que tome todo el ancho del modal y no se comprima
                         const svg = clone.querySelector('svg');
                         if (svg) {
-                            svg.style.maxWidth = '100%';
+                            // Remover cualquier max-width que Mermaid le ponga por defecto
+                            svg.style.maxWidth = 'none';
+                            svg.style.minWidth = '100%';
                             svg.style.height = 'auto';
                         }
                         clone.style.width = '100%';
+                        clone.style.minWidth = 'min-content';
+                        clone.style.display = 'flex';
+                        clone.style.justifyContent = 'center';
                         clone.style.overflowX = 'auto'; // Si el diagrama es ridículamente grande, permitimos scroll horizontal
+
+                        // Forzar el contenedor del modal a expandirse
+                        genericModalContent.classList.remove('w-auto');
+                        genericModalContent.classList.add('w-full');
 
                         openGenericModal(clone.outerHTML);
                     });
