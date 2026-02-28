@@ -2955,8 +2955,9 @@
                                 <span>Release 1.0 (MVP)</span>
                                 <span class="bg-green-100 px-2 py-1 rounded">Sprint 3</span>
                             </div>
-                            <h4 class="text-lg font-bold text-gray-800 mb-2 group-hover:text-green-600 transition">
+                            <h4 class="text-lg font-bold text-gray-800 mb-1 group-hover:text-green-600 transition">
                                 Gestor Base de Riesgos</h4>
+                            <p class="text-sm text-green-700 font-semibold mb-3">📅 27 Mar 2026</p>
                             <ul class="text-sm text-gray-600 space-y-2 mb-4">
                                 <li class="flex items-start"><span class="text-green-500 mr-2">✓</span> CRUD Activos y
                                     tipologías</li>
@@ -2979,8 +2980,9 @@
                                 <span>Release 2.0 (Beta AI)</span>
                                 <span class="bg-blue-100 px-2 py-1 rounded">Sprint 6</span>
                             </div>
-                            <h4 class="text-lg font-bold text-gray-800 mb-2 group-hover:text-blue-600 transition">Motor
+                            <h4 class="text-lg font-bold text-gray-800 mb-1 group-hover:text-blue-600 transition">Motor
                                 RAG Integrado</h4>
+                            <p class="text-sm text-blue-700 font-semibold mb-3">📅 08 May 2026</p>
                             <ul class="text-sm text-gray-600 space-y-2 mb-4">
                                 <li class="flex items-start"><span class="text-blue-500 mr-2">✓</span> Asistente IA
                                     activo</li>
@@ -3003,8 +3005,9 @@
                                 <span>Release 3.0 (Smart)</span>
                                 <span class="bg-purple-100 px-2 py-1 rounded">Sprint 10</span>
                             </div>
-                            <h4 class="text-lg font-bold text-gray-800 mb-2 group-hover:text-purple-600 transition">
+                            <h4 class="text-lg font-bold text-gray-800 mb-1 group-hover:text-purple-600 transition">
                                 Plataforma Integral</h4>
+                            <p class="text-sm text-purple-700 font-semibold mb-3">📅 03 Jul 2026</p>
                             <ul class="text-sm text-gray-600 space-y-2 mb-4">
                                 <li class="flex items-start"><span class="text-purple-500 mr-2">✓</span> Sincronización
                                     GLPI (ETL)</li>
@@ -4014,13 +4017,15 @@
                         // Asegurarnos que tome todo el ancho del modal y no se comprima
                         const svg = clone.querySelector('svg');
                         if (svg) {
-                            // Remover cualquier max-width que Mermaid le ponga por defecto
+                            // Remover cualquier max-width o dimensiones estáticas que Mermaid imponga
+                            svg.removeAttribute('width');
+                            svg.removeAttribute('height'); // Permitir q viewBox domine
                             svg.style.maxWidth = 'none';
-                            svg.style.minWidth = '100%';
+                            svg.style.width = '100%';
+                            svg.style.minWidth = '800px'; // Forzar que sea grande
                             svg.style.height = 'auto';
                         }
                         clone.style.width = '100%';
-                        clone.style.minWidth = 'min-content';
                         clone.style.display = 'flex';
                         clone.style.justifyContent = 'center';
                         clone.style.overflowX = 'auto'; // Si el diagrama es ridículamente grande, permitimos scroll horizontal
