@@ -3950,8 +3950,10 @@
                 genericModal.classList.remove('flex');
                 genericModalContent.innerHTML = '';
                 // Restaurar clases al estado original
-                genericModalContent.classList.remove('w-full');
+                genericModalContent.classList.remove('w-full', 'w-[95vw]', 'h-[95vh]');
                 genericModalContent.classList.add('w-auto');
+                genericModalContent.style.width = '';
+                genericModalContent.style.height = '';
                 document.body.style.overflow = 'auto'; // Restaurar barra de scroll
             }, 300);
         }
@@ -4017,22 +4019,20 @@
                         // Asegurarnos que tome todo el ancho del modal y no se comprima
                         const svg = clone.querySelector('svg');
                         if (svg) {
-                            // Remover cualquier max-width o dimensiones estáticas que Mermaid imponga
+                            // Remover completamente cualquier restricción inline que Mermaid imponga
+                            svg.removeAttribute('style');
                             svg.removeAttribute('width');
-                            svg.removeAttribute('height'); // Permitir q viewBox domine
-                            svg.style.maxWidth = 'none';
-                            svg.style.width = '100%';
-                            svg.style.minWidth = '800px'; // Forzar que sea grande
-                            svg.style.height = 'auto';
+                            svg.removeAttribute('height');
+                            svg.style.cssText = 'width: 100% !important; height: 100% !important; max-width: none !important; max-height: 85vh !important;';
                         }
-                        clone.style.width = '100%';
-                        clone.style.display = 'flex';
-                        clone.style.justifyContent = 'center';
-                        clone.style.overflowX = 'auto'; // Si el diagrama es ridículamente grande, permitimos scroll horizontal
+                        // Forzar al clon a expandirse
+                        clone.style.cssText = 'width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: visible;';
 
-                        // Forzar el contenedor del modal a expandirse
+                        // Forzar el contenedor del modal a expandirse con estilos en línea inline hiper-fuertes
                         genericModalContent.classList.remove('w-auto');
-                        genericModalContent.classList.add('w-full');
+                        genericModalContent.style.width = '95vw';
+                        genericModalContent.style.height = '95vh';
+                        genericModalContent.style.maxWidth = 'none';
 
                         openGenericModal(clone.outerHTML);
                     });
