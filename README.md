@@ -29,7 +29,7 @@
 
 **Universidad del Valle** | **Escuela de Ingeniería de Sistemas y Computación**  
 **Maestría en Computación para el Desarrollo de Aplicaciones Inteligentes**  
-**Materia:** Introducción al Desarrollo de Aplicaciones Inteligentes  
+**Materia:** Trabajo integrador 1  
 **Autor:** Ing. Leonardo Javier Bastidas Moreno
 
 </div>
@@ -515,7 +515,7 @@ Este proyecto es parte del trabajo académico de la **Maestría en Computación 
 - **Universidad**: Universidad del Valle
 - **Escuela**: Escuela de Ingeniería de Sistemas y Computación
 - **Programa**: Maestría en Computación para el Desarrollo de Aplicaciones Inteligentes
-- **Materia**: Introducción al Desarrollo de Aplicaciones Inteligentes
+- **Materia**: Trabajo integrador 1
 
 ---
 
