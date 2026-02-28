@@ -1,0 +1,158 @@
+═══════════════════════════════════════════════════════════════════════════════
+PRESUPUESTO REALISTA DE SMARTAUDITORIA (REVISIÓN TÉCNICA)
+═══════════════════════════════════════════════════════════════════════════════
+
+1. VALOR DEL DESARROLLADOR ESPECIALIZADO
+
+Dado el perfil del desarrollador (IA, seguridad, full-stack, sector público, 
+arquitecturas RAG, dev senior), el valor de mercado en Colombia para este perfil es:
+
+• Desarrollador IA Senior: 14–22 M COP/mes
+• Arquitecto de Soluciones IA / RAG: 18–28 M COP/mes
+• Ingeniero de Datos + Seguridad: 17–25 M COP/mes
+
+Valor aplicado: 20.000.000 COP/mes
+
+Justificación: Rol múltiple que incluye backend, IA, arquitectura, seguridad, 
+modelo predictivo, frontend y despliegue.
+
+Duración del proyecto: 6.5 meses
+
+Aporte en especie del desarrollador: 130.000.000 COP
+
+───────────────────────────────────────────────────────────────────────────────
+
+2. RECURSOS TECNOLÓGICOS (ACTUALIZADOS)
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Recurso                                    │ Costo Mensual │ Costo Proyecto│
+│                                            │               │ (6.5 meses)   │
+├────────────────────────────────────────────┼───────────────┼───────────────┤
+│ VPS (4–8 GB RAM)                           │ 200.000 –     │ ~2.100.000    │
+│                                            │ 350.000       │               │
+│                                            │               │               │
+│ Vector DB (Pinecone / Chroma Server)       │ 60.000–       │ ~480.000      │
+│                                            │ 120.000       │               │
+│                                            │               │               │
+│ API LLM (OpenAI / Bedrock)                 │ 80.000–       │ ~640.000      │
+│                                            │ 120.000       │               │
+│                                            │               │               │
+│ Suscripciones técnicas                     │ 70.000–       │ ~900.000      │
+│ (Cursor Pro, GitHub Copilot, IDE)         │ 150.000       │               │
+│                                            │               │               │
+│ Dominios / SSL                             │ 150.000       │ 150.000       │
+│                                            │ (1 año)       │               │
+│                                            │               │               │
+│ Herramientas de monitoreo / logs           │ 40.000        │ 240.000       │
+│ (opcional)                                 │               │               │
+├────────────────────────────────────────────┼───────────────┼───────────────┤
+│ SUBTOTAL RECURSOS TECNOLÓGICOS             │               │ 4.510.000     │
+└────────────────────────────────────────────┴───────────────┴───────────────┘
+
+Comentarios:
+• VPS: SmartAuditorIA usa RAG, requiere mayor RAM que un CRUD tradicional
+• Vector DB: Fundamental para almacenamiento de embeddings
+• API LLM: Según uso en pruebas y producción
+• Suscripciones: Totalmente justificable para desarrollo profesional
+• Dominio/SSL: Certificado SSL para producción
+• Monitoreo: Recomendado para producción
+
+───────────────────────────────────────────────────────────────────────────────
+
+3. HARDWARE (DEPRECIACIÓN)
+
+Especificaciones: Máquina de desarrollo con 32 GB RAM + GPU
+
+Depreciación mensual: 120.000 COP/mes
+
+Duración: 6.5 meses
+
+Total depreciación hardware: 780.000 COP
+
+───────────────────────────────────────────────────────────────────────────────
+
+4. MATERIAL ACADÉMICO Y DE ESPECIALIZACIÓN
+
+┌──────────────────────────────────────┬──────────────────┬─────────────────┐
+│ Item                                  │ Costo Estimado   │ Comentario      │
+├──────────────────────────────────────┼──────────────────┼─────────────────┤
+│ Libros técnicos                      │ ~500.000         │ 5–10 libros     │
+│ (Packt, O'Reilly)                    │                  │ sobre IA, RAG,  │
+│                                      │                  │ Seguridad       │
+│                                      │                  │                 │
+│ Cursos especializados                │ 300.000–         │ FastAPI, RAG,   │
+│                                      │ 800.000          │ Seguridad,      │
+│                                      │                  │ Arquitecturas IA│
+│                                      │                  │                 │
+│ Certificaciones (opcional)           │ 700.000 –        │ Certificaciones │
+│                                      │ 1.500.000        │ en seguridad    │
+│                                      │                  │ y IA            │
+├──────────────────────────────────────┼──────────────────┼─────────────────┤
+│ SUBTOTAL FORMACIÓN                   │ 1.800.000        │ Cifra razonable │
+│                                      │                  │ considerando    │
+│                                      │                  │ nivel de        │
+│                                      │                  │ especialización │
+└──────────────────────────────────────┴──────────────────┴─────────────────┘
+
+───────────────────────────────────────────────────────────────────────────────
+
+RESUMEN PRESUPUESTO REALISTA
+
+┌──────────────────────────────────────────────────────┬─────────────────────┐
+│ Rubro                                                 │ Valor (COP)         │
+├──────────────────────────────────────────────────────┼─────────────────────┤
+│ Aporte de trabajo (ingeniero IA senior)              │ 130.000.000         │
+│                                                       │                     │
+│ Infraestructura y APIs                                │ 4.510.000           │
+│                                                       │                     │
+│ Hardware (depreciación)                               │ 780.000             │
+│                                                       │                     │
+│ Formación y herramientas                              │ 1.800.000           │
+│                                                       │                     │
+│ Dominio y SSL                                         │ 150.000             │
+├──────────────────────────────────────────────────────┼─────────────────────┤
+│ TOTAL REAL                                            │ 137.240.000         │
+└──────────────────────────────────────────────────────┴─────────────────────┘
+
+───────────────────────────────────────────────────────────────────────────────
+
+DESGLOSE DE FINANCIACIÓN
+
+• Valor efectivo a pagar por infraestructura: ~4.5M COP
+• Aporte del desarrollador (contrapartida académica): 130M COP
+
+───────────────────────────────────────────────────────────────────────────────
+
+JUSTIFICACIÓN DEL PRESUPUESTO
+
+Este presupuesto es:
+
+✓ DEFENDIBLE: Basado en valores de mercado reales para perfiles especializados
+✓ PROFESIONAL: Refleja el nivel de seniority y especialización requerido
+✓ ACADÉMICO: Apropiado para evaluación en contexto universitario
+✓ REALISTA: Considera todos los componentes necesarios para un sistema RAG de 
+  producción
+
+NOTAS ADICIONALES:
+
+1. Valor del desarrollador: El valor de 20M/mes está justificado por el rol 
+   múltiple que incluye:
+   • Desarrollo backend (Flask, Python)
+   • Implementación de sistemas RAG
+   • Arquitectura de soluciones IA
+   • Seguridad de la información
+   • Desarrollo frontend (React, TypeScript)
+   • Despliegue y DevOps
+
+2. Infraestructura: Los costos reflejan las necesidades reales de un sistema 
+   RAG en producción, que requiere:
+   • Mayor capacidad de procesamiento (VPS con más RAM)
+   • Base de datos vectorial para embeddings
+   • APIs de LLM para generación
+   • Herramientas profesionales de desarrollo
+
+3. Formación continua: Esencial para mantenerse actualizado en tecnologías 
+   emergentes como RAG, LLMs y seguridad de la información.
+
+═══════════════════════════════════════════════════════════════════════════════
+

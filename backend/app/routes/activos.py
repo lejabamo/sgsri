@@ -1,19 +1,24 @@
 from flask import Blueprint, request, jsonify
 from ..models import db, Activo, UsuarioSistema
+from ..auth.decorators import require_auth, operator_required, consultant_required
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
 
 activos_bp = Blueprint('activos', __name__)
 
 @activos_bp.route('/', methods=['GET'])
+# @consultant_required  # Temporalmente deshabilitado para desarrollo
 def get_activos():
     """Obtener todos los activos con filtros opcionales"""
     try:
+        from sqlalchemy import text
+        
         # Parámetros de filtrado
         tipo_activo = request.args.get('tipo_activo')
         estado = request.args.get('estado')
         nivel_criticidad = request.args.get('nivel_criticidad')
         
+        # Obtener activos de hardware
         query = Activo.query
         
         if tipo_activo:
@@ -24,11 +29,97 @@ def get_activos():
             query = query.filter(Activo.nivel_criticidad_negocio == nivel_criticidad)
         
         activos = query.all()
-        return jsonify([activo.to_dict() for activo in activos]), 200
+        activos_list = [activo.to_dict() for activo in activos]
+        
+        # Obtener sistemas de información de la tabla de detalles
+        try:
+            sistemas_query = text("""
+                SELECT 
+                    ID_Activo,
+                    tipo_sistema as Nombre,
+                    'Sistema de Información' as Tipo_Activo,
+                    'Activo' as estado_activo,
+                    'Medio' as nivel_criticidad_negocio,
+                    funcionalidad_principal as Descripcion
+                FROM activos_detalles_sistemas_informacion
+            """)
+            
+            sistemas_info = db.session.execute(sistemas_query).fetchall()
+            
+            # Convertir sistemas de información al formato de activos
+            for sistema in sistemas_info:
+                activo_dict = {
+                    'ID_Activo': sistema.ID_Activo,
+                    'Nombre': sistema.Nombre or f"Sistema-{sistema.ID_Activo}",
+                    'Tipo_Activo': sistema.Tipo_Activo,
+                    'estado_activo': sistema.estado_activo,
+                    'nivel_criticidad_negocio': sistema.nivel_criticidad_negocio,
+                    'Descripcion': sistema.Descripcion,
+                    'id': sistema.ID_Activo,
+                    'tipo': 'Sistema de Información',
+                    'nombre': sistema.Nombre or f"Sistema-{sistema.ID_Activo}",
+                    'nivel_criticidad': sistema.nivel_criticidad_negocio
+                }
+                activos_list.append(activo_dict)
+        except Exception as e:
+            print(f"Error obteniendo sistemas de información: {str(e)}")
+            # Si hay error, continuar solo con activos de hardware
+        
+        return jsonify(activos_list), 200
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Error en get_activos: {str(e)}")
+        print(f"Traceback: {error_trace}")
+        return jsonify({'error': str(e)}), 500
+
+@activos_bp.route('/stats', methods=['GET'])
+def get_activos_stats():
+    """Estadísticas normalizadas para KPIs de gestión de activos.
+
+    - en_produccion: estado_activo ∈ {'En produccion','En producción','Producción','Productivo'} (case/tilde insensitive)
+    - alta_criticidad: nivel_criticidad_negocio ∈ {'Crítico','Critico','Muy Alto','Alto'} (case/tilde insensitive)
+    - requieren_backup: requiere_backup = True
+    """
+    try:
+        total = Activo.query.count()
+
+        # Normalización simple en SQL con LOWER/REPLACE para acentos comunes
+        from sqlalchemy import text
+        
+        en_produccion = db.session.execute(
+            text("""
+            SELECT COUNT(*) FROM activos a
+            WHERE LOWER(REPLACE(a.estado_activo, 'ó', 'o')) IN (
+              'en produccion','produccion','productivo'
+            )
+            """)
+        ).scalar() or 0
+
+        alta_criticidad = db.session.execute(
+            text("""
+            SELECT COUNT(*) FROM activos a
+            WHERE LOWER(REPLACE(a.nivel_criticidad_negocio, 'í', 'i')) IN (
+              'critico','muy alto','alto'
+            )
+            """)
+        ).scalar() or 0
+
+        requieren_backup = db.session.execute(
+            text("SELECT COUNT(*) FROM activos a WHERE a.requiere_backup = 1")
+        ).scalar() or 0
+
+        return jsonify({
+            'total': int(total),
+            'en_produccion': int(en_produccion),
+            'alta_criticidad': int(alta_criticidad),
+            'requieren_backup': int(requieren_backup)
+        }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @activos_bp.route('/<int:activo_id>', methods=['GET'])
+@consultant_required
 def get_activo(activo_id):
     """Obtener un activo específico por ID"""
     try:
@@ -38,17 +129,25 @@ def get_activo(activo_id):
         return jsonify({'error': str(e)}), 500
 
 @activos_bp.route('/', methods=['POST'])
+# @operator_required  # Temporalmente deshabilitado para desarrollo
 def create_activo():
     """Crear un nuevo activo"""
     try:
         data = request.json
+        print(f"[DEBUG] Received data: {data}")
+        print(f"[DEBUG] Request content type: {request.content_type}")
+        print(f"[DEBUG] Request headers: {dict(request.headers)}")
+        
         if not data:
+            print("[ERROR] No data provided")
             return jsonify({'error': 'No se proporcionaron datos'}), 400
         
         # Validaciones básicas
         if not data.get('Nombre'):
+            print(f"[ERROR] Nombre missing. Data keys: {data.keys()}")
             return jsonify({'error': 'El nombre del activo es obligatorio'}), 400
         if not data.get('Tipo_Activo'):
+            print(f"[ERROR] Tipo_Activo missing. Data keys: {data.keys()}")
             return jsonify({'error': 'El tipo de activo es obligatorio'}), 400
         
         # Verificar si el propietario existe
@@ -217,4 +316,128 @@ def get_riesgos_activo(activo_id):
             riesgos.append(riesgo_data)
         return jsonify(riesgos), 200
     except Exception as e:
-        return jsonify({'error': str(e)}), 500 
+        return jsonify({'error': str(e)}), 500
+
+@activos_bp.route('/<int:activo_id>/detalle', methods=['GET'])
+# @consultant_required  # Temporalmente deshabilitado para desarrollo
+def get_detalle_activo(activo_id):
+    """Obtener detalle completo del activo con sus evaluaciones"""
+    try:
+        from sqlalchemy import text
+        from ..models import evaluacion_riesgo_activo, Riesgo, niveles_probabilidad, niveles_impacto, nivelesriesgo
+        
+        activo = Activo.query.get_or_404(activo_id)
+        activo_dict = activo.to_dict()
+        
+        # Obtener evaluaciones completas del activo
+        evaluaciones = db.session.query(
+            evaluacion_riesgo_activo,
+            Riesgo,
+            niveles_probabilidad,
+            niveles_impacto,
+            nivelesriesgo
+        ).join(
+            Riesgo, evaluacion_riesgo_activo.ID_Riesgo == Riesgo.ID_Riesgo
+        ).outerjoin(
+            niveles_probabilidad, evaluacion_riesgo_activo.id_nivel_probabilidad_inherente == niveles_probabilidad.ID_NivelProbabilidad
+        ).outerjoin(
+            niveles_impacto, evaluacion_riesgo_activo.id_nivel_impacto_inherente == niveles_impacto.ID_NivelImpacto
+        ).outerjoin(
+            nivelesriesgo, evaluacion_riesgo_activo.id_nivel_riesgo_inherente_calculado == nivelesriesgo.ID_NivelRiesgo
+        ).filter(
+            evaluacion_riesgo_activo.ID_Activo == activo_id
+        ).all()
+        
+        evaluaciones_list = []
+        for eval, riesgo, prob_inh, imp_inh, niv_riesgo_inh in evaluaciones:
+            # Obtener datos residuales si existen
+            prob_res = None
+            imp_res = None
+            niv_riesgo_res = None
+            if eval.id_nivel_probabilidad_residual:
+                prob_res = db.session.query(niveles_probabilidad).filter_by(
+                    ID_NivelProbabilidad=eval.id_nivel_probabilidad_residual
+                ).first()
+            if eval.id_nivel_impacto_residual:
+                imp_res = db.session.query(niveles_impacto).filter_by(
+                    ID_NivelImpacto=eval.id_nivel_impacto_residual
+                ).first()
+            if eval.id_nivel_riesgo_residual_calculado:
+                niv_riesgo_res = db.session.query(nivelesriesgo).filter_by(
+                    ID_NivelRiesgo=eval.id_nivel_riesgo_residual_calculado
+                ).first()
+            
+            # Obtener controles aplicados (manejar si la tabla no existe)
+            controles_list = []
+            try:
+                controles = db.session.execute(
+                    text("""
+                        SELECT 
+                            c.ID_Control,
+                            c.Nombre,
+                            c.Descripcion,
+                            c.Tipo_Control,
+                            c.categoria_control_iso,
+                            c.codigo_control_iso,
+                            rca.justificacion_aplicacion_control,
+                            rca.efectividad_real_observada
+                        FROM riesgocontrolaplicado rca
+                        JOIN controles c ON rca.ID_Control = c.ID_Control
+                        WHERE rca.id_evaluacion_riesgo_activo = :eval_id
+                    """),
+                    {'eval_id': eval.id_evaluacion_riesgo_activo}
+                ).fetchall()
+                
+                controles_list = [{
+                    'id': ctrl.ID_Control,
+                    'nombre': ctrl.Nombre,
+                    'descripcion': ctrl.Descripcion,
+                    'tipo': getattr(ctrl, 'Tipo_Control', None) or getattr(ctrl, 'Tipo', None),
+                    'categoria': getattr(ctrl, 'categoria_control_iso', None) or getattr(ctrl, 'Categoria', None),
+                    'codigo_iso': getattr(ctrl, 'codigo_control_iso', None),
+                    'justificacion': ctrl.justificacion_aplicacion_control,
+                    'eficacia': ctrl.efectividad_real_observada or 'Media'
+                } for ctrl in controles]
+            except Exception as ctrl_error:
+                # Si no existe la tabla de controles, continuar sin controles
+                print(f"Error obteniendo controles: {str(ctrl_error)}")
+                controles_list = []
+            
+            evaluaciones_list.append({
+                'id_evaluacion': eval.id_evaluacion_riesgo_activo,
+                'riesgo': {
+                    'id': riesgo.ID_Riesgo,
+                    'nombre': riesgo.Nombre,
+                    'descripcion': riesgo.Descripcion,
+                    'categoria': getattr(riesgo, 'Categoria', None) or getattr(riesgo, 'tipo_riesgo', None)
+                },
+                'evaluacion_inherente': {
+                    'probabilidad': prob_inh.Nombre if prob_inh else None,
+                    'impacto': imp_inh.Nombre if imp_inh else None,
+                    'nivel_riesgo': niv_riesgo_inh.Nombre if niv_riesgo_inh else None,
+                    'justificacion': eval.justificacion_evaluacion_inherente,
+                    'fecha': eval.fecha_evaluacion_inherente.isoformat() if eval.fecha_evaluacion_inherente else None
+                },
+                'evaluacion_residual': {
+                    'probabilidad': prob_res.Nombre if prob_res else None,
+                    'impacto': imp_res.Nombre if imp_res else None,
+                    'nivel_riesgo': niv_riesgo_res.Nombre if niv_riesgo_res else None,
+                    'justificacion': eval.justificacion_evaluacion_residual,
+                    'fecha': eval.fecha_evaluacion_residual.isoformat() if eval.fecha_evaluacion_residual else None
+                } if eval.id_nivel_riesgo_residual_calculado else None,
+                'controles_aplicados': controles_list,
+                'fecha_creacion': eval.fecha_creacion_registro.isoformat() if eval.fecha_creacion_registro else None
+            })
+        
+        return jsonify({
+            'activo': activo_dict,
+            'evaluaciones': evaluaciones_list,
+            'total_evaluaciones': len(evaluaciones_list)
+        }), 200
+        
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Error en get_detalle_activo: {str(e)}")
+        print(f"Traceback: {error_trace}")
+        return jsonify({'error': str(e), 'traceback': error_trace}), 500 

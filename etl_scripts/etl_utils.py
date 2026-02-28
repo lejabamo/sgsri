@@ -31,25 +31,48 @@ def load_env_file(dotenv_path, purpose=""):
         return False
     return True
 
-def get_db_connection(host, user, password, database, port):
-    """Establece y devuelve una conexión a la base de datos."""
+def get_db_connection(host, user, password, database, port, charset=None, collation=None):
+    """Establece y devuelve una conexión a la base de datos.
+    Permite forzar charset/collation cuando el servidor no soporta el default.
+    """
     connection = None
     if not all([host, user, database]): # Password puede ser vacío para algunos usuarios/configs
         logging.error(f"Faltan parámetros de conexión para {database} en {host} (host, user, db son requeridos).")
         return None
     try:
-        connection = mysql.connector.connect(
-            host=host,
-            user=user,
-            password=password,
-            database=database,
-            port=int(port),
-            charset='utf8mb4',
-            collation='utf8mb4_general_ci',
-            use_unicode=True
-        )
-        if connection.is_connected():
-            logging.info(f"Conexión exitosa a la base de datos {database} en {host}.")
+        # Defaults, con fallback cuando el servidor no soporta el charset
+        candidates = []
+        if charset:
+            candidates.append((charset, collation or 'utf8_general_ci'))
+        else:
+            candidates.extend([
+                ('utf8', 'utf8_general_ci'),
+                ('latin1', 'latin1_swedish_ci'),
+                ('utf8mb4', 'utf8mb4_general_ci'),
+            ])
+
+        last_err = None
+        for cs, coll in candidates:
+            try:
+                connection = mysql.connector.connect(
+                    host=host,
+                    user=user,
+                    password=password,
+                    database=database,
+                    port=int(port),
+                    charset=cs,
+                    collation=coll,
+                    use_unicode=True
+                )
+                if connection.is_connected():
+                    logging.info(f"Conexión exitosa a la base de datos {database} en {host} (charset={cs}, coll={coll}).")
+                    break
+            except mysql.connector.Error as err:
+                last_err = err
+                logging.warning(f"Reintento conexión {database}@{host} con charset={cs} falló: {err}")
+                connection = None
+        if connection is None:
+            raise last_err or Exception('No se pudo conectar con ninguno de los charsets probados')
     except mysql.connector.Error as err:
         logging.error(f"Error al conectar a la BD {database} en {host}: {err}")
         connection = None

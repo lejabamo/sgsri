@@ -281,7 +281,7 @@ def load_computer_data(sgsi_conn, activo_data, detalle_tecnologico_data):
 if __name__ == '__main__':
     logging.info("Iniciando script ETL para GLPI Computadoras -> SGSI...")
 
-    glpi_conn = get_db_connection(GLPI_DB_HOST, GLPI_DB_USER, GLPI_DB_PASSWORD, GLPI_DB_NAME, GLPI_DB_PORT)
+    glpi_conn = get_db_connection(GLPI_DB_HOST, GLPI_DB_USER, GLPI_DB_PASSWORD, GLPI_DB_NAME, GLPI_DB_PORT, charset='utf8', collation='utf8_general_ci')
     sgsi_conn = get_db_connection(SGSI_DB_HOST, SGSI_DB_USER, SGSI_DB_PASSWORD, SGSI_DB_NAME, SGSI_DB_PORT)
 
     if not glpi_conn or not sgsi_conn:

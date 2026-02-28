@@ -75,7 +75,15 @@ def extract_glpi_users(glpi_conn):
         script_dir = os.path.dirname(os.path.abspath(__file__))
         sql_file_path = os.path.join(script_dir, 'extract_users.sql')
         with open(sql_file_path, 'r', encoding='utf-8') as f:
-            sql_query = f.read()
+            raw_sql = f.read()
+        # Asegurar que ejecutamos solo el último SELECT (evitar múltiples statements)
+        # Buscamos el último 'SELECT' y tomamos desde ahí hasta el fin o hasta el próximo ';'
+        import re
+        matches = list(re.finditer(r"(?is)(select[\s\S]*?);", raw_sql))
+        if matches:
+            sql_query = matches[-1].group(1)
+        else:
+            sql_query = raw_sql.strip()
     except FileNotFoundError:
         logging.error(f"Error: El archivo 'extract_users.sql' no fue encontrado en {script_dir}.")
         return []

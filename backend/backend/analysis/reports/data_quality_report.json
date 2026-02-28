@@ -1,0 +1,88 @@
+{
+  "fecha_analisis": "2025-10-23T16:20:30.241282",
+  "resultados": {
+    "activos": {
+      "total_activos": 214,
+      "tipos_activo": {
+        "Hardware": 214
+      },
+      "niveles_criticidad": {
+        "Medio": 214
+      },
+      "estados_activo": {
+        "Planificado": 214
+      },
+      "completitud_datos": {
+        "nombre_completo": 100.0,
+        "tipo_completo": 100.0,
+        "criticidad_completa": 100.0
+      }
+    },
+    "evaluaciones": {
+      "total_evaluaciones": 4,
+      "activos_evaluados": 4,
+      "riesgos_evaluados": 4,
+      "completitud_evaluaciones": {
+        "fecha_inherente": 100.0,
+        "fecha_residual": 100.0,
+        "justificacion_inherente": 100.0,
+        "justificacion_residual": 100.0
+      }
+    },
+    "riesgos": {
+      "total_riesgos": 18,
+      "completitud_datos": {
+        "nombre_completo": 100.0,
+        "descripcion_completa": 100.0
+      },
+      "longitud_descripciones": {
+        "promedio": 82.27777777777777,
+        "minima": 62,
+        "maxima": 125
+      }
+    },
+    "niveles": {
+      "niveles_probabilidad": {
+        "total": 5,
+        "nombres": [
+          "Improbable",
+          "Posible",
+          "Ocasional",
+          "Probable",
+          "Frecuente"
+        ]
+      },
+      "niveles_impacto": {
+        "total": 5,
+        "nombres": [
+          "Insignificante",
+          "Menor",
+          "Moderado",
+          "Mayor",
+          "Catastrófico"
+        ]
+      },
+      "niveles_riesgo": {
+        "total": 3,
+        "nombres": [
+          "Bajo",
+          "Medio",
+          "Alto"
+        ]
+      }
+    },
+    "ml_readiness": {
+      "puntuacion_total": 79.6,
+      "puntuacion_maxima": 100,
+      "porcentaje": 79.6,
+      "categoria": "Bueno - Preparacion moderada",
+      "scores_detallados": {
+        "activos": 25,
+        "evaluaciones": 28,
+        "riesgos": 13.6,
+        "niveles": 13
+      },
+      "recomendaciones": []
+    }
+  }
+}

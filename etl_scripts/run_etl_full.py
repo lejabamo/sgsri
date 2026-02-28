@@ -4,7 +4,9 @@ import os
 import sys
 from etl_utils import setup_logging, load_env_file, get_db_connection
 import etl_users
+import etl_softwares
 import etl_computers
+import etl_computer_software
 
 def clean_tables(conn):
     CLEAN_SQL = [
@@ -48,10 +50,8 @@ if __name__ == "__main__":
 
     # Ejecutar ETL de usuarios
     logging.info("Iniciando ETL de usuarios...")
-    etl_users_main = getattr(etl_users, '__main__', None)
-    if etl_users_main:
-        etl_users.__main__()
-    else:
+    # Ejecución directa simple
+    try:
         glpi_conn = etl_users.get_db_connection(
             etl_users.GLPI_DB_HOST, etl_users.GLPI_DB_USER, etl_users.GLPI_DB_PASSWORD, etl_users.GLPI_DB_NAME, etl_users.GLPI_DB_PORT)
         extracted_glpi_users = etl_users.extract_glpi_users(glpi_conn)
@@ -60,9 +60,15 @@ if __name__ == "__main__":
                 transformed_data = etl_users.transform_user_data(glpi_user_row)
                 if transformed_data:
                     etl_users.load_users_to_sgsi(sgsi_conn, transformed_data)
-        if glpi_conn and glpi_conn.is_connected():
+    finally:
+        if 'glpi_conn' in locals() and glpi_conn and glpi_conn.is_connected():
             glpi_conn.close()
     logging.info("ETL de usuarios completado.")
+
+    # Ejecutar ETL de catálogo de software
+    logging.info("Iniciando ETL de catálogo de software...")
+    etl_softwares.run()
+    logging.info("ETL de catálogo de software completado.")
 
     # Ejecutar ETL de activos
     logging.info("Iniciando ETL de activos...")
@@ -86,6 +92,11 @@ if __name__ == "__main__":
         if sgsi_conn2 and sgsi_conn2.is_connected():
             sgsi_conn2.close()
     logging.info("ETL de activos completado.")
+
+    # Ejecutar relación Activo-Software
+    logging.info("Iniciando ETL relación Activo-Software...")
+    etl_computer_software.run()
+    logging.info("ETL relación Activo-Software completado.")
 
     if sgsi_conn and sgsi_conn.is_connected():
         sgsi_conn.close()
