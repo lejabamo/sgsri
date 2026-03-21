@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presentación SGSRI - SmartAuditorIA</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #818cf8;
+            --secondary: #c084fc;
+            --accent: #22d3ee;
+            --dark: #020617;
+            --light: #f8fafc;
+            --glass: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: #020617;
+            color: var(--light);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        .presentation {
+            position: relative;
+            height: 100%;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at 50% 50%, #1e1b4b, #020617);
+        }
+
+        .slide {
+            position: absolute;
+            width: 80%;
+            max-width: 1000px;
+            height: 60%;
+            background: var(--glass);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            border-radius: 40px;
+            padding: 50px;
+            opacity: 0;
+            transform: scale(0.95) translateY(20px);
+            transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-shadow: 0 0 100px rgba(99, 102, 241, 0.1);
+        }
+
+        .slide.active {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+            pointer-events: auto;
+        }
+
+        .title {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, var(--accent), var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .content {
+            font-size: 1.5rem;
+            color: #cbd5e1;
+            line-height: 1.6;
+        }
+
+        .content ul {
+            list-style: none;
+            margin-top: 20px;
+        }
+
+        .content li {
+            margin-bottom: 15px;
+            padding-left: 30px;
+            position: relative;
+        }
+
+        .content li::before {
+            content: "✓";
+            color: var(--accent);
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+        }
+
+        .controls {
+            position: fixed;
+            bottom: 40px;
+            right: 40px;
+            display: flex;
+            gap: 20px;
+            z-index: 100;
+        }
+
+        .btn {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 50px;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn:hover {
+            background: var(--primary);
+            box-shadow: 0 0 30px rgba(129, 140, 248, 0.4);
+        }
+
+        .progress {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 4px;
+            background: var(--glass-border);
+            border-radius: 2px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: var(--accent);
+            width: 25%;
+            transition: width 0.3s ease;
+            box-shadow: 0 0 15px var(--accent);
+        }
+
+        .slide-counter {
+            position: fixed;
+            top: 40px;
+            right: 40px;
+            font-size: 1rem;
+            color: var(--accent);
+            opacity: 0.6;
+            letter-spacing: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="presentation">
+        <div class="slide-counter" id="counter">1 / 4</div>
+
+        <!-- SLIDE 1: PORTADA -->
+        <div class="slide active">
+            <h1 class="title">SmartAuditorIA</h1>
+            <div class="content">
+                <p>Sistema de Gestión de Riesgos de Información</p>
+                <p style="margin-top: 30px; color: var(--accent);">📊 Retrospectiva y Plan de Trabajo</p>
+                <p style="font-size: 1rem; margin-top: 10px;">Ing. Leonardo Javier Bastidas Moreno</p>
+            </div>
+        </div>
+
+        <!-- SLIDE 2: EVIDENCIAS SÓLIDAS -->
+        <div class="slide">
+            <h1 class="title">Paso Dado, Paso Asegurado</h1>
+            <div class="content">
+                <p>Evidencias Técnicas Disponibles:</p>
+                <ul>
+                    <li>Backend robusto (activos, riesgos, autenticación)</li>
+                    <li>Frontend moderno (Wizard, Matriz 5x5, Dashboard)</li>
+                    <li>RAG v1 (Basado en normativas ISO) operativo</li>
+                    <li>Tablero Jira SCRUM sincronizado</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- SLIDE 3: RETROSPECTIVA -->
+        <div class="slide">
+            <h1 class="title">Retrospectiva del Equipo</h1>
+            <div class="content">
+                <ul>
+                    <li><strong>Fortaleza</strong>: Arquitectura escalable y entrega ágil.</li>
+                    <li><strong>Desafío</strong>: Evolucionar a RAG semántico (Vector DB).</li>
+                    <li><strong>Ajuste</strong>: Replanificación espiral exitosa para calidad total.</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- SLIDE 4: SIGUIENTE NIVEL -->
+        <div class="slide">
+            <h1 class="title">Hacia el Refinamiento Profesional</h1>
+            <div class="content">
+                <p>Roadmap de Siguiente Ciclo:</p>
+                <ul>
+                    <li><strong>Investigación</strong>: ChromaDB + Embeddings para Tesis.</li>
+                    <li><strong>Optimización</strong>: Refuerzo de roles y UI/UX Premium.</li>
+                    <li><strong>CI/CD</strong>: Automatización con GitHub Actions.</li>
+                </ul>
+                <p style="text-align: center; margin-top: 40px; color: var(--accent); font-style: italic;">"Paso dado, paso asegurado."</p>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn" onclick="prevSlide()">Anterior</button>
+            <button class="btn" onclick="nextSlide()">Siguiente</button>
+        </div>
+
+        <div class="progress">
+            <div class="progress-bar" id="progress"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const progressBar = document.getElementById('progress');
+        const counter = document.getElementById('counter');
+
+        function updateProgress() {
+            const percent = ((currentSlide + 1) / slides.length) * 100;
+            progressBar.style.width = percent + '%';
+            counter.innerText = (currentSlide + 1) + ' / ' + slides.length;
+        }
+
+        function showSlide(index) {
+            slides.forEach((slide, i) => {
+                slide.classList.toggle('active', i === index);
+            });
+            updateProgress();
+        }
+
+        function nextSlide() {
+            if (currentSlide < slides.length - 1) {
+                currentSlide++;
+                showSlide(currentSlide);
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                showSlide(currentSlide);
+            }
+        }
+
+        // Navegación con teclado
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') nextSlide();
+            if (e.key === 'ArrowLeft') prevSlide();
+        });
+    </script>
+</body>
+</html>

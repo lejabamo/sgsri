@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retrospectiva SGSRI - SmartAuditorIA</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --primary: #3B82F6;
+            --secondary: #1E40AF;
+            --accent: #06B6D4;
+            --dark: #0F172A;
+            --light: #F8FAFC;
+            --white: #FFFFFF;
+            --glass: rgba(255, 255, 255, 0.9);
+            --border: #E2E8F0;
+            --shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--light);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.05) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(6, 182, 212, 0.05) 0px, transparent 50%);
+            color: var(--dark);
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 60px 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 30px;
+            padding: 60px;
+            box-shadow: var(--shadow);
+            animation: fadeIn 1s ease-out;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            color: var(--dark);
+            margin-bottom: 10px;
+        }
+        h1 span { color: var(--primary); }
+
+        .meta {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            font-weight: 700;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        hr {
+            border: 0;
+            height: 1px;
+            background: var(--border);
+            margin: 40px 0;
+        }
+
+        section {
+            margin-bottom: 40px;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            color: var(--dark);
+        }
+
+        h3 {
+            font-size: 1.25rem;
+            color: var(--primary);
+            margin: 20px 0 10px;
+            font-weight: 700;
+        }
+
+        ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        li {
+            margin-bottom: 12px;
+            position: relative;
+            padding-left: 30px;
+            color: #475569;
+        }
+
+        li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: var(--primary);
+            font-weight: 900;
+        }
+
+        code {
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--secondary);
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-family: inherit;
+            font-weight: 600;
+        }
+
+        .card {
+            background: var(--light);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 30px;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow);
+            background: var(--white);
+            border-color: var(--primary);
+        }
+
+        .footer-quote {
+            text-align: center;
+            font-style: italic;
+            color: var(--primary);
+            margin-top: 60px;
+            font-size: 1.1rem;
+            border-top: 1px solid var(--border);
+            padding-top: 30px;
+        }
+
+        /* Nav specifically for the breadcrumb I added earlier */
+        nav a { transition: color 0.3s; }
+        nav a:hover { color: var(--secondary) !important; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 600px) {
+            .container { padding: 30px; }
+            h1 { font-size: 2.2rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav style="display: flex; align-items: center; gap: 12px; margin-bottom: 30px; font-size: 0.9rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 15px;">
+            <a href="index.html" style="color: var(--accent); text-decoration: none; display: flex; align-items: center; gap: 6px; font-weight: 600;">
+                <i data-lucide="home" style="width: 16px;"></i> Presentación
+            </a>
+            <i data-lucide="chevron-right" style="width: 14px; color: #94a3b8;"></i>
+            <span style="color: #94a3b8;">Retrospectiva del Ciclo</span>
+        </nav>
+        <header>
+            <div class="meta">Ciclo: Fase 1-2 | Metodología Espiral</div>
+            <h1>Retrospectiva SGSRI</h1>
+            <p style="color: #94a3b8;">SmartAuditorIA - Ingeniería Leonardo Bastidas</p>
+        </header>
+
+        <hr>
+
+        <section>
+            <h2>📋 1. Evidencias de Progreso</h2>
+            <div class="card">
+                <h3>Backend (Flask API)</h3>
+                <ul>
+                    <li><strong>Gestión de Activos</strong>: Implementado en <code>activos.py</code>. Soporte para CRUD y clasificación CIA.</li>
+                    <li><strong>Modelado de Riesgos</strong>: Engine de cálculo <code>Probabilidad x Impacto</code> integrado en <code>riesgos.py</code>.</li>
+                    <li><strong>Motor RAG v1</strong>: Servicio híbrido en <code>iso_suggestions_service.py</code> para controles ISO.</li>
+                    <li><strong>Autenticación</strong>: Sistema JWT funcional con roles <code>roles_auth</code>.</li>
+                </ul>
+
+                <h3>Frontend (React)</h3>
+                <ul>
+                    <li><strong>Dashboard</strong>: Visualización inicial de métricas clave.</li>
+                    <li><strong>Wizard</strong>: Identificación guiada integrada con el backend.</li>
+                    <li><strong>Matriz 5x5</strong>: Visualización dinámica de criticidad.</li>
+                </ul>
+
+                <h3>Gestión de Proyecto</h3>
+                <ul>
+                    <li><strong>Jira</strong>: Backlog sincronizado y organizado en épicas.</li>
+                    <li><strong>Agentes</strong>: Jira, Dev y RAG operativos en el workspace.</li>
+                </ul>
+            </div>
+        </section>
+
+        <section>
+            <h2>🧠 2. Retrospectiva del Equipo</h2>
+            <div class="card">
+                <ul>
+                    <li><strong>Fortalezas</strong>: Arquitectura de microservicios robusta y entrega ágil de sugerencias v1.</li>
+                    <li><strong>Desafíos</strong>: Necesidad de mayor precisión semántica; migración a <code>Vector DB</code> obligatoria.</li>
+                    <li><strong>Ajuste Espiral</strong>: Replanificación exitosa de las épicas EP1 y EP2 para asegurar calidad.</li>
+                </ul>
+            </div>
+        </section>
+
+        <section>
+            <h2>📈 3. Plan de Trabajo (Próximo Ciclo)</h2>
+            <div class="card" style="border-left: 4px solid var(--accent);">
+                <h3>Motor RAG v2 (Foco Maestría)</h3>
+                <ul>
+                    <li>Investigación de embeddings y <code>ChromaDB</code>.</li>
+                    <li>Aplicación de métricas <code>RAGAS</code> para la tesis.</li>
+                </ul>
+
+                <h3>Refinamiento Profesional</h3>
+                <ul>
+                    <li>Refuerzo de seguridad en Frontend.</li>
+                    <li>Optimización UI/UX para nivel Premium.</li>
+                    <li>GitHub Actions para CI/CD.</li>
+                </ul>
+            </div>
+        </section>
+
+        <div class="footer-quote">
+            "Paso dado, paso asegurado. Hacia el refinamiento profesional."
+        </div>
+    </div>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>
